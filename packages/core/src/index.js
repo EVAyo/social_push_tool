@@ -358,7 +358,7 @@ async function main(config) {
 
         // NOTE: card content (mblog content) is escaped inside JSON,
         // uncomment the following to output parsed JSON for debugging
-        // if (account.slug === 'Sparanoia') {
+        // if (account.slug === '官号') {
         //   log(`cardJson`);
         //   console.log(cardJson);
         // };
@@ -400,6 +400,8 @@ async function main(config) {
 
           // Video post
           else if (type === 8) {
+            // dynamic: microblog text
+            // desc: video description
             tgMessage = `b站新视频：${cardJson.title}\n${cardJson.dynamic}\n${cardJson.desc}\n${cardJson.pic}`;
             tgMarkup.reply_markup = {
               inline_keyboard: [
@@ -421,7 +423,7 @@ async function main(config) {
 
           // Column post
           else if (type === 64) {
-            log(`bilibili-mblog got column post (${timeAgo(timestamp)})`);
+            tgMessage = `b站新专栏：${cardJson.title}\n\n${cardJson.summary}\n${cardJson.origin_image_urls[0]}`;
           }
 
           // Audio post
