@@ -1,0 +1,29 @@
+{
+  "name": "@a-soul/sender-telegram",
+  "version": "1.2.6",
+  "description": "Send processed data to Telegram",
+  "main": "src/index.js",
+  "repository": "https://github.com/sparanoid/a-soul",
+  "author": "Tunghsiao Liu",
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "scripts": {
+    "test": "xv src",
+    "release": "release-it"
+  },
+  "keywords": [
+    "tiktok",
+    "scraper"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "dependencies": {
+    "got": "^11.8.2"
+  },
+  "devDependencies": {
+    "release-it": "^14.10.0"
+  },
+  "gitHead": "ef7fad68abccb38f7e257d9ae07be14c05059fda"
+}
