@@ -1,5 +1,5 @@
 import { equal } from 'assert/strict';
-import extract from './index.js';
+import send from './index.js';
 
 const options = {
   // define `token` in GitHub secrets
@@ -11,7 +11,7 @@ const options = {
   },
 };
 
-const resp = await extract(options);
+const resp = await send(options);
 
 export function requestOk() {
   equal(JSON.parse(resp.body).ok, true);

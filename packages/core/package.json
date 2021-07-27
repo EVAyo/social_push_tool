@@ -16,13 +16,13 @@
     "registry": "https://registry.npmjs.org/"
   },
   "dependencies": {
+    "@a-soul/extractor-douyin": "^1.2.9",
+    "@a-soul/sender-telegram": "^1.2.9",
     "chalk": "^4.1.1",
     "date-fns": "^2.23.0",
     "deepmerge": "^4.2.2",
-    "douyin-data-extractor": "^1.0.0",
     "got": "^12.0.0-beta.1",
     "lowdb": "^2.1.0",
-    "node-telegram-bot-api": "^0.54.0",
     "yargs": "^17.0.1"
   },
   "gitHead": "2784fe0723eee2d830259e2c95e4f3fff3a41075"

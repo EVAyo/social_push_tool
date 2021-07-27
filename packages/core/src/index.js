@@ -7,7 +7,7 @@ import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { Low, JSONFile } from 'lowdb';
-import TelegramBot from 'node-telegram-bot-api';
+import TelegramBot from '@a-soul/sender-telegram';
 import dyExtract from '@a-soul/extractor-douyin';
 
 const argv = yargs(hideBin(process.argv))
@@ -64,14 +64,54 @@ function timeAgo(timestamp, suffix = true) {
   });
 }
 
+async function sendTelegram(chatId, userOptions) {
+  const options = merge({
+    token: config.telegram.token,
+    body: {
+      chat_id: chatId,
+      text: `Test from @a-soul/sender-telegram`,
+      disable_notification: config.telegram.silent
+    },
+  }, userOptions);
+
+  const resp = await TelegramBot(options);
+  return resp?.body && JSON.parse(resp.body);
+}
+
+// TODO: WIP
+async function send(account, messageType, userOptions) {
+  const messageTypeMap = {
+    text: {
+      telegram: 'sendMessage'
+    },
+    gallery: {
+      telegram: 'sendPhoto'
+    },
+    gallery: {
+      telegram: 'sendPhoto'
+    },
+    video: {
+      telegram: 'sendVideo'
+    },
+  }
+
+  const tgOptions = merge({
+    token: config.telegram.token,
+    method: messageTypeMap[messageType].telegram,
+    body: {
+      chat_id: account.tgChannelID,
+      text: `Test from @a-soul/sender-telegram`,
+      disable_notification: config.telegram.silent
+    },
+  }, userOptions.telegramOptions);
+
+  const resp = await TelegramBot(tgOptions);
+  return resp?.body && JSON.parse(resp.body);
+}
+
 async function main(config) {
   // Initial database
   const db = new Low(new JSONFile(path.join(path.resolve(), 'db/db.json')));
-
-  // Initial token
-  const bot = config.telegram.token && new TelegramBot(config.telegram.token, {
-    filepath: false,
-  });
 
   // const url = 'https://www.douyin.com/user/MS4wLjABAAAA5ZrIrbgva_HMeHuNn64goOD2XYnk4ItSypgRHlbSh1c';
 
@@ -152,32 +192,35 @@ async function main(config) {
             }
           };
 
-          const tgMessage = `${videoUrl}`;
-          const tgMarkup = {
-            caption: `抖音新视频：${title} #${id}`,
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  {text: 'Watch', url: shareUrl},
-                  {text: 'Channel', url: `https://www.douyin.com/user/${secUid}`},
-                  {text: 'Artwork', url: cover},
-                ],
-              ]
-            },
-            disable_notification: config.telegram.silent
-          }
+          const tgOptions = {
+            method: 'sendVideo',
+            body: {
+              video: videoUrl,
+              caption: `抖音新视频：${title} #${id}`,
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    {text: 'Watch', url: shareUrl},
+                    {text: 'Artwork', url: cover},
+                    {text: `${nickname}`, url: `https://www.douyin.com/user/${secUid}`},
+                  ],
+                ]
+              },
+            }
+          };
 
           // Check if this is a new post compared to last scrap
           if (id !== dbScope?.douyin?.latestPost?.id && timestamp > dbScope?.douyin?.latestPost?.timestampUnix) {
             log(`douyin has update: ${id} (${timeAgo(timestamp)}) ${title}`);
 
             // Send bot message
-            if (bot && account.tgChannelID && config.telegram.enabled) {
+            if (account.tgChannelID && config.telegram.enabled) {
 
               if ((currentTime - timestamp) >= config.douyinBotThrottle) {
                 log(`douyin latest post too old, notifications skipped`);
               } else {
-                await bot.sendVideo(account.tgChannelID, tgMessage, tgMarkup).then(msg => {
+                await sendTelegram(account.tgChannelID, tgOptions).then(resp => {
+                  // log(`telegram post douyin success: message_id ${resp.result.message_id}`)
                   dbStore.latestPost.isTgSent = true;
                 })
                 .catch(err => {
@@ -239,20 +282,22 @@ async function main(config) {
           }
         };
 
-        const tgMessage = `${liveCover}`;
-        const tgMarkup = {
-          caption: `b站开播🔴：${liveTitle}`,
-          reply_markup: {
-            inline_keyboard: [
-              [
-                {text: 'Watch', url: liveRoom},
-                {text: `${nickname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
-                {text: 'Artwork', url: liveCover},
-              ],
-            ]
-          },
-          disable_notification: config.telegram.silent
-        }
+        const tgOptions = {
+          method: 'sendPhoto',
+          body: {
+            photo: liveCover,
+            caption: `b站开播🔴：${liveTitle}`,
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  {text: 'Watch', url: liveRoom},
+                  {text: 'Artwork', url: liveCover},
+                  {text: `${nickname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
+                ],
+              ]
+            },
+          }
+        };
 
         // 1: live
         // 0: not live
@@ -279,15 +324,15 @@ async function main(config) {
                 log(`bilibili-live started: ${liveTitle} (${timeAgo(timestamp)})`);
               }
 
-              if (bot && account.tgChannelID && config.telegram.enabled) {
+              if (account.tgChannelID && config.telegram.enabled) {
 
                 if (dbScope?.bilibili_live?.latestStream?.isTgSent) {
                   log(`bilibili-live notification sent, skipping...`);
                 } else if ((currentTime - timestamp) >= config.bilibiliLiveBotThrottle) {
                   log(`bilibili-live too old, notifications skipped`);
                 } else {
-                  await bot.sendPhoto(account.tgChannelID, tgMessage, tgMarkup).then(msg => {
-                    // Set flag to avoid sending notification again
+                  await sendTelegram(account.tgChannelID, tgOptions).then(resp => {
+                    // log(`telegram post bilibili-live success: message_id ${resp.result.message_id}`)
                     dbStore.latestStream.isTgSent = true;
                   })
                   .catch(err => {
@@ -365,31 +410,32 @@ async function main(config) {
 
         // If latest post is newer than the one in database
         if (dynamicId !== dbScope?.bilibili_mblog?.latestDynamic?.id && timestamp > dbScope?.bilibili_mblog?.latestDynamic?.timestampUnix) {
-          let tgMessage = `test`;
-          const tgMarkup = {
-            caption: `b站新动态：${user.info.uname}：test`,
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  {text: 'View', url: `https://t.bilibili.com/${dynamicId}`},
-                  {text: `${user.info.uname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
-                ],
-              ]
-            },
-            disable_notification: config.telegram.silent
-          }
+          const tgOptions = {
+            method: 'sendMessage',
+            body: {
+              text: `${user.info.uname} 发布了b站新动态`,
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    {text: 'View', url: `https://t.bilibili.com/${dynamicId}`},
+                    {text: `${user.info.uname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
+                  ],
+                ]
+              },
+            }
+          };
 
           // Check post type
           // https://www.mywiki.cn/dgck81lnn/index.php/%E5%93%94%E5%93%A9%E5%93%94%E5%93%A9API%E8%AF%A6%E8%A7%A3
           // Forwarded post (think retweet)
           if (type === 1) {
-            tgMessage = `b站新动态：${cardJson?.item?.content.trim()}`;
+            tgOptions.body.text = `b站新动态：${cardJson?.item?.content.trim()}`;
             log(`bilibili-mblog got forwarded post (${timeAgo(timestamp)})`);
           }
 
           // Gallery post (text post with images)
           else if (type === 2) {
-            tgMessage = `b站新动态：${cardJson?.item?.description.trim()}`;
+            tgOptions.body.text = `b站新动态：${cardJson?.item?.content.trim()}`;
             log(`bilibili-mblog got gallery post (${timeAgo(timestamp)})`);
           }
 
@@ -400,17 +446,21 @@ async function main(config) {
 
           // Video post
           else if (type === 8) {
-            // dynamic: microblog text
-            // desc: video description
-            tgMessage = `b站新视频：${cardJson.title}\n${cardJson.dynamic}\n${cardJson.desc}\n${cardJson.pic}`;
-            tgMarkup.reply_markup = {
-              inline_keyboard: [
-                [
-                  {text: 'View', url: `https://t.bilibili.com/${dynamicId}`},
-                  {text: 'View Video', url: `${cardJson.short_link}`},
-                  {text: `${user.info.uname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
-                ],
-              ]
+            tgOptions.method = 'sendPhoto';
+            tgOptions.body = {
+              photo: cardJson.pic,
+              // dynamic: microblog text
+              // desc: video description
+              caption: `b站新视频：${cardJson.title}\n${cardJson.dynamic}\n${cardJson.desc}`,
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    {text: 'View', url: `https://t.bilibili.com/${dynamicId}`},
+                    {text: 'View Video', url: `${cardJson.short_link}`},
+                    {text: `${user.info.uname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
+                  ],
+                ]
+              },
             };
 
             log(`bilibili-mblog got video post (${timeAgo(timestamp)})`);
@@ -423,7 +473,11 @@ async function main(config) {
 
           // Column post
           else if (type === 64) {
-            tgMessage = `b站新专栏：${cardJson.title}\n\n${cardJson.summary}\n${cardJson.origin_image_urls[0]}`;
+            tgOptions.method = 'sendPhoto';
+            tgOptions.body.photo = cardJson.origin_image_urls[0];
+            tgOptions.body.caption = `b站新专栏：${cardJson.title}\n\n${cardJson.summary}`;
+
+            log(`bilibili-mblog got column post (${timeAgo(timestamp)})`);
           }
 
           // Audio post
@@ -446,12 +500,13 @@ async function main(config) {
             log(`bilibili-mblog got unkown type (${timeAgo(timestamp)})`);
           }
 
-          if (bot && account.tgChannelID && config.telegram.enabled) {
+          if (account.tgChannelID && config.telegram.enabled) {
 
             if ((currentTime - timestamp) >= config.bilibiliBotThrottle) {
               log(`bilibili-mblog too old, notifications skipped`);
             } else {
-              await bot.sendMessage(account.tgChannelID, tgMessage, tgMarkup).then(msg => {
+              await sendTelegram(account.tgChannelID, tgOptions).then(resp => {
+                // log(`telegram post bilibili-mblog success: message_id ${resp.result.message_id}`)
               })
               .catch(err => {
                 log(`telegram post bilibili-mblog error: ${err.code}`);
