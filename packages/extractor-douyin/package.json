@@ -1,0 +1,31 @@
+{
+  "name": "@a-soul/extractor-douyin",
+  "version": "1.2.6",
+  "description": "Extract rendered data from Douyin web version",
+  "main": "src/index.js",
+  "repository": "https://github.com/sparanoid/a-soul",
+  "author": "Tunghsiao Liu",
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "scripts": {
+    "test": "xv src",
+    "release": "release-it"
+  },
+  "keywords": [
+    "douyin",
+    "scraper"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "dependencies": {
+    "got": "^11.8.2",
+    "jsdom": "^16.6.0"
+  },
+  "devDependencies": {
+    "release-it": "^14.10.0",
+    "xv": "^0.2.3"
+  },
+  "gitHead": "e751129bf6d769cd29bde40d441d33a6efb31481"
+}
