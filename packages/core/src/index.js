@@ -127,7 +127,7 @@ async function main(config) {
     const account = config.accounts[i];
 
     // Set random request time to avoid request limit
-    await setTimeout(100 + Math.floor(Math.random() * 100));
+    await setTimeout(100 + Math.floor(Math.random() * 200));
 
     // Only check enabled account
     if (account.enabled) {
