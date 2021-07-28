@@ -231,7 +231,7 @@ async function main(config) {
                     dbStore.latestPost.isTgSent = true;
                   })
                   .catch(err => {
-                    log(`telegram post douyin error: ${err.response.body.trim()}`);
+                    log(`telegram post douyin error: ${err?.response?.body?.trim()}`);
                   });
                 }
               }
@@ -342,7 +342,7 @@ async function main(config) {
                       dbStore.latestStream.isTgSent = true;
                     })
                     .catch(err => {
-                      log(`telegram post bilibili-live error: ${err.response.body.trim()}`);
+                      log(`telegram post bilibili-live error: ${err?.response?.body?.trim()}`);
                     });
                   }
                 }
@@ -351,7 +351,7 @@ async function main(config) {
               };
             })
             .catch(err => {
-              log(`bilibili-live stream info request error: ${err.response.body.trim()}`);
+              log(`bilibili-live stream info request error: ${err?.response?.body?.trim()}`);
             });
           } else {
             log(`bilibili-live not started yet`);
@@ -366,7 +366,7 @@ async function main(config) {
         }
       })
       .catch(err => {
-        log(`bilibili-live user info request error: ${err.response.body.trim()}`);
+        log(`bilibili-live user info request error: ${err?.response?.body?.trim()}`);
       });
 
       // Fetch bilibili microblog (dynamics)
@@ -410,10 +410,10 @@ async function main(config) {
 
             // NOTE: card content (mblog content) is escaped inside JSON,
             // uncomment the following to output parsed JSON for debugging
-            // if (account.slug === '官号') {
-            //   log(`cardJson`);
-            //   console.log(cardJson);
-            // };
+            if (account.slug === '测试账号') {
+              log(`cardJson`);
+              console.log(cardJson);
+            };
 
             // If latest post is newer than the one in database
             if (dynamicId !== dbScope?.bilibili_mblog?.latestDynamic?.id && timestamp > dbScope?.bilibili_mblog?.latestDynamic?.timestampUnix) {
@@ -442,7 +442,9 @@ async function main(config) {
 
               // Gallery post (text post with images)
               else if (type === 2) {
-                tgOptions.body.text = `b站新相册动态：${cardJson?.item?.content.trim()}`;
+                tgOptions.method = 'sendPhoto';
+                tgOptions.body.caption = `b站新相册动态：${cardJson?.item?.description}`;
+                tgOptions.body.photo = cardJson?.item?.pictures[0].img_src;
                 log(`bilibili-mblog got gallery post (${timeAgo(timestamp)})`);
               }
 
@@ -517,7 +519,7 @@ async function main(config) {
                     // log(`telegram post bilibili-mblog success: message_id ${resp.result.message_id}`)
                   })
                   .catch(err => {
-                    log(`telegram post bilibili-mblog error: ${err.response.body.trim()}`);
+                    log(`telegram post bilibili-mblog error: ${err?.response?.body?.trim()}`);
                   });
                 }
               }
@@ -536,7 +538,7 @@ async function main(config) {
         }
       })
       .catch(err => {
-        log(`bilibili-mblog request error: ${err.response.body.trim()}`);
+        log(`bilibili-mblog request error: ${err?.response?.body?.trim()}`);
       });
     }
   }
