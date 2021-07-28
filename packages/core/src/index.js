@@ -316,8 +316,35 @@ async function main(config) {
             }
           };
 
+          // If user nickname update
+          if (nickname !== dbScope?.bilibili_live?.nickname && dbScope?.bilibili_live?.nickname) {
+            log(`bilibili-live user nickname updated: ${nickname}`);
+
+            if (account.tgChannelID && config.telegram.enabled) {
+
+              await sendTelegram(account.tgChannelID, {
+                method: 'sendMessage',
+                body: {
+                  text: `昵称更新\n新：${nickname}\n旧：${dbScope?.bilibili_live?.nickname}`,
+                  reply_markup: {
+                    inline_keyboard: [
+                      [
+                        {text: `${nickname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
+                      ],
+                    ]
+                  },
+                }
+              }).then(resp => {
+                // log(`telegram post bilibili-live::nickname success: message_id ${resp.result.message_id}`)
+              })
+              .catch(err => {
+                log(`telegram post bilibili-live::nickname error: ${err?.response?.body?.trim()}`);
+              });
+            }
+          }
+
           // If user sign update
-          if (sign !== dbScope?.bilibili_live?.sign) {
+          if (sign !== dbScope?.bilibili_live?.sign && dbScope?.bilibili_live?.sign) {
             log(`bilibili-live user sign updated: ${sign}`);
 
             if (account.tgChannelID && config.telegram.enabled) {
@@ -344,8 +371,8 @@ async function main(config) {
           }
 
           // If user avatar update
-          if (avatar !== dbScope?.bilibili_live?.avatar) {
-            log(`bilibili-live user avatar updated: ${sign}`);
+          if (avatar !== dbScope?.bilibili_live?.avatar && dbScope?.bilibili_live?.avatar) {
+            log(`bilibili-live user avatar updated: ${avatar}`);
 
             if (account.tgChannelID && config.telegram.enabled) {
 
