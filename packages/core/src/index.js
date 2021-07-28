@@ -376,157 +376,162 @@ async function main(config) {
         if (json?.code === 0) {
           const currentTime = Date.now();
           const data = json.data;
-          const cards = data.cards;
-          const card = cards[0];
+          const cards = data?.cards;
 
-          const cardMeta = card.desc;
-          const cardJson = JSON.parse(card.card);
+          if (cards) {
+            const card = cards[0];
 
-          const timestamp = cardMeta.timestamp * 1000;
-          const uid = cardMeta.uid;
-          const type = cardMeta.type;
-          const origin_type = cardMeta.orig_type;
-          const dynamicId = cardMeta.dynamic_id_str;
-          const user = cardMeta.user_profile;
+            const cardMeta = card.desc;
+            const cardJson = JSON.parse(card.card);
 
-          argv.json && fs.writeFile(`db/${account.slug}-bilibili-mblog.json`, JSON.stringify(json, null, 2), err => {
-            if (err) return console.log(err);
-          });
+            const timestamp = cardMeta.timestamp * 1000;
+            const uid = cardMeta.uid;
+            const type = cardMeta.type;
+            const origin_type = cardMeta.orig_type;
+            const dynamicId = cardMeta.dynamic_id_str;
+            const user = cardMeta.user_profile;
 
-          const dbScope = db.data[account.slug];
-          const dbStore = {
-            scrapedTime: new Date(currentTime),
-            latestDynamic: {
-              id: dynamicId,
-              type: type,
-              timestamp: new Date(timestamp),
-              timestampUnix: timestamp,
-              timeAgo: timeAgo(timestamp),
-              isTgSent: dbScope?.bilibili_mblog?.latestDynamic?.isTgSent,
-            }
-          };
+            argv.json && fs.writeFile(`db/${account.slug}-bilibili-mblog.json`, JSON.stringify(json, null, 2), err => {
+              if (err) return console.log(err);
+            });
 
-          // NOTE: card content (mblog content) is escaped inside JSON,
-          // uncomment the following to output parsed JSON for debugging
-          // if (account.slug === '官号') {
-          //   log(`cardJson`);
-          //   console.log(cardJson);
-          // };
-
-          // If latest post is newer than the one in database
-          if (dynamicId !== dbScope?.bilibili_mblog?.latestDynamic?.id && timestamp > dbScope?.bilibili_mblog?.latestDynamic?.timestampUnix) {
-            const tgOptions = {
-              method: 'sendMessage',
-              body: {
-                text: `${user.info.uname} 发布了b站新动态`,
-                reply_markup: {
-                  inline_keyboard: [
-                    [
-                      {text: 'View', url: `https://t.bilibili.com/${dynamicId}`},
-                      {text: `${user.info.uname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
-                    ],
-                  ]
-                },
+            const dbScope = db.data[account.slug];
+            const dbStore = {
+              scrapedTime: new Date(currentTime),
+              latestDynamic: {
+                id: dynamicId,
+                type: type,
+                timestamp: new Date(timestamp),
+                timestampUnix: timestamp,
+                timeAgo: timeAgo(timestamp),
+                isTgSent: dbScope?.bilibili_mblog?.latestDynamic?.isTgSent,
               }
             };
 
-            // Check post type
-            // https://www.mywiki.cn/dgck81lnn/index.php/%E5%93%94%E5%93%A9%E5%93%94%E5%93%A9API%E8%AF%A6%E8%A7%A3
-            // Forwarded post (think retweet)
-            if (type === 1) {
-              tgOptions.body.text = `b站新动态：${cardJson?.item?.content.trim()}`;
-              log(`bilibili-mblog got forwarded post (${timeAgo(timestamp)})`);
-            }
+            // NOTE: card content (mblog content) is escaped inside JSON,
+            // uncomment the following to output parsed JSON for debugging
+            // if (account.slug === '官号') {
+            //   log(`cardJson`);
+            //   console.log(cardJson);
+            // };
 
-            // Gallery post (text post with images)
-            else if (type === 2) {
-              tgOptions.body.text = `b站新动态：${cardJson?.item?.content.trim()}`;
-              log(`bilibili-mblog got gallery post (${timeAgo(timestamp)})`);
-            }
-
-            // Text post
-            else if (type === 4) {
-              log(`bilibili-mblog got text post (${timeAgo(timestamp)})`);
-            }
-
-            // Video post
-            else if (type === 8) {
-              tgOptions.method = 'sendPhoto';
-              tgOptions.body = {
-                photo: cardJson.pic,
-                // dynamic: microblog text
-                // desc: video description
-                caption: `b站新视频：${cardJson.title}\n${cardJson.dynamic}\n${cardJson.desc}`,
-                reply_markup: {
-                  inline_keyboard: [
-                    [
-                      {text: 'View', url: `https://t.bilibili.com/${dynamicId}`},
-                      {text: 'View Video', url: `${cardJson.short_link}`},
-                      {text: `${user.info.uname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
-                    ],
-                  ]
-                },
+            // If latest post is newer than the one in database
+            if (dynamicId !== dbScope?.bilibili_mblog?.latestDynamic?.id && timestamp > dbScope?.bilibili_mblog?.latestDynamic?.timestampUnix) {
+              const tgOptions = {
+                method: 'sendMessage',
+                body: {
+                  text: `${user.info.uname} 发布了b站新动态`,
+                  reply_markup: {
+                    inline_keyboard: [
+                      [
+                        {text: 'View', url: `https://t.bilibili.com/${dynamicId}`},
+                        {text: `${user.info.uname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
+                      ],
+                    ]
+                  },
+                }
               };
 
-              log(`bilibili-mblog got video post (${timeAgo(timestamp)})`);
-            }
-
-            // VC video post (think ticktok)
-            else if (type === 16) {
-              log(`bilibili-mblog got vc video post (${timeAgo(timestamp)})`);
-            }
-
-            // Column post
-            else if (type === 64) {
-              tgOptions.method = 'sendPhoto';
-              tgOptions.body.photo = cardJson.origin_image_urls[0];
-              tgOptions.body.caption = `b站新专栏：${cardJson.title}\n\n${cardJson.summary}`;
-
-              log(`bilibili-mblog got column post (${timeAgo(timestamp)})`);
-            }
-
-            // Audio post
-            else if (type === 256) {
-              log(`bilibili-mblog got audio post (${timeAgo(timestamp)})`);
-            }
-
-            // Share audio bookmark
-            else if (type === 2048) {
-              log(`bilibili-mblog got share audio bookmark (${timeAgo(timestamp)})`);
-            }
-
-            // Share video bookmark
-            else if (type === 4300) {
-              log(`bilibili-mblog got share video bookmark (${timeAgo(timestamp)})`);
-            }
-
-            // Others
-            else {
-              log(`bilibili-mblog got unkown type (${timeAgo(timestamp)})`);
-            }
-
-            if (account.tgChannelID && config.telegram.enabled) {
-
-              if ((currentTime - timestamp) >= config.bilibiliBotThrottle) {
-                log(`bilibili-mblog too old, notifications skipped`);
-              } else {
-                await sendTelegram(account.tgChannelID, tgOptions).then(resp => {
-                  // log(`telegram post bilibili-mblog success: message_id ${resp.result.message_id}`)
-                })
-                .catch(err => {
-                  log(`telegram post bilibili-mblog error: ${err.response.body.trim()}`);
-                });
+              // Check post type
+              // https://www.mywiki.cn/dgck81lnn/index.php/%E5%93%94%E5%93%A9%E5%93%94%E5%93%A9API%E8%AF%A6%E8%A7%A3
+              // Forwarded post (think retweet)
+              if (type === 1) {
+                tgOptions.body.text = `b站新动态：${cardJson?.item?.content.trim()}`;
+                log(`bilibili-mblog got forwarded post (${timeAgo(timestamp)})`);
               }
-            }
-          } else {
-            log(`bilibili-mblog no update. latest: ${dynamicId} (${timeAgo(timestamp)})`);
-          }
 
-          // Write new data to database
-          dbScope['bilibili_mblog'] = dbStore;
-          await db.write();
+              // Gallery post (text post with images)
+              else if (type === 2) {
+                tgOptions.body.text = `b站新动态：${cardJson?.item?.content.trim()}`;
+                log(`bilibili-mblog got gallery post (${timeAgo(timestamp)})`);
+              }
+
+              // Text post
+              else if (type === 4) {
+                log(`bilibili-mblog got text post (${timeAgo(timestamp)})`);
+              }
+
+              // Video post
+              else if (type === 8) {
+                tgOptions.method = 'sendPhoto';
+                tgOptions.body = {
+                  photo: cardJson.pic,
+                  // dynamic: microblog text
+                  // desc: video description
+                  caption: `b站新视频：${cardJson.title}\n${cardJson.dynamic}\n${cardJson.desc}`,
+                  reply_markup: {
+                    inline_keyboard: [
+                      [
+                        {text: 'View', url: `https://t.bilibili.com/${dynamicId}`},
+                        {text: 'View Video', url: `${cardJson.short_link}`},
+                        {text: `${user.info.uname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
+                      ],
+                    ]
+                  },
+                };
+
+                log(`bilibili-mblog got video post (${timeAgo(timestamp)})`);
+              }
+
+              // VC video post (think ticktok)
+              else if (type === 16) {
+                log(`bilibili-mblog got vc video post (${timeAgo(timestamp)})`);
+              }
+
+              // Column post
+              else if (type === 64) {
+                tgOptions.method = 'sendPhoto';
+                tgOptions.body.photo = cardJson.origin_image_urls[0];
+                tgOptions.body.caption = `b站新专栏：${cardJson.title}\n\n${cardJson.summary}`;
+
+                log(`bilibili-mblog got column post (${timeAgo(timestamp)})`);
+              }
+
+              // Audio post
+              else if (type === 256) {
+                log(`bilibili-mblog got audio post (${timeAgo(timestamp)})`);
+              }
+
+              // Share audio bookmark
+              else if (type === 2048) {
+                log(`bilibili-mblog got share audio bookmark (${timeAgo(timestamp)})`);
+              }
+
+              // Share video bookmark
+              else if (type === 4300) {
+                log(`bilibili-mblog got share video bookmark (${timeAgo(timestamp)})`);
+              }
+
+              // Others
+              else {
+                log(`bilibili-mblog got unkown type (${timeAgo(timestamp)})`);
+              }
+
+              if (account.tgChannelID && config.telegram.enabled) {
+
+                if ((currentTime - timestamp) >= config.bilibiliBotThrottle) {
+                  log(`bilibili-mblog too old, notifications skipped`);
+                } else {
+                  await sendTelegram(account.tgChannelID, tgOptions).then(resp => {
+                    // log(`telegram post bilibili-mblog success: message_id ${resp.result.message_id}`)
+                  })
+                  .catch(err => {
+                    log(`telegram post bilibili-mblog error: ${err.response.body.trim()}`);
+                  });
+                }
+              }
+            } else {
+              log(`bilibili-mblog no update. latest: ${dynamicId} (${timeAgo(timestamp)})`);
+            }
+
+            // Write new data to database
+            dbScope['bilibili_mblog'] = dbStore;
+            await db.write();
+          } else {
+            log('bilibili-mblog empty result, skipping...');
+          }
         } else {
-          log('bilibili-mblog dynamics info corrupted, skipping...');
+          log('bilibili-mblog info corrupted, skipping...');
         }
       })
       .catch(err => {
@@ -555,6 +560,17 @@ if (argv._.includes('run')) {
   main(config);
 
   if (!argv.once) {
+
+    // async function loop() {
+    //   while (true) {
+    //     console.log('start');
+    //     await setTimeout(config.loopInterval);
+    //     await main(config);
+    //     console.log('stop');
+    //   }
+    // }
+    // loop();
+
     // Loop over interval
     setInterval(() => {
       main(config);
