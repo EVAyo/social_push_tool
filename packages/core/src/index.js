@@ -436,18 +436,19 @@ async function main(config) {
               // https://www.mywiki.cn/dgck81lnn/index.php/%E5%93%94%E5%93%A9%E5%93%94%E5%93%A9API%E8%AF%A6%E8%A7%A3
               // Forwarded post (think retweet)
               if (type === 1) {
-                tgOptions.body.text = `b站新动态：${cardJson?.item?.content.trim()}`;
+                tgOptions.body.text = `b站新转发动态：${cardJson?.item?.content.trim()}`;
                 log(`bilibili-mblog got forwarded post (${timeAgo(timestamp)})`);
               }
 
               // Gallery post (text post with images)
               else if (type === 2) {
-                tgOptions.body.text = `b站新动态：${cardJson?.item?.content.trim()}`;
+                tgOptions.body.text = `b站新相册动态：${cardJson?.item?.content.trim()}`;
                 log(`bilibili-mblog got gallery post (${timeAgo(timestamp)})`);
               }
 
               // Text post
               else if (type === 4) {
+                tgOptions.body.text = `b站新动态：${cardJson?.item?.content.trim()}`;
                 log(`bilibili-mblog got text post (${timeAgo(timestamp)})`);
               }
 
