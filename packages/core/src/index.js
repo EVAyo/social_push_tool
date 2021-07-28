@@ -617,6 +617,32 @@ async function main(config) {
                   });
                 }
               }
+            } else if (dynamicId !== dbScope?.bilibili_mblog?.latestDynamic?.id && timestamp < dbScope?.bilibili_mblog?.latestDynamic?.timestampUnix) {
+              log(`bilibili-mblog new post older than database. latest: ${dynamicId} (${timeAgo(timestamp)})`);
+
+              if (account.tgChannelID && config.telegram.enabled) {
+
+                await sendTelegram(account.tgChannelID, {
+                  method: 'sendMessage',
+                  body: {
+                    text: `监测到最新动态旧于数据库中的动态，可能有动态被删除`,
+                    reply_markup: {
+                      inline_keyboard: [
+                        [
+                          {text: 'View', url: `https://t.bilibili.com/${dynamicId}`},
+                          {text: `${user.info.uname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
+                        ],
+                      ]
+                    },
+                  }
+                }).then(resp => {
+                  // log(`telegram post bilibili-mblog success: message_id ${resp.result.message_id}`)
+                })
+                .catch(err => {
+                  log(`telegram post bilibili-mblog error: ${err?.response?.body?.trim()}`);
+                });
+              }
+
             } else {
               log(`bilibili-mblog no update. latest: ${dynamicId} (${timeAgo(timestamp)})`);
             }
