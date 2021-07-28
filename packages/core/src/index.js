@@ -258,6 +258,11 @@ async function main(config) {
           const currentTime = Date.now();
           const data = json.data;
           const room = json.data.live_room;
+          const fans_medal = json.data.fans_medal; // 直播间粉丝牌
+          const official = json.data.official; // 认证状态
+          const vip = json.data.vip; // 大会员状态
+          const pendant = json.data.pendant; // 粉丝装扮
+          const nameplate = json.data.nameplate; // 个人勋章
 
           const uid = data.mid;
           const nickname = data.name;
@@ -278,6 +283,7 @@ async function main(config) {
             nickname: nickname,
             uid: uid,
             scrapedTime: new Date(currentTime),
+            avatar: avatar,
             sign: sign,
             latestStream: {
               liveStatus: liveStatus,
@@ -285,7 +291,12 @@ async function main(config) {
               liveTitle: liveTitle,
               liveCover: liveCover,
               isTgSent: dbScope?.bilibili_live?.latestStream?.isTgSent,
-            }
+            },
+            fans_medal: fans_medal,
+            official: official,
+            vip: vip,
+            pendant: pendant,
+            nameplate: nameplate,
           };
 
           const tgOptions = {
@@ -304,6 +315,61 @@ async function main(config) {
               },
             }
           };
+
+          // If user sign update
+          if (sign !== dbScope?.bilibili_live?.sign) {
+            log(`bilibili-live user sign updated: ${sign}`);
+
+            if (account.tgChannelID && config.telegram.enabled) {
+
+              await sendTelegram(account.tgChannelID, {
+                method: 'sendMessage',
+                body: {
+                  text: `签名档更新\n新：${sign}\n旧：${dbScope?.bilibili_live?.sign}`,
+                  reply_markup: {
+                    inline_keyboard: [
+                      [
+                        {text: `${nickname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
+                      ],
+                    ]
+                  },
+                }
+              }).then(resp => {
+                // log(`telegram post bilibili-live::sign success: message_id ${resp.result.message_id}`)
+              })
+              .catch(err => {
+                log(`telegram post bilibili-live::sign error: ${err?.response?.body?.trim()}`);
+              });
+            }
+          }
+
+          // If user avatar update
+          if (avatar !== dbScope?.bilibili_live?.avatar) {
+            log(`bilibili-live user avatar updated: ${sign}`);
+
+            if (account.tgChannelID && config.telegram.enabled) {
+
+              await sendTelegram(account.tgChannelID, {
+                method: 'sendPhoto',
+                body: {
+                  photo: avatar,
+                  caption: `头像更新，老头像：${dbScope?.bilibili_live?.avatar}`,
+                  reply_markup: {
+                    inline_keyboard: [
+                      [
+                        {text: `${nickname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
+                      ],
+                    ]
+                  },
+                }
+              }).then(resp => {
+                // log(`telegram post bilibili-live::avatar success: message_id ${resp.result.message_id}`)
+              })
+              .catch(err => {
+                log(`telegram post bilibili-live::avatar error: ${err?.response?.body?.trim()}`);
+              });
+            }
+          }
 
           // 1: live
           // 0: not live
@@ -398,6 +464,7 @@ async function main(config) {
             const dbScope = db.data[account.slug];
             const dbStore = {
               scrapedTime: new Date(currentTime),
+              user: user,
               latestDynamic: {
                 id: dynamicId,
                 type: type,
@@ -410,10 +477,10 @@ async function main(config) {
 
             // NOTE: card content (mblog content) is escaped inside JSON,
             // uncomment the following to output parsed JSON for debugging
-            if (account.slug === '测试账号') {
-              log(`cardJson`);
-              console.log(cardJson);
-            };
+            // if (account.slug === '测试账号') {
+            //   log(`cardJson`);
+            //   console.log(cardJson);
+            // };
 
             // If latest post is newer than the one in database
             if (dynamicId !== dbScope?.bilibili_mblog?.latestDynamic?.id && timestamp > dbScope?.bilibili_mblog?.latestDynamic?.timestampUnix) {
