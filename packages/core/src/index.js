@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import fs from 'fs';
 import path from 'path';
 import { setTimeout } from 'timers/promises';
@@ -69,6 +70,11 @@ function timeAgo(timestamp, suffix = true) {
 async function sendTelegram(chatId, userOptions) {
   const options = merge({
     token: config.telegram.token,
+    gotOptions: {
+      retry: {
+        limit: 3,
+      }
+    },
     body: {
       chat_id: chatId,
       text: `Test from @a-soul/sender-telegram`,
@@ -127,7 +133,7 @@ async function main(config) {
     const account = config.accounts[i];
 
     // Set random request time to avoid request limit
-    await setTimeout(100 + Math.floor(Math.random() * 200));
+    await setTimeout(600 + Math.floor(Math.random() * 400));
 
     // Only check enabled account
     if (account.enabled) {
@@ -528,9 +534,84 @@ async function main(config) {
 
               // Check post type
               // https://www.mywiki.cn/dgck81lnn/index.php/%E5%93%94%E5%93%A9%E5%93%94%E5%93%A9API%E8%AF%A6%E8%A7%A3
+              //
               // Forwarded post (think retweet)
               if (type === 1) {
-                tgOptions.body.text = `b站新转发动态：${cardJson?.item?.content.trim()}`;
+                const originJson = JSON.parse(cardJson?.origin);
+
+                // console.log(originJson);
+
+                // Column post
+                if (originJson?.origin_image_urls) {
+                  tgOptions.method = 'sendPhoto';
+                  tgOptions.body.photo = `${originJson?.origin_image_urls}`;
+                  tgOptions.body.caption = `b站新专栏转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.author.name}\n被转标题：${originJson.title}\n\n${originJson.summary}`;
+                }
+
+                // Text with gallery
+                else if (originJson?.item?.description && originJson?.item?.pictures) {
+                  // console.log(originJson?.item.pictures);
+
+                  if (originJson?.item?.pictures_count > 1) {
+                    tgOptions.method = 'sendMediaGroup';
+                    tgOptions.body.media = originJson?.item?.pictures.map((pic, idx) => ({
+                      type: 'photo',
+                      // Limit image size with original server and webp: failed (Bad Request: group send failed)
+                      // media: pic.img_width > 1036 || pic.img_height > 1036 ? `${pic.img_src}@1036w.webp` : `${pic.img_src}`,
+
+                      // Use wp.com proxy to serve image: failed (Bad Request: group send failed)
+                      // media: `https://i0.wp.com/${pic.img_src.replace('https://').replace('http://')}?w=200`,
+
+                      // Use my own proxy and webp prefix from bilibili: sucess
+                      media: `https://experiments.sparanoid.net/imageproxy/1000x1000,fit/${pic.img_src}@1036w.webp`,
+                    }));
+
+                    // Only apply caption to the first image to make it auto shown on message list
+                    tgOptions.body.media[0].caption = `b站新转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.name}\n被转内容：${originJson.item.description}`;
+
+                    // Debug payload
+                    // console.log(tgOptions.body.media);
+                    // tgOptions.body.media = [
+                    //   {
+                    //     type: 'photo',
+                    //     media: `https://i0.hdslb.com/bfs/album/e2052046af707d686783ca5c78533e04e6ef4b86.jpg`,
+                    //   },
+                    //   {
+                    //     type: 'photo',
+                    //     media: `https://i0.hdslb.com/bfs/album/e2052046af707d686783ca5c78533e04e6ef4b86.jpg`,
+                    //   },
+                    //   {
+                    //     type: 'photo',
+                    //     media: `https://i0.hdslb.com/bfs/album/e2052046af707d686783ca5c78533e04e6ef4b86.jpg`,
+                    //   },
+                    //   {
+                    //     type: 'photo',
+                    //     media: `https://i0.hdslb.com/bfs/album/e2052046af707d686783ca5c78533e04e6ef4b86.jpg`,
+                    //   },
+                    // ];
+                  } else {
+                    tgOptions.method = 'sendPhoto';
+                    if (originJson?.item?.pictures[0].img_width > 1200 || originJson?.item?.pictures[0].img_height > 1200) {
+                      tgOptions.body.photo = `https://experiments.sparanoid.net/imageproxy/1000x1000,fit/${originJson?.item?.pictures[0].img_src}@1036w.webp`;
+                    } else {
+                      tgOptions.body.photo = `${originJson?.item?.pictures[0].img_src}`;
+                    }
+                    tgOptions.body.caption = `b站新转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.name}\n被转内容：${originJson.item.description}`;
+                  }
+                }
+
+                // Video
+                else if (originJson?.duration && originJson?.videos) {
+                  tgOptions.method = 'sendPhoto';
+                  tgOptions.body.photo = `${originJson?.pic}`;
+                  tgOptions.body.caption = `b站新视频转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.owner.name}\n被转视频：${originJson.title}\n\n${originJson.desc}\n${originJson.short_link}`;
+                }
+
+                // Plain text
+                else {
+                  tgOptions.body.text = `b站新转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.uname}\n被转动态：${originJson.item.content}`;
+                }
+
                 log(`bilibili-mblog got forwarded post (${timeAgo(timestamp)})`);
               }
 
