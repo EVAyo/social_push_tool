@@ -20,6 +20,7 @@
     "registry": "https://registry.npmjs.org/"
   },
   "dependencies": {
+    "deepmerge": "^4.2.2",
     "got": "^11.8.2"
   },
   "devDependencies": {
