@@ -552,7 +552,9 @@ async function main(config) {
                 else if (originJson?.item?.description && originJson?.item?.pictures) {
                   // console.log(originJson?.item.pictures);
 
-                  if (originJson?.item?.pictures_count > 1) {
+                  // NOTE: Change the following to `> 1` to enable
+                  if (originJson?.item?.pictures_count > 99) {
+                    // TODO: sendMediaGroup doesn't support reply_markup. You have to use a seperate message
                     tgOptions.method = 'sendMediaGroup';
                     tgOptions.body.media = originJson?.item?.pictures.map((pic, idx) => ({
                       type: 'photo',
