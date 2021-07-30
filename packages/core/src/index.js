@@ -746,7 +746,7 @@ async function main(config) {
       });
 
       // Fetch Weibo
-      account.biliId && await got(`https://m.weibo.cn/profile/info?uid=${account.weiboId}`, config.requestOptions).then(async resp => {
+      account.weiboId && await got(`https://m.weibo.cn/profile/info?uid=${account.weiboId}`, config.requestOptions).then(async resp => {
         const json = JSON.parse(resp.body);
 
         if (json?.ok === 1) {
