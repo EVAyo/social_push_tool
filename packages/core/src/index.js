@@ -43,9 +43,10 @@ const defaultConfig = {
     }
   },
   douyinBotThrottle: 24 * 3600 * 1000, // seconds, if latest post older than n secs, do not send notifications
-  douyinLiveBotThrottle: 500 * 1000, // 5 mins
-  bilibiliBotThrottle: 500 * 1000,
-  bilibiliLiveBotThrottle: 500 * 1000,
+  douyinLiveBotThrottle: 600 * 1000, // 10 mins
+  bilibiliBotThrottle: 3600 * 1000,
+  bilibiliLiveBotThrottle: 600 * 1000,
+  weiboBotThrottle: 3600 * 1000,
   telegram: {
     enabled: true,
     silent: false,
@@ -331,7 +332,7 @@ async function main(config) {
               await sendTelegram(account.tgChannelID, {
                 method: 'sendMessage',
                 body: {
-                  text: `昵称更新\n新：${nickname}\n旧：${dbScope?.bilibili_live?.nickname}`,
+                  text: `b站昵称更新\n新：${nickname}\n旧：${dbScope?.bilibili_live?.nickname}`,
                   reply_markup: {
                     inline_keyboard: [
                       [
@@ -358,7 +359,7 @@ async function main(config) {
               await sendTelegram(account.tgChannelID, {
                 method: 'sendMessage',
                 body: {
-                  text: `签名档更新\n新：${sign}\n旧：${dbScope?.bilibili_live?.sign}`,
+                  text: `b站签名更新\n新：${sign}\n旧：${dbScope?.bilibili_live?.sign}`,
                   reply_markup: {
                     inline_keyboard: [
                       [
@@ -386,7 +387,7 @@ async function main(config) {
                 method: 'sendPhoto',
                 body: {
                   photo: avatar,
-                  caption: `头像更新，老头像：${dbScope?.bilibili_live?.avatar}`,
+                  caption: `b站头像更新，老头像：${dbScope?.bilibili_live?.avatar}`,
                   reply_markup: {
                     inline_keyboard: [
                       [
@@ -742,6 +743,204 @@ async function main(config) {
       })
       .catch(err => {
         log(`bilibili-mblog request error: ${err?.response?.body?.trim()}`);
+      });
+
+      // Fetch Weibo
+      account.biliId && await got(`https://m.weibo.cn/profile/info?uid=${account.weiboId}`, config.requestOptions).then(async resp => {
+        const json = JSON.parse(resp.body);
+
+        if (json?.ok === 1) {
+          const currentTime = Date.now();
+          const data = json.data;
+          const user = data?.user;
+          const statuses = data?.statuses;
+
+          if (statuses) {
+            const status = statuses[0];
+
+            const timestamp = +new Date(status.created_at);
+            const id = status.bid;
+            const text = status?.raw_text || status.text;
+
+            argv.json && fs.writeFile(`db/${account.slug}-weibo.json`, JSON.stringify(json, null, 2), err => {
+              if (err) return console.log(err);
+            });
+
+            const dbScope = db.data[account.slug];
+            const dbStore = {
+              scrapedTime: new Date(currentTime),
+              user: user,
+              latestStatus: {
+                id: id,
+                text: text,
+                timestamp: new Date(timestamp),
+                timestampUnix: timestamp,
+                timeAgo: timeAgo(timestamp),
+                isTgSent: dbScope?.weibo?.latestStatus?.isTgSent,
+              }
+            };
+
+            // If user nickname update
+            if (user.screen_name !== dbScope?.weibo?.user?.screen_name && dbScope?.weibo?.user?.screen_name) {
+              log(`weibo user nickname updated: ${user.screen_name}`);
+
+              if (account.tgChannelID && config.telegram.enabled) {
+
+                await sendTelegram(account.tgChannelID, {
+                  method: 'sendMessage',
+                  body: {
+                    text: `微博昵称更新\n新：${user.screen_name}\n旧：${dbScope?.weibo?.user?.screen_name}`,
+                    reply_markup: {
+                      inline_keyboard: [
+                        [
+                          {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
+                        ],
+                      ]
+                    },
+                  }
+                }).then(resp => {
+                  // log(`telegram post weibo::nickname success: message_id ${resp.result.message_id}`)
+                })
+                .catch(err => {
+                  log(`telegram post weibo::nickname error: ${err}`);
+                });
+              }
+            }
+
+            // If user description update
+            if (user.description !== dbScope?.weibo?.user?.description && dbScope?.weibo?.user?.description) {
+              log(`weibo user sign updated: ${user.description}`);
+
+              if (account.tgChannelID && config.telegram.enabled) {
+
+                await sendTelegram(account.tgChannelID, {
+                  method: 'sendMessage',
+                  body: {
+                    text: `微博签名更新\n新：${user.description}\n旧：${dbScope?.weibo?.user?.description}`,
+                    reply_markup: {
+                      inline_keyboard: [
+                        [
+                          {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
+                        ],
+                      ]
+                    },
+                  }
+                }).then(resp => {
+                  // log(`telegram post weibo::sign success: message_id ${resp.result.message_id}`)
+                })
+                .catch(err => {
+                  log(`telegram post weibo::sign error: ${err}`);
+                });
+              }
+            }
+
+            // If user avatar update
+            if (user.avatar_hd !== dbScope?.weibo?.user?.avatar_hd && dbScope?.weibo?.user?.avatar_hd) {
+              log(`weibo user avatar updated: ${user.avatar_hd}`);
+
+              if (account.tgChannelID && config.telegram.enabled) {
+
+                await sendTelegram(account.tgChannelID, {
+                  method: 'sendPhoto',
+                  body: {
+                    photo: user.avatar_hd,
+                    caption: `头像更新，老头像：${dbScope?.weibo?.user?.avatar_hd}`,
+                    reply_markup: {
+                      inline_keyboard: [
+                        [
+                          {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
+                        ],
+                      ]
+                    },
+                  }
+                }).then(resp => {
+                  // log(`telegram post weibo::avatar success: message_id ${resp.result.message_id}`)
+                })
+                .catch(err => {
+                  log(`telegram post weibo::avatar error: ${err}`);
+                });
+              }
+            }
+
+            // If latest post is newer than the one in database
+            if (id !== dbScope?.weibo?.latestStatus?.id && timestamp > dbScope?.weibo?.latestStatus?.timestampUnix) {
+              const tgOptions = {
+                method: 'sendMessage',
+                body: {
+                  text: `微博更新 ${text}`,
+                  reply_markup: {
+                    inline_keyboard: [
+                      [
+                        {text: 'View', url: `https://weibo.com/${user.id}/${id}`},
+                        {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
+                      ],
+                    ]
+                  },
+                }
+              };
+
+              if (status.pic_ids?.length > 0) {
+                tgOptions.method = 'sendPhoto';
+                tgOptions.body.photo = `https://ww1.sinaimg.cn/large/${status.pic_ids[0]}.jpg`;
+                tgOptions.body.caption = `微博更新 ${text}`;
+              }
+
+              if (account.tgChannelID && config.telegram.enabled) {
+                log(`weibo has update: ${id} ${text} (${timeAgo(timestamp)})`);
+
+                if ((currentTime - timestamp) >= config.weiboBotThrottle) {
+                  log(`weibo too old, notifications skipped`);
+                } else {
+                  await sendTelegram(account.tgChannelID, tgOptions).then(resp => {
+                    // log(`telegram post weibo success: message_id ${resp.result.message_id}`)
+                  })
+                  .catch(err => {
+                    log(`telegram post weibo error: ${err?.response?.body?.trim()}`);
+                  });
+                }
+              }
+            } else if (id !== dbScope?.weibo?.latestStatus?.id && timestamp < dbScope?.weibo?.latestStatus?.timestampUnix) {
+              log(`weibo new post older than database. latest: ${id} (${timeAgo(timestamp)})`);
+
+              if (account.tgChannelID && config.telegram.enabled) {
+
+                await sendTelegram(account.tgChannelID, {
+                  method: 'sendMessage',
+                  body: {
+                    text: `监测到最新微博旧于数据库中的微博，可能有微博被删除`,
+                    reply_markup: {
+                      inline_keyboard: [
+                        [
+                          {text: 'View', url: `https://weibo.com/${user.id}/${id}`},
+                          {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
+                        ],
+                      ]
+                    },
+                  }
+                }).then(resp => {
+                  // log(`telegram post weibo success: message_id ${resp.result.message_id}`)
+                })
+                .catch(err => {
+                  log(`telegram post weibo error: ${err?.response?.body?.trim()}`);
+                });
+              }
+
+            } else {
+              log(`weibo no update. latest: ${id} ${text} (${timeAgo(timestamp)})`);
+            }
+
+            // Write new data to database
+            dbScope['weibo'] = dbStore;
+            await db.write();
+          } else {
+            log('weibo empty result, skipping...');
+          }
+        } else {
+          log('weibo info corrupted, skipping...');
+        }
+      })
+      .catch(err => {
+        log(`weibo request error: ${err}`);
       });
     }
   }
