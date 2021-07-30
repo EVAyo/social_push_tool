@@ -18,7 +18,7 @@ Extract data from social networking services and push updates to Telegram or oth
 - [ ] tiktok
 - [ ] tiktok-live
 - [ ] twitter
-- [ ] weibo
+- [x] weibo
 - [ ] youtube
 - [ ] youtube-live
 

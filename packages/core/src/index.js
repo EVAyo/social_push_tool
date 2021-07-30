@@ -43,9 +43,9 @@ const defaultConfig = {
     }
   },
   douyinBotThrottle: 24 * 3600 * 1000, // seconds, if latest post older than n secs, do not send notifications
-  douyinLiveBotThrottle: 600 * 1000, // 10 mins
-  bilibiliBotThrottle: 3600 * 1000,
-  bilibiliLiveBotThrottle: 600 * 1000,
+  douyinLiveBotThrottle: 1200 * 1000, // 20 mins
+  bilibiliBotThrottle: 3600 * 1000, // 60 mins, bilibili sometimes got limit rate for 30 mins.
+  bilibiliLiveBotThrottle: 1200 * 1000,
   weiboBotThrottle: 3600 * 1000,
   telegram: {
     enabled: true,
@@ -66,6 +66,14 @@ function timeAgo(timestamp, suffix = true) {
   return formatDistanceToNowStrict(new Date(timestamp), {
     addSuffix: suffix,
   });
+}
+
+function stripHtml(string = '', withBr = true) {
+  if (withBr) {
+    return string.replace(/<br ?\/?>/gmi, '\n').replace(/(<([^>]+)>)/gmi, '');
+  } else {
+    return string.replace(/(<([^>]+)>)/gmi, '');
+  }
 }
 
 async function sendTelegram(chatId, userOptions) {
@@ -134,7 +142,7 @@ async function main(config) {
     const account = config.accounts[i];
 
     // Set random request time to avoid request limit
-    await setTimeout(600 + Math.floor(Math.random() * 400));
+    await setTimeout(1000 + Math.floor(Math.random() * 400));
 
     // Only check enabled account
     if (account.enabled) {
@@ -760,7 +768,7 @@ async function main(config) {
 
             const timestamp = +new Date(status.created_at);
             const id = status.bid;
-            const text = status?.raw_text || status.text;
+            const text = status?.raw_text || stripHtml(status.text);
 
             argv.json && fs.writeFile(`db/${account.slug}-weibo.json`, JSON.stringify(json, null, 2), err => {
               if (err) return console.log(err);
@@ -879,14 +887,25 @@ async function main(config) {
                 }
               };
 
+              // If post has photo
               if (status.pic_ids?.length > 0) {
                 tgOptions.method = 'sendPhoto';
                 tgOptions.body.photo = `https://ww1.sinaimg.cn/large/${status.pic_ids[0]}.jpg`;
                 tgOptions.body.caption = `微博更新 ${text}`;
               }
 
+              // If post has video
+              if (status?.page_info?.type === 'video') {
+                tgOptions.method = 'sendVideo';
+                tgOptions.body.video = status?.page_info?.media_info?.stream_url_hd || status?.page_info?.media_info?.stream_url;
+                tgOptions.body.caption = `微博更新 ${text}`;
+              }
+
+              // TODO: parse 4k
+              // https://f.video.weibocdn.com/qpH0Ozj9lx07NO9oXw4E0104120qrc250E0a0.mp4?label=mp4_2160p60&template=4096x1890.20.0&trans_finger=aaa6a0a6b46c000323ae75fc96245471&media_id=4653054126129212&tp=8x8A3El:YTkl0eM8&us=0&ori=1&bf=3&ot=h&ps=3lckmu&uid=7vYqTU&ab=3915-g1,5178-g1,966-g1,1493-g0,1192-g0,1191-g0,1258-g0&Expires=1627682219&ssig=I7RDiLeNCQ&KID=unistore,video
+
               if (account.tgChannelID && config.telegram.enabled) {
-                log(`weibo has update: ${id} ${text} (${timeAgo(timestamp)})`);
+                log(`weibo has update: ${id} (${timeAgo(timestamp)})`);
 
                 if ((currentTime - timestamp) >= config.weiboBotThrottle) {
                   log(`weibo too old, notifications skipped`);
@@ -926,7 +945,7 @@ async function main(config) {
               }
 
             } else {
-              log(`weibo no update. latest: ${id} ${text} (${timeAgo(timestamp)})`);
+              log(`weibo no update. latest: ${id} (${timeAgo(timestamp)})`);
             }
 
             // Write new data to database
