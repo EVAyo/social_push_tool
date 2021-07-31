@@ -921,28 +921,29 @@ async function main(config) {
             } else if (id !== dbScope?.weibo?.latestStatus?.id && timestamp < dbScope?.weibo?.latestStatus?.timestampUnix) {
               log(`weibo new post older than database. latest: ${id} (${timeAgo(timestamp)})`);
 
-              if (account.tgChannelID && config.telegram.enabled) {
+              // NOTE: Disable deleted weibo detection. Buggy
+              // if (account.tgChannelID && config.telegram.enabled) {
 
-                await sendTelegram(account.tgChannelID, {
-                  method: 'sendMessage',
-                  body: {
-                    text: `监测到最新微博旧于数据库中的微博，可能有微博被删除`,
-                    reply_markup: {
-                      inline_keyboard: [
-                        [
-                          {text: 'View', url: `https://weibo.com/${user.id}/${id}`},
-                          {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
-                        ],
-                      ]
-                    },
-                  }
-                }).then(resp => {
-                  // log(`telegram post weibo success: message_id ${resp.result.message_id}`)
-                })
-                .catch(err => {
-                  log(`telegram post weibo error: ${err?.response?.body?.trim()}`);
-                });
-              }
+              //   await sendTelegram(account.tgChannelID, {
+              //     method: 'sendMessage',
+              //     body: {
+              //       text: `监测到最新微博旧于数据库中的微博，可能有微博被删除`,
+              //       reply_markup: {
+              //         inline_keyboard: [
+              //           [
+              //             {text: 'View', url: `https://weibo.com/${user.id}/${id}`},
+              //             {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
+              //           ],
+              //         ]
+              //       },
+              //     }
+              //   }).then(resp => {
+              //     // log(`telegram post weibo success: message_id ${resp.result.message_id}`)
+              //   })
+              //   .catch(err => {
+              //     log(`telegram post weibo error: ${err?.response?.body?.trim()}`);
+              //   });
+              // }
 
             } else {
               log(`weibo no update. latest: ${id} (${timeAgo(timestamp)})`);
