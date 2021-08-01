@@ -23,6 +23,8 @@
     "deepmerge": "^4.2.2",
     "got": "^11.8.2"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "xv": "^0.2.3"
+  },
   "gitHead": "ef7fad68abccb38f7e257d9ae07be14c05059fda"
 }
