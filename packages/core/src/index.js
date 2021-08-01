@@ -10,6 +10,8 @@ import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { Low, JSONFile } from 'lowdb';
+import SocksProxyAgent from 'socks-proxy-agent';
+
 import TelegramBot from '@a-soul/sender-telegram';
 import dyExtract from '@a-soul/extractor-douyin';
 
@@ -47,6 +49,7 @@ const defaultConfig = {
   bilibiliBotThrottle: 3600 * 1000, // 60 mins, bilibili sometimes got limit rate for 30 mins.
   bilibiliLiveBotThrottle: 1200 * 1000,
   weiboBotThrottle: 3600 * 1000,
+  socksProxy: '',
   telegram: {
     enabled: true,
     silent: false,
@@ -157,6 +160,14 @@ async function main(config) {
         console.log(`${logName(account.slug)} ${msg}`);
       }
 
+      // Initialize proxy randomly to avoid bilibili rate limit
+      // .5 - 50% true
+      const proxyOptions = config?.socksProxy && Math.random() < .5 ? {
+        agent: {
+          https: new SocksProxyAgent(config.socksProxy)
+        }
+      } : {};
+
       // Fetch Douyin
       account.douyinId && dyExtract(`https://www.douyin.com/user/${account.douyinId}`, config.requestOptions).then(async resp => {
         const currentTime = Date.now();
@@ -246,7 +257,7 @@ async function main(config) {
                     dbStore.latestPost.isTgSent = true;
                   })
                   .catch(err => {
-                    log(`telegram post douyin error: ${err?.response?.body?.trim()}`);
+                    log(`telegram post douyin error: ${err?.response?.body?.trim() || err}`);
                   });
                 }
               }
@@ -266,7 +277,7 @@ async function main(config) {
       });
 
       // Fetch bilibili live
-      account.biliId && await got(`https://api.bilibili.com/x/space/acc/info?mid=${account.biliId}`, config.requestOptions).then(async resp => {
+      account.biliId && await got(`https://api.bilibili.com/x/space/acc/info?mid=${account.biliId}`, {...config.requestOptions, ...proxyOptions}).then(async resp => {
         const json = JSON.parse(resp.body);
 
         if (json?.code === 0) {
@@ -353,7 +364,7 @@ async function main(config) {
                 // log(`telegram post bilibili-live::nickname success: message_id ${resp.result.message_id}`)
               })
               .catch(err => {
-                log(`telegram post bilibili-live::nickname error: ${err?.response?.body?.trim()}`);
+                log(`telegram post bilibili-live::nickname error: ${err?.response?.body?.trim() || err}`);
               });
             }
           }
@@ -380,7 +391,7 @@ async function main(config) {
                 // log(`telegram post bilibili-live::sign success: message_id ${resp.result.message_id}`)
               })
               .catch(err => {
-                log(`telegram post bilibili-live::sign error: ${err?.response?.body?.trim()}`);
+                log(`telegram post bilibili-live::sign error: ${err?.response?.body?.trim() || err}`);
               });
             }
           }
@@ -408,7 +419,7 @@ async function main(config) {
                 // log(`telegram post bilibili-live::avatar success: message_id ${resp.result.message_id}`)
               })
               .catch(err => {
-                log(`telegram post bilibili-live::avatar error: ${err?.response?.body?.trim()}`);
+                log(`telegram post bilibili-live::avatar error: ${err?.response?.body?.trim() || err}`);
               });
             }
           }
@@ -418,7 +429,7 @@ async function main(config) {
           if (room?.liveStatus === 1) {
 
             // Deprecated v1 API, may be changed in the future
-            await got(`https://api.live.bilibili.com/room/v1/Room/room_init?id=${liveId}`, config.requestOptions).then(async resp => {
+            await got(`https://api.live.bilibili.com/room/v1/Room/room_init?id=${liveId}`, {...config.requestOptions, ...proxyOptions}).then(async resp => {
               const json = JSON.parse(resp.body);
 
               if (json?.code === 0) {
@@ -450,7 +461,7 @@ async function main(config) {
                       dbStore.latestStream.isTgSent = true;
                     })
                     .catch(err => {
-                      log(`telegram post bilibili-live error: ${err?.response?.body?.trim()}`);
+                      log(`telegram post bilibili-live error: ${err?.response?.body?.trim() || err}`);
                     });
                   }
                 }
@@ -459,7 +470,7 @@ async function main(config) {
               };
             })
             .catch(err => {
-              log(`bilibili-live stream info request error: ${err?.response?.body?.trim()}`);
+              log(`bilibili-live stream info request error: ${err?.response?.body?.trim() || err}`);
             });
           } else {
             log(`bilibili-live not started yet`);
@@ -474,11 +485,11 @@ async function main(config) {
         }
       })
       .catch(err => {
-        log(`bilibili-live user info request error: ${err?.response?.body?.trim()}`);
+        log(`bilibili-live user info request error: ${err?.response?.body?.trim() || err}`);
       });
 
       // Fetch bilibili microblog (dynamics)
-      account.biliId && await got(`https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history?host_uid=${account.biliId}&offset_dynamic_id=0&need_top=0&platform=web`, config.requestOptions).then(async resp => {
+      account.biliId && await got(`https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history?host_uid=${account.biliId}&offset_dynamic_id=0&need_top=0&platform=web`, {...config.requestOptions, ...proxyOptions}).then(async resp => {
         const json = JSON.parse(resp.body);
 
         if (json?.code === 0) {
@@ -705,7 +716,7 @@ async function main(config) {
                     // log(`telegram post bilibili-mblog success: message_id ${resp.result.message_id}`)
                   })
                   .catch(err => {
-                    log(`telegram post bilibili-mblog error: ${err?.response?.body?.trim()}`);
+                    log(`telegram post bilibili-mblog error: ${err?.response?.body?.trim() || err}`);
                   });
                 }
               }
@@ -731,7 +742,7 @@ async function main(config) {
                   // log(`telegram post bilibili-mblog success: message_id ${resp.result.message_id}`)
                 })
                 .catch(err => {
-                  log(`telegram post bilibili-mblog error: ${err?.response?.body?.trim()}`);
+                  log(`telegram post bilibili-mblog error: ${err?.response?.body?.trim() || err}`);
                 });
               }
 
@@ -750,7 +761,7 @@ async function main(config) {
         }
       })
       .catch(err => {
-        log(`bilibili-mblog request error: ${err?.response?.body?.trim()}`);
+        log(`bilibili-mblog request error: ${err?.response?.body?.trim() || err}`);
       });
 
       // Fetch Weibo
@@ -914,7 +925,7 @@ async function main(config) {
                     // log(`telegram post weibo success: message_id ${resp.result.message_id}`)
                   })
                   .catch(err => {
-                    log(`telegram post weibo error: ${err?.response?.body?.trim()}`);
+                    log(`telegram post weibo error: ${err?.response?.body?.trim() || err}`);
                   });
                 }
               }
@@ -941,7 +952,7 @@ async function main(config) {
               //     // log(`telegram post weibo success: message_id ${resp.result.message_id}`)
               //   })
               //   .catch(err => {
-              //     log(`telegram post weibo error: ${err?.response?.body?.trim()}`);
+              //     log(`telegram post weibo error: ${err?.response?.body?.trim() || err}`);
               //   });
               // }
 
@@ -973,6 +984,7 @@ if (argv._.includes('run')) {
   // Output configs for reference
   console.log('Current configs', {
     loopInterval: config.loopInterval,
+    socksProxy: config.socksProxy,
     requestOptions: config.requestOptions,
     douyinBotThrottle: config.douyinBotThrottle,
     douyinLiveBotThrottle: config.douyinLiveBotThrottle,
