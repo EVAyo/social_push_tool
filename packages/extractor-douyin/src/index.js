@@ -14,12 +14,29 @@ async function extract(url, options = {}) {
 
     const el_target = '#RENDER_DATA';
     const dom = new JSDOM(resp.body);
-    const rendered_data = dom.window.document.querySelector(el_target);
+    const renderedData = dom.window.document.querySelector(el_target);
+    const renderedLiveData = dom.window.document.querySelectorAll('script');
 
-    if (rendered_data) {
-      const data_decode = decodeURIComponent(rendered_data.textContent);
-      return JSON.parse(data_decode);
-    } else {
+    // If Douyin main site
+    if (renderedData) {
+      const decodeJson = decodeURIComponent(renderedData.textContent);
+      return JSON.parse(decodeJson);
+    }
+
+    else if (renderedLiveData) {
+
+      for (let i = 0; i < renderedLiveData.length; i++) {
+        const script = renderedLiveData[i];
+        const regex = /^(window\.__INIT_PROPS__ ?= ?)(?<content>{.*)/gm;
+        const match = regex.exec(script?.textContent);
+
+        if (match?.groups?.content) {
+          return JSON.parse(match?.groups?.content);
+        }
+      }
+    }
+
+    else {
       console.log('No rendered data found!');
     }
 
