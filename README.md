@@ -5,6 +5,8 @@ Extract data from social networking services and push updates to Telegram or oth
 ## Features
 
 - Monitor several social networking services at the same time
+- Support retry on failed connections
+- Proxy support
 - Low memory footprint
 - Minimal dependencies
 

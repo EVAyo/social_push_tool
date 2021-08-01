@@ -23,8 +23,6 @@
     "got": "^11.8.2",
     "jsdom": "^16.6.0"
   },
-  "devDependencies": {
-    "release-it": "^14.10.0"
-  },
+  "devDependencies": {},
   "gitHead": "ef7fad68abccb38f7e257d9ae07be14c05059fda"
 }
