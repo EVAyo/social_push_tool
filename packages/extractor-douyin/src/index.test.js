@@ -9,5 +9,5 @@ export function jsonContentExists() {
 };
 
 export function jsonLiveContentExists() {
-  equal(liveResp?.['/webcast/reflow/:id']?.room?.id_str, '6988103996141488910');
+  equal(liveResp?.['/webcast/reflow/:id']?.room?.owner?.short_id, 3819974253);
 };

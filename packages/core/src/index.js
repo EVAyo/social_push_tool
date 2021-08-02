@@ -168,6 +168,24 @@ async function main(config) {
         }
       } : {};
 
+      // Fetch Douyin live
+      // account.douyinLiveId && dyExtract(`https://webcast.amemv.com/webcast/reflow/${account.douyinLiveId}`, config.requestOptions).then(async resp => {
+      //   const json = resp?.['/webcast/reflow/:id'];
+
+      //   if (json) {
+
+      //     argv.json && fs.writeFile(`db/${account.slug}-douyin-live.json`, JSON.stringify(json, null, 2), err => {
+      //       if (err) return console.log(err);
+      //     });
+
+      //   } else {
+      //     log(`douyin live data corrupted, skipping...`);
+      //   }
+
+      // }).catch(err => {
+      //   console.log(err);
+      // });
+
       // Fetch Douyin
       account.douyinId && dyExtract(`https://www.douyin.com/user/${account.douyinId}`, config.requestOptions).then(async resp => {
         const currentTime = Date.now();
@@ -343,7 +361,7 @@ async function main(config) {
           };
 
           // If user nickname update
-          if (nickname !== dbScope?.bilibili_live?.nickname && dbScope?.bilibili_live?.nickname) {
+          if (nickname !== 'bilibili' && nickname !== dbScope?.bilibili_live?.nickname && dbScope?.bilibili_live?.nickname) {
             log(`bilibili-live user nickname updated: ${nickname}`);
 
             if (account.tgChannelID && config.telegram.enabled) {
@@ -370,7 +388,7 @@ async function main(config) {
           }
 
           // If user sign update
-          if (sign !== dbScope?.bilibili_live?.sign && dbScope?.bilibili_live?.sign) {
+          if (nickname !== 'bilibili' && sign !== dbScope?.bilibili_live?.sign && dbScope?.bilibili_live?.sign) {
             log(`bilibili-live user sign updated: ${sign}`);
 
             if (account.tgChannelID && config.telegram.enabled) {
@@ -397,7 +415,7 @@ async function main(config) {
           }
 
           // If user avatar update
-          if (avatar !== dbScope?.bilibili_live?.avatar && dbScope?.bilibili_live?.avatar) {
+          if (nickname !== 'bilibili' && avatar !== dbScope?.bilibili_live?.avatar && dbScope?.bilibili_live?.avatar) {
             log(`bilibili-live user avatar updated: ${avatar}`);
 
             if (account.tgChannelID && config.telegram.enabled) {
