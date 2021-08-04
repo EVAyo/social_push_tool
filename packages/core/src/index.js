@@ -318,6 +318,9 @@ async function main(config) {
           const liveTitle = room.title;
           const liveCover = room.cover;
 
+          // Avatar URL is not reliable, URL may change because of CDN
+          const avatarHash = avatar && new URL(avatar);
+
           argv.json && fs.writeFile(`db/${account.slug}-bilibili-user.json`, JSON.stringify(json, null, 2), err => {
             if (err) return console.log(err);
           });
@@ -327,7 +330,7 @@ async function main(config) {
             nickname: nickname,
             uid: uid,
             scrapedTime: new Date(currentTime),
-            avatar: avatar,
+            avatar: avatarHash?.pathname,
             sign: sign,
             latestStream: {
               liveStatus: liveStatus,
@@ -415,7 +418,7 @@ async function main(config) {
           }
 
           // If user avatar update
-          if (nickname !== 'bilibili' && avatar !== dbScope?.bilibili_live?.avatar && dbScope?.bilibili_live?.avatar) {
+          if (nickname !== 'bilibili' && avatarHash?.pathname !== dbScope?.bilibili_live?.avatar && dbScope?.bilibili_live?.avatar) {
             log(`bilibili-live user avatar updated: ${avatar}`);
 
             if (account.tgChannelID && config.telegram.enabled) {
