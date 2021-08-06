@@ -795,8 +795,14 @@ async function main(config) {
           const user = data?.user;
           const statuses = data?.statuses;
 
-          if (statuses) {
-            const status = statuses[0];
+          if (statuses.length !== 0) {
+            // Exclude sticky status when: it is sticky and is older than the first [1] status
+            const status = (
+              statuses[0]?.isTop === 1 &&
+              statuses[0]?.created_at &&
+              statuses[1]?.created_at &&
+              +new Date(statuses[0].created_at) < +new Date(statuses[1].created_at)
+            ) ? statuses[1] : statuses[0];
 
             const timestamp = +new Date(status.created_at);
             const id = status.bid;
