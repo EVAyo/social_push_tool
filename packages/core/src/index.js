@@ -31,6 +31,10 @@ const argv = yargs(hideBin(process.argv))
     description: 'User configuration file (in JSON format)',
     type: 'string',
   })
+  .option('verbose', {
+    description: 'Show verbose log',
+    type: 'boolean',
+  })
   .help()
   .alias('help', 'h')
   .argv;
@@ -135,30 +139,33 @@ async function main(config) {
 
   // const url = 'https://www.douyin.com/user/MS4wLjABAAAA5ZrIrbgva_HMeHuNn64goOD2XYnk4ItSypgRHlbSh1c';
 
-  // Read from database
-  await db.read()
-  db.data ||= {};
-
   console.log(`\n# Checks started at ${formatDate(Date.now())} ------------`);
 
   for (let i = 0; i < config.accounts.length; i++) {
     const account = config.accounts[i];
 
+    const logName = chalk.hex('#000').bgHex(account?.color ?? '#fff');
+
+    function log(msg, type) {
+      console.log(`${logName(account.slug)} ${msg}`);
+    }
+
+    // Read from database
+    await db.read();
+    db.data ||= {};
+    argv.verbose && log(`db read`);
+
+    // Initial database structure
+    db.data[account.slug] ||= {};
+    const dbScope = db.data[account.slug];
+
     // Set random request time to avoid request limit
+    // NOTE: this may break the for loop for the first loop iteration
     await setTimeout(1000 + Math.floor(Math.random() * 400));
 
     // Only check enabled account
-    if (account.enabled) {
-
-      // Initial database structure
-      db.data[account.slug] ||= {};
-
-      const logName = chalk.hex('#000').bgHex(account?.color ?? '#fff');
-      // console.log(`${logName(account.slug)} is checking...`);
-
-      function log(msg, type) {
-        console.log(`${logName(account.slug)} ${msg}`);
-      }
+    if (account?.enabled) {
+      argv.verbose && log(`is checking...`);
 
       // Initialize proxy randomly to avoid bilibili rate limit
       // .5 - 50% true
@@ -187,7 +194,7 @@ async function main(config) {
       // });
 
       // Fetch Douyin
-      account.douyinId && dyExtract(`https://www.douyin.com/user/${account.douyinId}`, config.requestOptions).then(async resp => {
+      account.douyinId && await dyExtract(`https://www.douyin.com/user/${account.douyinId}`, config.requestOptions).then(async resp => {
         const currentTime = Date.now();
         const json = resp;
         const userMeta = json?.C_10?.user?.user;
@@ -223,7 +230,6 @@ async function main(config) {
             const shareUrl = post.shareInfo.shareUrl;
             const stats = post.stats;
 
-            const dbScope = db.data[account.slug];
             const dbStore = {
               nickname: nickname,
               uid: uid,
@@ -270,7 +276,7 @@ async function main(config) {
                 if ((currentTime - timestamp) >= config.douyinBotThrottle) {
                   log(`douyin latest post too old, notifications skipped`);
                 } else {
-                  await sendTelegram(account.tgChannelID, tgOptions).then(resp => {
+                  sendTelegram(account.tgChannelID, tgOptions).then(resp => {
                     // log(`telegram post douyin success: message_id ${resp.result.message_id}`)
                     dbStore.latestPost.isTgSent = true;
                   })
@@ -283,9 +289,8 @@ async function main(config) {
               log(`douyin no update. latest: ${id} (${timeAgo(timestamp)})`);
             }
 
-            // Write new data to database
+            // Set new data to database
             dbScope['douyin'] = dbStore;
-            await db.write();
           }
         } else {
           log(`douyin scraped data corrupted, skipping...`);
@@ -321,11 +326,16 @@ async function main(config) {
           // Avatar URL is not reliable, URL may change because of CDN
           const avatarHash = avatar && new URL(avatar);
 
+          // Space API ocassionally returns a default name (bilibili). Skip processing when ocurrs
+          if (nickname === 'bilibili') {
+            log(`data valid but content is corrupt. nickname === 'bilibili'`);
+            return;
+          }
+
           argv.json && fs.writeFile(`db/${account.slug}-bilibili-user.json`, JSON.stringify(json, null, 2), err => {
             if (err) return console.log(err);
           });
 
-          const dbScope = db.data[account.slug];
           const dbStore = {
             nickname: nickname,
             uid: uid,
@@ -369,7 +379,7 @@ async function main(config) {
 
             if (account.tgChannelID && config.telegram.enabled) {
 
-              await sendTelegram(account.tgChannelID, {
+              sendTelegram(account.tgChannelID, {
                 method: 'sendMessage',
                 body: {
                   text: `b站昵称更新\n新：${nickname}\n旧：${dbScope?.bilibili_live?.nickname}`,
@@ -396,7 +406,7 @@ async function main(config) {
 
             if (account.tgChannelID && config.telegram.enabled) {
 
-              await sendTelegram(account.tgChannelID, {
+              sendTelegram(account.tgChannelID, {
                 method: 'sendMessage',
                 body: {
                   text: `b站签名更新\n新：${sign}\n旧：${dbScope?.bilibili_live?.sign}`,
@@ -423,7 +433,7 @@ async function main(config) {
 
             if (account.tgChannelID && config.telegram.enabled) {
 
-              await sendTelegram(account.tgChannelID, {
+              sendTelegram(account.tgChannelID, {
                 method: 'sendPhoto',
                 body: {
                   photo: avatar,
@@ -477,7 +487,7 @@ async function main(config) {
                   } else if ((currentTime - timestamp) >= config.bilibiliLiveBotThrottle) {
                     log(`bilibili-live too old, notifications skipped`);
                   } else {
-                    await sendTelegram(account.tgChannelID, tgOptions).then(resp => {
+                    sendTelegram(account.tgChannelID, tgOptions).then(resp => {
                       // log(`telegram post bilibili-live success: message_id ${resp.result.message_id}`)
                       dbStore.latestStream.isTgSent = true;
                     })
@@ -498,9 +508,8 @@ async function main(config) {
             dbStore.latestStream.isTgSent = false;
           }
 
-          // Write new data to database
+          // Set new data to database
           dbScope['bilibili_live'] = dbStore;
-          await db.write();
         } else {
           log('bilibili-live user info corrupted, skipping...');
         }
@@ -535,7 +544,6 @@ async function main(config) {
               if (err) return console.log(err);
             });
 
-            const dbScope = db.data[account.slug];
             const dbStore = {
               scrapedTime: new Date(currentTime),
               user: user,
@@ -733,7 +741,7 @@ async function main(config) {
                 if ((currentTime - timestamp) >= config.bilibiliBotThrottle) {
                   log(`bilibili-mblog too old, notifications skipped`);
                 } else {
-                  await sendTelegram(account.tgChannelID, tgOptions).then(resp => {
+                  sendTelegram(account.tgChannelID, tgOptions).then(resp => {
                     // log(`telegram post bilibili-mblog success: message_id ${resp.result.message_id}`)
                   })
                   .catch(err => {
@@ -746,7 +754,7 @@ async function main(config) {
 
               if (account.tgChannelID && config.telegram.enabled) {
 
-                await sendTelegram(account.tgChannelID, {
+                sendTelegram(account.tgChannelID, {
                   method: 'sendMessage',
                   body: {
                     text: `监测到最新动态旧于数据库中的动态，可能有动态被删除`,
@@ -771,9 +779,8 @@ async function main(config) {
               log(`bilibili-mblog no update. latest: ${dynamicId} (${timeAgo(timestamp)})`);
             }
 
-            // Write new data to database
+            // Set new data to database
             dbScope['bilibili_mblog'] = dbStore;
-            await db.write();
           } else {
             log('bilibili-mblog empty result, skipping...');
           }
@@ -812,7 +819,6 @@ async function main(config) {
               if (err) return console.log(err);
             });
 
-            const dbScope = db.data[account.slug];
             const dbStore = {
               scrapedTime: new Date(currentTime),
               user: user,
@@ -832,7 +838,7 @@ async function main(config) {
 
               if (account.tgChannelID && config.telegram.enabled) {
 
-                await sendTelegram(account.tgChannelID, {
+                sendTelegram(account.tgChannelID, {
                   method: 'sendMessage',
                   body: {
                     text: `微博昵称更新\n新：${user.screen_name}\n旧：${dbScope?.weibo?.user?.screen_name}`,
@@ -859,7 +865,7 @@ async function main(config) {
 
               if (account.tgChannelID && config.telegram.enabled) {
 
-                await sendTelegram(account.tgChannelID, {
+                sendTelegram(account.tgChannelID, {
                   method: 'sendMessage',
                   body: {
                     text: `微博签名更新\n新：${user.description}\n旧：${dbScope?.weibo?.user?.description}`,
@@ -886,7 +892,7 @@ async function main(config) {
 
               if (account.tgChannelID && config.telegram.enabled) {
 
-                await sendTelegram(account.tgChannelID, {
+                sendTelegram(account.tgChannelID, {
                   method: 'sendPhoto',
                   body: {
                     photo: user.avatar_hd,
@@ -913,7 +919,7 @@ async function main(config) {
               const tgOptions = {
                 method: 'sendMessage',
                 body: {
-                  text: `微博更新 ${text}`,
+                  text: `微博更新：${text}`,
                   reply_markup: {
                     inline_keyboard: [
                       [
@@ -948,7 +954,7 @@ async function main(config) {
                 if ((currentTime - timestamp) >= config.weiboBotThrottle) {
                   log(`weibo too old, notifications skipped`);
                 } else {
-                  await sendTelegram(account.tgChannelID, tgOptions).then(resp => {
+                  sendTelegram(account.tgChannelID, tgOptions).then(resp => {
                     // log(`telegram post weibo success: message_id ${resp.result.message_id}`)
                   })
                   .catch(err => {
@@ -962,7 +968,7 @@ async function main(config) {
               // NOTE: Disable deleted weibo detection. Buggy
               // if (account.tgChannelID && config.telegram.enabled) {
 
-              //   await sendTelegram(account.tgChannelID, {
+              //   sendTelegram(account.tgChannelID, {
               //     method: 'sendMessage',
               //     body: {
               //       text: `监测到最新微博旧于数据库中的微博，可能有微博被删除`,
@@ -987,9 +993,8 @@ async function main(config) {
               log(`weibo no update. latest: ${id} (${timeAgo(timestamp)})`);
             }
 
-            // Write new data to database
+            // Set new data to database
             dbScope['weibo'] = dbStore;
-            await db.write();
           } else {
             log('weibo empty result, skipping...');
           }
@@ -1000,6 +1005,10 @@ async function main(config) {
       .catch(err => {
         log(`weibo request error: ${err}`);
       });
+
+      // Write new data to database
+      await db.write();
+      argv.verbose && log(`global db saved`);
     }
   }
 }
