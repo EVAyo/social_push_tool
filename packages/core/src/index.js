@@ -150,22 +150,21 @@ async function main(config) {
       console.log(`${logName(account.slug)} ${msg}`);
     }
 
-    // Read from database
-    await db.read();
-    db.data ||= {};
-    argv.verbose && log(`db read`);
-
-    // Initial database structure
-    db.data[account.slug] ||= {};
-    const dbScope = db.data[account.slug];
-
-    // Set random request time to avoid request limit
-    // NOTE: this may break the for loop for the first loop iteration
-    await setTimeout(1000 + Math.floor(Math.random() * 400));
-
     // Only check enabled account
     if (account?.enabled) {
+      // Set random request time to avoid request limit
+      await setTimeout(1000 + Math.floor(Math.random() * 400));
+
       argv.verbose && log(`is checking...`);
+
+      // Read from database
+      await db.read();
+      db.data ||= {};
+      argv.verbose && log(`db read`);
+
+      // Initial database structure
+      db.data[account.slug] ||= {};
+      const dbScope = db.data[account.slug];
 
       // Initialize proxy randomly to avoid bilibili rate limit
       // .5 - 50% true
