@@ -934,14 +934,14 @@ async function main(config) {
               if (status.pic_ids?.length > 0) {
                 tgOptions.method = 'sendPhoto';
                 tgOptions.body.photo = `https://ww1.sinaimg.cn/large/${status.pic_ids[0]}.jpg`;
-                tgOptions.body.caption = `微博更新 ${text}`;
+                tgOptions.body.caption = `微博更新：${text}`;
               }
 
               // If post has video
               if (status?.page_info?.type === 'video') {
                 tgOptions.method = 'sendVideo';
                 tgOptions.body.video = status?.page_info?.media_info?.stream_url_hd || status?.page_info?.media_info?.stream_url;
-                tgOptions.body.caption = `微博更新 ${text}`;
+                tgOptions.body.caption = `微博更新：${text}`;
               }
 
               // TODO: parse 4k
