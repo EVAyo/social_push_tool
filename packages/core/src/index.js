@@ -200,13 +200,15 @@ async function main(config) {
         const posts = json?.C_10?.post?.data;
 
         if (userMeta && posts?.length > 0) {
-          const uid = userMeta.uid;
-          const secUid = userMeta.secUid;
-          const nickname = userMeta.nickname;
-          const sign = userMeta.desc;
-          const avatar = userMeta.avatarUrl;
-          const following = userMeta.followingCount;
-          const followers = userMeta.followerCount;
+          const {
+            uid,
+            secUid,
+            nickname,
+            desc: sign,
+            avatarUrl: avatar,
+            followingCount: following,
+            followerCount: followers,
+          } = userMeta;
 
           argv.json && fs.writeFile(`db/${account.slug}-douyin.json`, JSON.stringify(json, null, 2), err => {
             if (err) return console.log(err);
@@ -275,7 +277,7 @@ async function main(config) {
                 if ((currentTime - timestamp) >= config.douyinBotThrottle) {
                   log(`douyin latest post too old, notifications skipped`);
                 } else {
-                  sendTelegram(account.tgChannelID, tgOptions).then(resp => {
+                  await sendTelegram(account.tgChannelID, tgOptions).then(resp => {
                     // log(`telegram post douyin success: message_id ${resp.result.message_id}`)
                     dbStore.latestPost.isTgSent = true;
                   })
