@@ -220,16 +220,20 @@ async function main(config) {
 
           // If latest post exists
           if (post) {
-            const id = post.awemeId
-            const postAuthorMeta = post.authorInfo;
-            const title = post.desc;
+            const {
+              awemeId: id,
+              authorInfo: postAuthorMeta,
+              desc: title,
+              textExtra: tags,
+              tag: postMeta,
+              shareInfo: {
+                shareUrl
+              },
+              stats,
+            } = post;
             const timestamp = post.createTime * 1000;
-            const tags = post.textExtra;
-            const postMeta = post.tag;
             const cover = `https:${post?.video.dynamicCover}`;
             const videoUrl = `https:${post?.video?.playAddr[0].src}`;
-            const shareUrl = post.shareInfo.shareUrl;
-            const stats = post.stats;
 
             const dbStore = {
               nickname: nickname,
@@ -307,22 +311,26 @@ async function main(config) {
         if (json?.code === 0) {
           const currentTime = Date.now();
           const data = json.data;
-          const room = json.data.live_room;
-          const fans_medal = json.data.fans_medal; // 直播间粉丝牌
-          const official = json.data.official; // 认证状态
-          const vip = json.data.vip; // 大会员状态
-          const pendant = json.data.pendant; // 粉丝装扮
-          const nameplate = json.data.nameplate; // 个人勋章
+          const {
+            live_room: room,
+            fans_medal, // 直播间粉丝牌
+            official, // 认证状态
+            vip, // 大会员状态
+            pendant, // 粉丝装扮
+            nameplate, // 个人勋章
+            mid: uid,
+            name: nickname,
+            sign,
+            face: avatar,
+          } = data;
 
-          const uid = data.mid;
-          const nickname = data.name;
-          const sign = data.sign;
-          const avatar = data.face;
-          const liveStatus = room.liveStatus;
-          const liveId = room.roomid;
-          const liveRoom = room.url;
-          const liveTitle = room.title;
-          const liveCover = room.cover;
+          const {
+            liveStatus,
+            roomid: liveId,
+            url: liveRoom,
+            title: liveTitle,
+            cover: liveCover,
+          } = room;
 
           // Avatar URL is not reliable, URL may change because of CDN
           const avatarHash = avatar && new URL(avatar);
@@ -534,12 +542,14 @@ async function main(config) {
             const cardMeta = card.desc;
             const cardJson = JSON.parse(card.card);
 
+            const {
+              uid,
+              type,
+              orig_type: origType,
+              dynamic_id_str: dynamicId,
+              user_profile: user
+            } = cardMeta;
             const timestamp = cardMeta.timestamp * 1000;
-            const uid = cardMeta.uid;
-            const type = cardMeta.type;
-            const origin_type = cardMeta.orig_type;
-            const dynamicId = cardMeta.dynamic_id_str;
-            const user = cardMeta.user_profile;
 
             argv.json && fs.writeFile(`db/${account.slug}-bilibili-mblog.json`, JSON.stringify(json, null, 2), err => {
               if (err) return console.log(err);
