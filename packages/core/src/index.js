@@ -281,9 +281,8 @@ async function main(config) {
                 if ((currentTime - timestamp) >= config.douyinBotThrottle) {
                   log(`douyin latest post too old, notifications skipped`);
                 } else {
-                  await sendTelegram(account.tgChannelID, tgOptions).then(resp => {
+                  sendTelegram(account.tgChannelID, tgOptions).then(resp => {
                     // log(`telegram post douyin success: message_id ${resp.result.message_id}`)
-                    dbStore.latestPost.isTgSent = true;
                   })
                   .catch(err => {
                     log(`telegram post douyin error: ${err?.response?.body?.trim() || err}`);
@@ -496,7 +495,8 @@ async function main(config) {
                   } else if ((currentTime - timestamp) >= config.bilibiliLiveBotThrottle) {
                     log(`bilibili-live too old, notifications skipped`);
                   } else {
-                    sendTelegram(account.tgChannelID, tgOptions).then(resp => {
+                    // This function should be waited since we rely on the `isTgSent` flag
+                    await sendTelegram(account.tgChannelID, tgOptions).then(resp => {
                       // log(`telegram post bilibili-live success: message_id ${resp.result.message_id}`)
                       dbStore.latestStream.isTgSent = true;
                     })
@@ -564,7 +564,6 @@ async function main(config) {
                 timestamp: new Date(timestamp),
                 timestampUnix: timestamp,
                 timeAgo: timeAgo(timestamp),
-                isTgSent: dbScope?.bilibili_mblog?.latestDynamic?.isTgSent,
               }
             };
 
@@ -839,7 +838,6 @@ async function main(config) {
                 timestamp: new Date(timestamp),
                 timestampUnix: timestamp,
                 timeAgo: timeAgo(timestamp),
-                isTgSent: dbScope?.weibo?.latestStatus?.isTgSent,
               }
             };
 
