@@ -281,7 +281,7 @@ async function main(config) {
                 if ((currentTime - timestamp) >= config.douyinBotThrottle) {
                   log(`douyin latest post too old, notifications skipped`);
                 } else {
-                  sendTelegram(account.tgChannelID, tgOptions).then(resp => {
+                  await sendTelegram(account.tgChannelID, tgOptions).then(resp => {
                     // log(`telegram post douyin success: message_id ${resp.result.message_id}`)
                   })
                   .catch(err => {
@@ -387,7 +387,7 @@ async function main(config) {
 
             if (account.tgChannelID && config.telegram.enabled) {
 
-              sendTelegram(account.tgChannelID, {
+              await sendTelegram(account.tgChannelID, {
                 method: 'sendMessage',
                 body: {
                   text: `b站昵称更新\n新：${nickname}\n旧：${dbScope?.bilibili_live?.nickname}`,
@@ -414,7 +414,7 @@ async function main(config) {
 
             if (account.tgChannelID && config.telegram.enabled) {
 
-              sendTelegram(account.tgChannelID, {
+              await sendTelegram(account.tgChannelID, {
                 method: 'sendMessage',
                 body: {
                   text: `b站签名更新\n新：${sign}\n旧：${dbScope?.bilibili_live?.sign}`,
@@ -441,7 +441,7 @@ async function main(config) {
 
             if (account.tgChannelID && config.telegram.enabled) {
 
-              sendTelegram(account.tgChannelID, {
+              await sendTelegram(account.tgChannelID, {
                 method: 'sendPhoto',
                 body: {
                   photo: avatar,
@@ -751,7 +751,7 @@ async function main(config) {
                 if ((currentTime - timestamp) >= config.bilibiliBotThrottle) {
                   log(`bilibili-mblog too old, notifications skipped`);
                 } else {
-                  sendTelegram(account.tgChannelID, tgOptions).then(resp => {
+                  await sendTelegram(account.tgChannelID, tgOptions).then(resp => {
                     // log(`telegram post bilibili-mblog success: message_id ${resp.result.message_id}`)
                   })
                   .catch(err => {
@@ -764,7 +764,7 @@ async function main(config) {
 
               if (account.tgChannelID && config.telegram.enabled) {
 
-                sendTelegram(account.tgChannelID, {
+                await sendTelegram(account.tgChannelID, {
                   method: 'sendMessage',
                   body: {
                     text: `监测到最新动态旧于数据库中的动态，可能有动态被删除`,
@@ -847,7 +847,7 @@ async function main(config) {
 
               if (account.tgChannelID && config.telegram.enabled) {
 
-                sendTelegram(account.tgChannelID, {
+                await sendTelegram(account.tgChannelID, {
                   method: 'sendMessage',
                   body: {
                     text: `微博昵称更新\n新：${user.screen_name}\n旧：${dbScope?.weibo?.user?.screen_name}`,
@@ -874,7 +874,7 @@ async function main(config) {
 
               if (account.tgChannelID && config.telegram.enabled) {
 
-                sendTelegram(account.tgChannelID, {
+                await sendTelegram(account.tgChannelID, {
                   method: 'sendMessage',
                   body: {
                     text: `微博签名更新\n新：${user.description}\n旧：${dbScope?.weibo?.user?.description}`,
@@ -901,7 +901,7 @@ async function main(config) {
 
               if (account.tgChannelID && config.telegram.enabled) {
 
-                sendTelegram(account.tgChannelID, {
+                await sendTelegram(account.tgChannelID, {
                   method: 'sendPhoto',
                   body: {
                     photo: user.avatar_hd,
@@ -963,7 +963,7 @@ async function main(config) {
                 if ((currentTime - timestamp) >= config.weiboBotThrottle) {
                   log(`weibo too old, notifications skipped`);
                 } else {
-                  sendTelegram(account.tgChannelID, tgOptions).then(resp => {
+                  await sendTelegram(account.tgChannelID, tgOptions).then(resp => {
                     // log(`telegram post weibo success: message_id ${resp.result.message_id}`)
                   })
                   .catch(err => {
@@ -977,7 +977,7 @@ async function main(config) {
               // NOTE: Disable deleted weibo detection. Buggy
               // if (account.tgChannelID && config.telegram.enabled) {
 
-              //   sendTelegram(account.tgChannelID, {
+              //   await sendTelegram(account.tgChannelID, {
               //     method: 'sendMessage',
               //     body: {
               //       text: `监测到最新微博旧于数据库中的微博，可能有微博被删除`,
