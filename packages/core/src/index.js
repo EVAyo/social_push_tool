@@ -2,6 +2,7 @@
 import fs from 'fs';
 import path from 'path';
 import { setTimeout } from 'timers/promises';
+import { setIntervalAsync } from 'set-interval-async/fixed/index.js';
 
 import got from 'got';
 import chalk from 'chalk';
@@ -139,7 +140,7 @@ async function main(config) {
 
   // const url = 'https://www.douyin.com/user/MS4wLjABAAAA5ZrIrbgva_HMeHuNn64goOD2XYnk4ItSypgRHlbSh1c';
 
-  console.log(`\n# Checks started at ${formatDate(Date.now())} ------------`);
+  console.log(`\n# Check loop started at ${formatDate(Date.now())} ------------`);
 
   for (let i = 0; i < config.accounts.length; i++) {
     const account = config.accounts[i];
@@ -1020,6 +1021,8 @@ async function main(config) {
       argv.verbose && log(`global db saved`);
     }
   }
+
+  argv.verbose && console.log('# Check loop ended');
 }
 
 if (argv._.includes('run')) {
@@ -1039,23 +1042,15 @@ if (argv._.includes('run')) {
   });
 
   // Execute on run
-  main(config);
+  await main(config);
 
   if (!argv.once) {
 
-    // async function loop() {
-    //   while (true) {
-    //     console.log('start');
-    //     await setTimeout(config.loopInterval);
-    //     await main(config);
-    //     console.log('stop');
-    //   }
-    // }
-    // loop();
-
     // Loop over interval
-    setInterval(() => {
-      main(config);
+    setIntervalAsync(async () => {
+      argv.verbose && console.log('interval started');
+      await main(config);
+      argv.verbose && console.log('interval ended');
     }, config.loopInterval);
   }
 }
