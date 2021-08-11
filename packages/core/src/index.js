@@ -171,7 +171,9 @@ async function main(config) {
       // Initialize proxy randomly to avoid bilibili rate limit
       // .5 - 50% true
       const proxyOptions = config?.socksProxy && Math.random() < .5 ? {
-        agent: new ProxyAgent(config.socksProxy)
+        agent: {
+          https: new ProxyAgent(config.socksProxy)
+        }
       } : {};
 
       // Fetch Douyin live
