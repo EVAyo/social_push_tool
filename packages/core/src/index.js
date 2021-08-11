@@ -13,6 +13,7 @@ import { formatDistanceToNowStrict } from 'date-fns';
 import { Low, JSONFile } from 'lowdb';
 import ProxyAgent from 'proxy-agent';
 import SocksProxyAgent from 'socks-proxy-agent';
+import { HttpsProxyAgent } from 'hpagent';
 
 import TelegramBot from '@a-soul/sender-telegram';
 import dyExtract from '@a-soul/extractor-douyin';
@@ -172,7 +173,14 @@ async function main(config) {
       // .5 - 50% true
       const proxyOptions = config?.socksProxy && Math.random() < .5 ? {
         agent: {
-          https: new ProxyAgent(config.socksProxy)
+          https: new HttpsProxyAgent({
+            keepAlive: false,
+            keepAliveMsecs: 1000,
+            maxSockets: 256,
+            maxFreeSockets: 256,
+            scheduling: 'lifo',
+            proxy: config.socksProxy
+          })
         }
       } : {};
 
