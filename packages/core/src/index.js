@@ -11,6 +11,7 @@ import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { Low, JSONFile } from 'lowdb';
+import ProxyAgent from 'proxy-agent';
 import SocksProxyAgent from 'socks-proxy-agent';
 
 import TelegramBot from '@a-soul/sender-telegram';
@@ -170,9 +171,7 @@ async function main(config) {
       // Initialize proxy randomly to avoid bilibili rate limit
       // .5 - 50% true
       const proxyOptions = config?.socksProxy && Math.random() < .5 ? {
-        agent: {
-          https: new SocksProxyAgent(config.socksProxy)
-        }
+        agent: new ProxyAgent(config.socksProxy)
       } : {};
 
       // Fetch Douyin live
