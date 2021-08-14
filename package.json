@@ -1,6 +1,5 @@
 {
   "name": "a-soul",
-  "version": "1.0.0",
   "description": "Extract data from services and push updates to Telegram or other platforms",
   "main": "index.js",
   "author": "Tunghsiao Liu",
