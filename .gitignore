@@ -1,2 +1,4 @@
 # Project-specific
 db/
+config.js
+config.json

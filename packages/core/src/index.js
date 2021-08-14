@@ -31,7 +31,7 @@ const argv = yargs(hideBin(process.argv))
   })
   .option('config', {
     alias: 'c',
-    description: 'User configuration file (in JSON format)',
+    description: 'User configuration file',
     type: 'string',
   })
   .option('verbose', {
@@ -42,30 +42,38 @@ const argv = yargs(hideBin(process.argv))
   .alias('help', 'h')
   .argv;
 
-const userConfig = argv.config ? JSON.parse(fs.readFileSync(argv.config)) : {};
 
-const defaultConfig = {
-  loopInterval: 60 * 1000, // n seconds
-  requestOptions: {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36',
-    }
-  },
-  douyinBotThrottle: 24 * 3600 * 1000, // seconds, if latest post older than n secs, do not send notifications
-  douyinLiveBotThrottle: 1200 * 1000, // 20 mins
-  bilibiliBotThrottle: 3600 * 1000, // 60 mins, bilibili sometimes got limit rate for 30 mins.
-  bilibiliLiveBotThrottle: 1200 * 1000,
-  weiboBotThrottle: 3600 * 1000,
-  socksProxy: '',
-  telegram: {
-    enabled: true,
-    silent: false,
-    token: '',
-  },
-  accounts: []
-};
+async function generateConfig() {
+  console.log(`cwd`, process.cwd());
 
-const config = merge(defaultConfig, userConfig);
+  const userConfig = argv.config ? await import(`${process.cwd()}/${argv.config}`) : { default: {}};
+  const defaultConfig = {
+    loopInterval: 60 * 1000, // n seconds
+    requestOptions: {
+      // TODO: need refine for douyin and douyin-live limitation
+      // headers: {
+      //   'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36',
+      // }
+    },
+    douyinBotThrottle: 24 * 3600 * 1000, // seconds, if latest post older than n secs, do not send notifications
+    douyinLiveBotThrottle: 1200 * 1000, // 20 mins
+    bilibiliBotThrottle: 3600 * 1000, // 60 mins, bilibili sometimes got limit rate for 30 mins.
+    bilibiliLiveBotThrottle: 1200 * 1000,
+    weiboBotThrottle: 3600 * 1000,
+    socksProxy: '',
+    telegram: {
+      enabled: true,
+      silent: false,
+      token: '',
+    },
+    accounts: []
+  };
+
+  return merge(defaultConfig, userConfig.default);
+}
+
+// const userConfig = argv.config ? JSON.parse(fs.readFileSync(argv.config)) : {};
+
 
 function formatDate(timestamp) {
   let date = timestamp.toString().length === 10 ? new Date(+timestamp * 1000) : new Date(+timestamp);
@@ -136,6 +144,9 @@ async function send(account, messageType, userOptions) {
   return resp?.body && JSON.parse(resp.body);
 }
 
+// Merge default configs and user configs
+const config = await generateConfig();
+
 async function main(config) {
   // Initial database
   const db = new Low(new JSONFile(path.join(path.resolve(), 'db/db.json')));
@@ -185,29 +196,135 @@ async function main(config) {
       } : {};
 
       // Fetch Douyin live
-      // account.douyinLiveId && dyExtract(`https://webcast.amemv.com/webcast/reflow/${account.douyinLiveId}`, config.requestOptions).then(async resp => {
-      //   const json = resp?.['/webcast/reflow/:id'];
+      account.douyinLiveId && await dyExtract(`https://live.douyin.com/${account.douyinLiveId}`, config.requestOptions).then(async resp => {
+        const json = resp?.initialState?.roomStore?.roomInfo;
 
-      //   if (json) {
+        if (json) {
+          const status = json?.room?.status;
+          const id_str = json?.room?.id_str;
 
-      //     argv.json && fs.writeFile(`db/${account.slug}-douyin-live.json`, JSON.stringify(json, null, 2), err => {
-      //       if (err) return console.log(err);
-      //     });
+          if (status === 2) {
+            argv.verbose && log(`douyin-live seems started, begin second check...`);
 
-      //   } else {
-      //     log(`douyin live data corrupted, skipping...`);
-      //   }
+            await dyExtract(`https://webcast.amemv.com/webcast/reflow/${id_str}`, config.requestOptions).then(async resp => {
+              const currentTime = Date.now();
+              const json = resp?.['/webcast/reflow/:id'];
 
-      // }).catch(err => {
-      //   console.log(err);
-      // });
+              if (json?.room) {
+                argv.json && fs.writeFile(`db/${account.slug}-douyin-live.json`, JSON.stringify(json, null, 2), err => {
+                  if (err) return console.log(err);
+                });
+
+                const {
+                  id_str,
+                  title,
+                  cover,
+                  create_time,
+                  stream_url,
+                } = json.room;
+
+                const {
+                  nickname,
+                  web_rid,
+                  sec_uid,
+                  id,
+                  short_id,
+                  signature,
+                  avatar_large,
+                  authentication_info,
+                } = json.room.owner;
+
+                const liveCover = cover?.url_list?.[0];
+                const timestamp = create_time * 1000;
+                const streamUrl = Object.values(stream_url.hls_pull_url_map)[0];
+
+                const dbStore = {
+                  nickname: nickname,
+                  uid: sec_uid,
+                  scrapedTime: new Date(currentTime),
+                  sign: signature,
+                  latestStream: {
+                    liveStatus: status,
+                    liveStarted: timestamp,
+                    liveRoom: id_str,
+                    liveTitle: title,
+                    liveCover: liveCover,
+                    isTgSent: dbScope?.douyin_live?.latestStream?.isTgSent,
+                  },
+                  streamFormats: stream_url.candidate_resolution,
+                  streamUrl: streamUrl,
+                };
+
+                if (json?.room?.status === 2) {
+                  log(`douyin-live started: ${title} (${timeAgo(timestamp)})`);
+
+                  const tgOptions = {
+                    method: 'sendPhoto',
+                    body: {
+                      photo: liveCover,
+                      caption: `抖音开播🔴：${title}`,
+                      reply_markup: {
+                        inline_keyboard: [
+                          [
+                            {text: 'Watch', url: `https://webcast.amemv.com/webcast/reflow/${id_str}`},
+                            {text: `M3U8`, url: `${streamUrl}`},
+                          ],
+                          [
+                            {text: 'Artwork', url: liveCover},
+                            {text: `${nickname}`, url: `https://live.douyin.com/${account.douyinLiveId}`},
+                          ],
+                        ]
+                      },
+                    }
+                  };
+
+                  if (account.tgChannelID && config.telegram.enabled) {
+
+                    if (dbScope?.douyin_live?.latestStream?.isTgSent) {
+                      log(`douyin-live notification sent, skipping...`);
+                    } else if ((currentTime - timestamp) >= config.douyinLiveBotThrottle) {
+                      log(`douyin-live too old, notifications skipped`);
+                    } else {
+                      // This function should be waited since we rely on the `isTgSent` flag
+                      await sendTelegram(account.tgChannelID, tgOptions).then(resp => {
+                        // log(`telegram post douyin-live success: message_id ${resp.result.message_id}`)
+                        dbStore.latestStream.isTgSent = true;
+                      })
+                      .catch(err => {
+                        log(`telegram post douyin-live error: ${err?.response?.body?.trim() || err}`);
+                      });
+                    }
+                  }
+                } else {
+                  log(`douyin-live not started yet (2nd check)`);
+                  dbStore.latestStream.isTgSent = false;
+                }
+
+                // Set new data to database
+                dbScope['douyin_live'] = dbStore;
+              } else {
+                log(`douyin-live stream info corrupted, skipping...`);
+              }
+            });
+          } else {
+            log(`douyin-live not started yet`);
+          }
+        } else {
+          log(`douyin-live info corrupted, skipping...`);
+        }
+      }).catch(err => {
+        console.log(err);
+      });
 
       // Fetch Douyin
       account.douyinId && await dyExtract(`https://www.douyin.com/user/${account.douyinId}`, config.requestOptions).then(async resp => {
         const currentTime = Date.now();
         const json = resp;
-        const userMeta = json?.C_10?.user?.user;
-        const posts = json?.C_10?.post?.data;
+
+        // TODO: C_12 changes over time.
+        // Need a better way to update
+        const userMeta = json?.C_12?.user?.user;
+        const posts = json?.C_12?.post?.data;
 
         if (userMeta && posts?.length > 0) {
           const {
@@ -712,7 +829,7 @@ async function main(config) {
                     inline_keyboard: [
                       [
                         {text: 'View', url: `https://t.bilibili.com/${dynamicId}`},
-                        {text: 'View Video', url: `${cardJson.short_link}`},
+                        {text: 'Watch Video', url: `${cardJson.short_link}`},
                         {text: `${user.info.uname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
                       ],
                     ]

@@ -1,10 +1,11 @@
 {
   "name": "a-soul",
   "version": "1.0.0",
-  "description": "Extract data from social networking services and push updates to Telegram or other platforms",
+  "description": "Extract data from services and push updates to Telegram or other platforms",
   "main": "index.js",
   "author": "Tunghsiao Liu",
   "license": "AGPL-3.0-or-later",
+  "type": "module",
   "private": true,
   "workspaces": [
     "packages/*"
@@ -12,7 +13,7 @@
   "scripts": {
     "test": "yarn workspace @a-soul/core test",
     "build": "yarn workspace @a-soul/core build",
-    "start": "yarn workspace @a-soul/core start -c config.json",
+    "start": "npx @a-soul/core run -c config.js",
     "release": "yarn lerna publish",
     "extractor-douyin:release": "yarn workspace @a-soul/extractor-douyin release",
     "extractor-tiktok:release": "yarn workspace @a-soul/extractor-tiktok release"
