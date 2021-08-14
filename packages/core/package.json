@@ -1,6 +1,6 @@
 {
   "name": "@a-soul/core",
-  "version": "1.2.9",
+  "version": "1.2.10",
   "description": "Extract rendered data from Douyin web version",
   "main": "src/index.js",
   "bin": "src/index.js",
@@ -16,8 +16,8 @@
     "registry": "https://registry.npmjs.org/"
   },
   "dependencies": {
-    "@a-soul/extractor-douyin": "^1.2.9",
-    "@a-soul/sender-telegram": "^1.2.9",
+    "@a-soul/extractor-douyin": "^1.2.10",
+    "@a-soul/sender-telegram": "^1.2.10",
     "chalk": "^4.1.1",
     "date-fns": "^2.23.0",
     "deepmerge": "^4.2.2",
