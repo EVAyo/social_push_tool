@@ -38,7 +38,21 @@ npx @a-soul/core run -c config.js
 
 ## Configurations
 
-Your config file may look like:
+Minimal config:
+
+```js
+{
+  accounts: [
+    {
+      enabled: true,
+      slug: '嘉然',
+      biliId: '672328094',
+    },
+  ]
+}
+```
+
+Your final config file may look like:
 
 ```js
 {
