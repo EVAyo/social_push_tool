@@ -19,6 +19,24 @@ console.log(resp._location);
 //=> /user/MS4wLjABAAAA5ZrIrbgva_HMeHuNn64goOD2XYnk4ItSypgRHlbSh1c
 ```
 
+## Options
+
+```js
+const options = {
+  mobileUserAgent: `got`,
+  desktopUserAgent: `got`,
+  gotOptions: {
+    timeout: {
+      request: 3000
+    },
+    retry: {
+      limit: 3,
+    }
+  }
+}
+await extract(url, options);
+```
+
 ## License
 
 AGPL-3.0

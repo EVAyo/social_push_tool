@@ -56,7 +56,7 @@ Your final config file may look like:
 
 ```js
 {
-  socksProxy: 'http://10.2.1.2:7890',
+  rateLimitProxy: 'http://10.2.1.2:7890',
   telegram: {
     enabled: true,
     token: ''

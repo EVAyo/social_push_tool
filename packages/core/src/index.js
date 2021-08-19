@@ -11,7 +11,6 @@ import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { Low, JSONFile } from 'lowdb';
-import ProxyAgent from 'proxy-agent';
 import SocksProxyAgent from 'socks-proxy-agent';
 import { HttpsProxyAgent } from 'hpagent';
 
@@ -49,18 +48,19 @@ async function generateConfig() {
   const userConfig = argv.config ? await import(`${process.cwd()}/${argv.config}`) : { default: {}};
   const defaultConfig = {
     loopInterval: 60 * 1000, // n seconds
-    requestOptions: {
-      // TODO: need refine for douyin and douyin-live limitation
-      // headers: {
-      //   'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36',
-      // }
+    pluginOptions: {
+      gotOptions: {
+        timeout: {
+          request: 10000
+        }
+      }
     },
     douyinBotThrottle: 24 * 3600 * 1000, // seconds, if latest post older than n secs, do not send notifications
     douyinLiveBotThrottle: 1200 * 1000, // 20 mins
     bilibiliBotThrottle: 3600 * 1000, // 60 mins, bilibili sometimes got limit rate for 30 mins.
     bilibiliLiveBotThrottle: 1200 * 1000,
     weiboBotThrottle: 3600 * 1000,
-    socksProxy: '',
+    rateLimitProxy: '',
     telegram: {
       enabled: true,
       silent: false,
@@ -182,7 +182,7 @@ async function main(config) {
 
       // Initialize proxy randomly to avoid bilibili rate limit
       // .5 - 50% true
-      const proxyOptions = config?.socksProxy && Math.random() < .5 ? {
+      const proxyOptions = config?.rateLimitProxy && Math.random() < .5 ? {
         agent: {
           https: new HttpsProxyAgent({
             keepAlive: false,
@@ -190,13 +190,13 @@ async function main(config) {
             maxSockets: 256,
             maxFreeSockets: 256,
             scheduling: 'lifo',
-            proxy: config.socksProxy
+            proxy: config.rateLimitProxy
           })
         }
       } : {};
 
       // Fetch Douyin live
-      account.douyinLiveId && await dyExtract(`https://live.douyin.com/${account.douyinLiveId}`, config.requestOptions).then(async resp => {
+      account.douyinLiveId && await dyExtract(`https://live.douyin.com/${account.douyinLiveId}`, config.pluginOptions).then(async resp => {
         const json = resp?.initialState?.roomStore?.roomInfo;
 
         if (json) {
@@ -206,7 +206,7 @@ async function main(config) {
           if (status === 2) {
             argv.verbose && log(`douyin-live seems started, begin second check...`);
 
-            await dyExtract(`https://webcast.amemv.com/webcast/reflow/${id_str}`, config.requestOptions).then(async resp => {
+            await dyExtract(`https://webcast.amemv.com/webcast/reflow/${id_str}`, config.pluginOptions).then(async resp => {
               const currentTime = Date.now();
               const json = resp?.['/webcast/reflow/:id'];
 
@@ -317,7 +317,7 @@ async function main(config) {
       });
 
       // Fetch Douyin
-      account.douyinId && await dyExtract(`https://www.douyin.com/user/${account.douyinId}`, config.requestOptions).then(async resp => {
+      account.douyinId && await dyExtract(`https://www.douyin.com/user/${account.douyinId}`, config.pluginOptions).then(async resp => {
         const currentTime = Date.now();
         const json = resp;
 
@@ -431,7 +431,7 @@ async function main(config) {
       });
 
       // Fetch bilibili live
-      account.biliId && await got(`https://api.bilibili.com/x/space/acc/info?mid=${account.biliId}`, {...config.requestOptions, ...proxyOptions}).then(async resp => {
+      account.biliId && await got(`https://api.bilibili.com/x/space/acc/info?mid=${account.biliId}`, {...config.pluginOptions?.gotOptions, ...proxyOptions}).then(async resp => {
         const json = JSON.parse(resp.body);
 
         if (json?.code === 0) {
@@ -595,7 +595,7 @@ async function main(config) {
           if (room?.liveStatus === 1) {
 
             // Deprecated v1 API, may be changed in the future
-            await got(`https://api.live.bilibili.com/room/v1/Room/room_init?id=${liveId}`, {...config.requestOptions, ...proxyOptions}).then(async resp => {
+            await got(`https://api.live.bilibili.com/room/v1/Room/room_init?id=${liveId}`, {...config.pluginOptions?.gotOptions, ...proxyOptions}).then(async resp => {
               const json = JSON.parse(resp.body);
 
               if (json?.code === 0) {
@@ -655,7 +655,7 @@ async function main(config) {
       });
 
       // Fetch bilibili microblog (dynamics)
-      account.biliId && await got(`https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history?host_uid=${account.biliId}&offset_dynamic_id=0&need_top=0&platform=web`, {...config.requestOptions, ...proxyOptions}).then(async resp => {
+      account.biliId && await got(`https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history?host_uid=${account.biliId}&offset_dynamic_id=0&need_top=0&platform=web`, {...config.pluginOptions?.gotOptions, ...proxyOptions}).then(async resp => {
         const json = JSON.parse(resp.body);
 
         if (json?.code === 0) {
@@ -931,7 +931,7 @@ async function main(config) {
       });
 
       // Fetch Weibo
-      account.weiboId && await got(`https://m.weibo.cn/profile/info?uid=${account.weiboId}`, config.requestOptions).then(async resp => {
+      account.weiboId && await got(`https://m.weibo.cn/profile/info?uid=${account.weiboId}`, config.pluginOptions?.gotOptions).then(async resp => {
         const json = JSON.parse(resp.body);
 
         if (json?.ok === 1) {
@@ -1159,8 +1159,8 @@ if (argv._.includes('run')) {
   // Output configs for reference
   console.log('Current configs', {
     loopInterval: config.loopInterval,
-    socksProxy: config.socksProxy,
-    requestOptions: config.requestOptions,
+    rateLimitProxy: config.rateLimitProxy,
+    pluginOptions: config.pluginOptions,
     douyinBotThrottle: config.douyinBotThrottle,
     douyinLiveBotThrottle: config.douyinLiveBotThrottle,
     bilibiliBotThrottle: config.bilibiliBotThrottle,

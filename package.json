@@ -10,12 +10,12 @@
     "packages/*"
   ],
   "scripts": {
-    "test": "yarn workspace @a-soul/core test",
-    "build": "yarn workspace @a-soul/core build",
     "start": "npx @a-soul/core run -c config.js",
     "release": "yarn lerna publish",
-    "extractor-douyin:release": "yarn workspace @a-soul/extractor-douyin release",
-    "extractor-tiktok:release": "yarn workspace @a-soul/extractor-tiktok release"
+    "core": "yarn workspace @a-soul/core",
+    "extractor-douyin": "yarn workspace @a-soul/extractor-douyin",
+    "extractor-tiktok": "yarn workspace @a-soul/extractor-tiktok",
+    "sender-telegram": "yarn workspace @a-soul/sender-telegram"
   },
   "devDependencies": {
     "lerna": "^4.0.0"
