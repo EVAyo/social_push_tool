@@ -11,7 +11,6 @@ import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { Low, JSONFile } from 'lowdb';
-import SocksProxyAgent from 'socks-proxy-agent';
 import { HttpsProxyAgent } from 'hpagent';
 
 import TelegramBot from '@a-soul/sender-telegram';

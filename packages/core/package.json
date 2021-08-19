@@ -25,7 +25,6 @@
     "hpagent": "^0.1.2",
     "lowdb": "^2.1.0",
     "set-interval-async": "^2.0.3",
-    "socks-proxy-agent": "^6.0.0",
     "yargs": "^17.0.1"
   },
   "gitHead": "2784fe0723eee2d830259e2c95e4f3fff3a41075"
