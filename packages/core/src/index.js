@@ -1157,16 +1157,7 @@ if (argv._.includes('run')) {
   !fs.existsSync('db') && fs.mkdirSync('db');
 
   // Output configs for reference
-  console.log('Current configs', {
-    loopInterval: config.loopInterval,
-    rateLimitProxy: config.rateLimitProxy,
-    pluginOptions: config.pluginOptions,
-    douyinBotThrottle: config.douyinBotThrottle,
-    douyinLiveBotThrottle: config.douyinLiveBotThrottle,
-    bilibiliBotThrottle: config.bilibiliBotThrottle,
-    bilibiliLiveBotThrottle: config.bilibiliLiveBotThrottle,
-    telegram: config.telegram,
-  });
+  argv.verbose && console.log('Current configs', config);
 
   // Execute on run
   await main(config);
