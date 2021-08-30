@@ -7,7 +7,7 @@ Extract data from services and push updates to Telegram or other platforms
 - Monitor several services at the same time
 - Support retry on failed connections
 - Proxy support to avoid API rate limit
-- Low memory footprint
+- Low memory footprint (~ 50 MB)
 - ESM by default with minimal dependencies
 
 ## Supported Services (and plans)
@@ -52,11 +52,25 @@ Minimal `config.js`:
 }
 ```
 
-Your final `config.js` file may look like:
+Your full `config.js` file may look like:
 
 ```js
 {
   rateLimitProxy: 'http://10.2.1.2:7890',
+  pluginOptions: {
+    gotOptions: {
+      timeout: {
+        request: 3000
+      },
+    },
+    cookies: {
+      douyin: ``,
+      // get `SESSDATA` cookie from https://www.bilibili.com/
+      bilibili: `SESSDATA=XXX`,
+      // get `SUB` cookie from https://m.weibo.cn/
+      weibo: `SUB=XXX`,
+    }
+  },
   telegram: {
     enabled: true,
     token: ''

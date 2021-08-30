@@ -40,7 +40,6 @@ const argv = yargs(hideBin(process.argv))
   .alias('help', 'h')
   .argv;
 
-
 async function generateConfig() {
   console.log(`cwd`, process.cwd());
 
@@ -90,6 +89,14 @@ function stripHtml(string = '', withBr = true) {
     return string.replace(/<br ?\/?>/gmi, '\n').replace(/(<([^>]+)>)/gmi, '');
   } else {
     return string.replace(/(<([^>]+)>)/gmi, '');
+  }
+}
+
+function headerOnDemand(cookie) {
+  return {
+    headers: {
+      Cookie: cookie
+    }
   }
 }
 
@@ -936,7 +943,8 @@ async function main(config) {
       });
 
       // Fetch Weibo
-      account.weiboId && await got(`https://m.weibo.cn/profile/info?uid=${account.weiboId}`, config.pluginOptions?.gotOptions).then(async resp => {
+      const weiboGotOptions = {...config.pluginOptions?.gotOptions, ...headerOnDemand(config.pluginOptions.cookies.weibo)};
+      account.weiboId && await got(`https://m.weibo.cn/profile/info?uid=${account.weiboId}`, weiboGotOptions).then(async resp => {
         const json = JSON.parse(resp.body);
 
         if (json?.ok === 1) {
@@ -956,11 +964,18 @@ async function main(config) {
 
             const timestamp = +new Date(status.created_at);
             const id = status.bid;
+            const visibility = status?.visible?.type;
             const text = status?.raw_text || stripHtml(status.text);
 
             argv.json && fs.writeFile(`db/${account.slug}-weibo.json`, JSON.stringify(json, null, 2), err => {
               if (err) return console.log(err);
             });
+
+            const visibilityMap = {
+              1: `自己可见`,
+              6: `好友圈可见`,
+              10: `粉丝可见`
+            }
 
             const dbStore = {
               scrapedTime: new Date(currentTime),
@@ -968,6 +983,7 @@ async function main(config) {
               latestStatus: {
                 id: id,
                 text: text,
+                visibility: visibility,
                 timestamp: new Date(timestamp),
                 timestampUnix: timestamp,
                 timeAgo: timeAgo(timestamp),
@@ -1061,7 +1077,7 @@ async function main(config) {
               const tgOptions = {
                 method: 'sendMessage',
                 body: {
-                  text: `#微博新动态：${text}`,
+                  text: `#微博新${visibilityMap[visibility] || ''}动态：${text}`,
                   reply_markup: {
                     inline_keyboard: [
                       [
