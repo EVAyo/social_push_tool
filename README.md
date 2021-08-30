@@ -38,7 +38,7 @@ npx @a-soul/core run -c config.js
 
 ## Configurations
 
-Minimal config:
+Minimal `config.js`:
 
 ```js
 {
@@ -52,7 +52,7 @@ Minimal config:
 }
 ```
 
-Your final config file may look like:
+Your final `config.js` file may look like:
 
 ```js
 {

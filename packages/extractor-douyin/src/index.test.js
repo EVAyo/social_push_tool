@@ -6,7 +6,16 @@ const liveDesktopResp = await extract(`https://live.douyin.com/820648166099`);
 const liveMobileResp = await extract(`https://webcast.amemv.com/webcast/reflow/6996256987986021157`);
 
 export function jsonContentExists() {
-  equal(resp?._location, '/user/MS4wLjABAAAA5ZrIrbgva_HMeHuNn64goOD2XYnk4ItSypgRHlbSh1c');
+  // Douyin trends to change object key regularly. (ie. C_10, C_12, C_14)
+  // I need to find a static property to pin specific object
+  let data = {};
+  for (const obj in resp) {
+    if (resp[obj].hasOwnProperty('uid')) {
+      data = resp[obj];
+    }
+  }
+
+  equal(data?.uid, 'MS4wLjABAAAA5ZrIrbgva_HMeHuNn64goOD2XYnk4ItSypgRHlbSh1c');
 };
 
 export function jsonLiveDesktopContentExists() {

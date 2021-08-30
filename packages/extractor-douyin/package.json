@@ -9,9 +9,10 @@
   "type": "module",
   "scripts": {
     "test": "xv src",
-    "release": "release-it"
+    "release": "npx release-it"
   },
   "keywords": [
+    "a-soul",
     "douyin",
     "scraper"
   ],

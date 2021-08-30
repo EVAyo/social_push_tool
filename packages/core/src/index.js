@@ -318,12 +318,18 @@ async function main(config) {
       // Fetch Douyin
       account.douyinId && await dyExtract(`https://www.douyin.com/user/${account.douyinId}`, config.pluginOptions).then(async resp => {
         const currentTime = Date.now();
-        const json = resp;
 
-        // TODO: C_12 changes over time.
-        // Need a better way to update
-        const userMeta = json?.C_12?.user?.user;
-        const posts = json?.C_12?.post?.data;
+        // Douyin trends to change object key regularly. (ie. C_10, C_12, C_14)
+        // I need to find a static property to pin specific object
+        let json = {};
+        for (const obj in resp) {
+          if (resp[obj].hasOwnProperty('uid')) {
+            json = resp[obj];
+          }
+        }
+
+        const userMeta = json?.user?.user;
+        const posts = json?.post?.data;
 
         if (userMeta && posts?.length > 0) {
           const {
