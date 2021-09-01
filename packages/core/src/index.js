@@ -55,8 +55,8 @@ async function generateConfig() {
     },
     douyinBotThrottle: 24 * 3600 * 1000, // seconds, if latest post older than n secs, do not send notifications
     douyinLiveBotThrottle: 1200 * 1000, // 20 mins
-    bilibiliBotThrottle: 3600 * 1000, // 60 mins, bilibili sometimes got limit rate for 30 mins.
-    bilibiliLiveBotThrottle: 1200 * 1000,
+    bilibiliBotThrottle: 65 * 60 * 1000, // 65 mins, bilibili sometimes got limit rate for 60 mins.
+    bilibiliLiveBotThrottle: 65 * 60 * 1000,
     weiboBotThrottle: 3600 * 1000,
     rateLimitProxy: '',
     telegram: {
@@ -173,7 +173,7 @@ async function main(config) {
     // Only check enabled account
     if (account?.enabled) {
       // Set random request time to avoid request limit
-      await setTimeout(1000 + Math.floor(Math.random() * 400));
+      await setTimeout(1000 + Math.floor(Math.random() * 2000));
 
       argv.verbose && log(`is checking...`);
 
