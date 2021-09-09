@@ -313,7 +313,15 @@ async function main(config) {
               }
             });
           } else {
+            // TODO: Simplify make sure isTgSent set to false if not current live onfirst check
+            // Need better solution
+            const dbStore = {
+              latestStream: {
+                isTgSent: false,
+              },
+            }
             log(`douyin-live not started yet`);
+            dbScope['douyin_live'] = dbStore;
           }
         } else {
           log(`douyin-live info corrupted, skipping...`);
