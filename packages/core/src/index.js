@@ -397,7 +397,7 @@ async function main(config) {
               method: 'sendVideo',
               body: {
                 video: videoUrl,
-                caption: `#抖音新视频：${title} #${id}`,
+                caption: `#抖音视频：${title} #${id}`,
                 reply_markup: {
                   inline_keyboard: [
                     [
@@ -718,7 +718,7 @@ async function main(config) {
               const tgOptions = {
                 method: 'sendMessage',
                 body: {
-                  text: `${user.info.uname} #b站新动态`,
+                  text: `${user.info.uname} #b站动态`,
                   reply_markup: {
                     inline_keyboard: [
                       [
@@ -743,7 +743,7 @@ async function main(config) {
                 if (originJson?.origin_image_urls) {
                   tgOptions.method = 'sendPhoto';
                   tgOptions.body.photo = `${originJson?.origin_image_urls}`;
-                  tgOptions.body.caption = `#b站新专栏转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.author.name}\n被转标题：${originJson.title}\n\n${originJson.summary}`;
+                  tgOptions.body.caption = `#b站专栏转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.author.name}\n被转标题：${originJson.title}\n\n${originJson.summary}`;
                 }
 
                 // Text with gallery
@@ -767,7 +767,7 @@ async function main(config) {
                     }));
 
                     // Only apply caption to the first image to make it auto shown on message list
-                    tgOptions.body.media[0].caption = `#b站新转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.name}\n被转内容：${originJson.item.description}`;
+                    tgOptions.body.media[0].caption = `#b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.name}\n被转内容：${originJson.item.description}`;
 
                     // Debug payload
                     // console.log(tgOptions.body.media);
@@ -796,7 +796,7 @@ async function main(config) {
                     } else {
                       tgOptions.body.photo = `${originJson?.item?.pictures[0].img_src}`;
                     }
-                    tgOptions.body.caption = `#b站新转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.name}\n被转内容：${originJson.item.description}`;
+                    tgOptions.body.caption = `#b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.name}\n被转内容：${originJson.item.description}`;
                   }
                 }
 
@@ -804,12 +804,12 @@ async function main(config) {
                 else if (originJson?.duration && originJson?.videos) {
                   tgOptions.method = 'sendPhoto';
                   tgOptions.body.photo = `${originJson?.pic}`;
-                  tgOptions.body.caption = `#b站新视频转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.owner.name}\n被转视频：${originJson.title}\n\n${originJson.desc}\n${originJson.short_link}`;
+                  tgOptions.body.caption = `#b站视频转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.owner.name}\n被转视频：${originJson.title}\n\n${originJson.desc}\n${originJson.short_link}`;
                 }
 
                 // Plain text
                 else {
-                  tgOptions.body.text = `#b站新转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.uname}\n被转动态：${originJson.item.content}`;
+                  tgOptions.body.text = `#b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.uname}\n被转动态：${originJson.item.content}`;
                 }
 
                 log(`bilibili-mblog got forwarded post (${timeAgo(timestamp)})`);
@@ -818,14 +818,14 @@ async function main(config) {
               // Gallery post (text post with images)
               else if (type === 2) {
                 tgOptions.method = 'sendPhoto';
-                tgOptions.body.caption = `#b站新相册动态：${cardJson?.item?.description}`;
+                tgOptions.body.caption = `#b站相册动态：${cardJson?.item?.description}`;
                 tgOptions.body.photo = cardJson?.item?.pictures[0].img_src;
                 log(`bilibili-mblog got gallery post (${timeAgo(timestamp)})`);
               }
 
               // Text post
               else if (type === 4) {
-                tgOptions.body.text = `#b站新动态：${cardJson?.item?.content.trim()}`;
+                tgOptions.body.text = `#b站动态：${cardJson?.item?.content.trim()}`;
                 log(`bilibili-mblog got text post (${timeAgo(timestamp)})`);
               }
 
@@ -836,7 +836,7 @@ async function main(config) {
                   photo: cardJson.pic,
                   // dynamic: microblog text
                   // desc: video description
-                  caption: `#b站新视频：${cardJson.title}\n${cardJson.dynamic}\n${cardJson.desc}`,
+                  caption: `#b站视频：${cardJson.title}\n${cardJson.dynamic}\n${cardJson.desc}`,
                   reply_markup: {
                     inline_keyboard: [
                       [
@@ -860,7 +860,7 @@ async function main(config) {
               else if (type === 64) {
                 tgOptions.method = 'sendPhoto';
                 tgOptions.body.photo = cardJson.origin_image_urls[0];
-                tgOptions.body.caption = `#b站新专栏：${cardJson.title}\n\n${cardJson.summary}`;
+                tgOptions.body.caption = `#b站专栏：${cardJson.title}\n\n${cardJson.summary}`;
 
                 log(`bilibili-mblog got column post (${timeAgo(timestamp)})`);
               }
@@ -1077,7 +1077,7 @@ async function main(config) {
               const tgOptions = {
                 method: 'sendMessage',
                 body: {
-                  text: `#微博新${visibilityMap[visibility] || ''}动态：${text}`,
+                  text: `#微博${visibilityMap[visibility] || ''}动态：${text}`,
                   reply_markup: {
                     inline_keyboard: [
                       [
@@ -1093,14 +1093,14 @@ async function main(config) {
               if (status.pic_ids?.length > 0) {
                 tgOptions.method = 'sendPhoto';
                 tgOptions.body.photo = `https://ww1.sinaimg.cn/large/${status.pic_ids[0]}.jpg`;
-                tgOptions.body.caption = `#微博新照片：${text}`;
+                tgOptions.body.caption = `#微博照片：${text}`;
               }
 
               // If post has video
               if (status?.page_info?.type === 'video') {
                 tgOptions.method = 'sendVideo';
                 tgOptions.body.video = status?.page_info?.media_info?.stream_url_hd || status?.page_info?.media_info?.stream_url;
-                tgOptions.body.caption = `#微博新视频：${text}`;
+                tgOptions.body.caption = `#微博视频：${text}`;
               }
 
               // TODO: parse 4k
