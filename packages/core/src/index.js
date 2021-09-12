@@ -297,7 +297,7 @@ async function main(config) {
                         dbStore.latestStream.isTgSent = true;
                       })
                       .catch(err => {
-                        log(`telegram post douyin-live error: ${err?.response?.body?.trim() || err}`);
+                        log(`telegram post douyin-live error: ${err?.response?.body || err}`);
                       });
                     }
                   }
@@ -313,7 +313,7 @@ async function main(config) {
               }
             });
           } else {
-            // TODO: Simplify make sure isTgSent set to false if not current live onfirst check
+            // TODO: Simplify make sure isTgSent set to false if not current live on first check
             // Need better solution
             const dbStore = {
               latestStream: {
@@ -432,7 +432,7 @@ async function main(config) {
                     // log(`telegram post douyin success: message_id ${resp.result.message_id}`)
                   })
                   .catch(err => {
-                    log(`telegram post douyin error: ${err?.response?.body?.trim() || err}`);
+                    log(`telegram post douyin error: ${err?.response?.body || err}`);
                   });
                 }
               }
@@ -550,7 +550,7 @@ async function main(config) {
                 // log(`telegram post bilibili-live::nickname success: message_id ${resp.result.message_id}`)
               })
               .catch(err => {
-                log(`telegram post bilibili-live::nickname error: ${err?.response?.body?.trim() || err}`);
+                log(`telegram post bilibili-live::nickname error: ${err?.response?.body || err}`);
               });
             }
           }
@@ -577,7 +577,7 @@ async function main(config) {
                 // log(`telegram post bilibili-live::sign success: message_id ${resp.result.message_id}`)
               })
               .catch(err => {
-                log(`telegram post bilibili-live::sign error: ${err?.response?.body?.trim() || err}`);
+                log(`telegram post bilibili-live::sign error: ${err?.response?.body || err}`);
               });
             }
           }
@@ -605,7 +605,7 @@ async function main(config) {
                 // log(`telegram post bilibili-live::avatar success: message_id ${resp.result.message_id}`)
               })
               .catch(err => {
-                log(`telegram post bilibili-live::avatar error: ${err?.response?.body?.trim() || err}`);
+                log(`telegram post bilibili-live::avatar error: ${err?.response?.body || err}`);
               });
             }
           }
@@ -648,7 +648,7 @@ async function main(config) {
                       dbStore.latestStream.isTgSent = true;
                     })
                     .catch(err => {
-                      log(`telegram post bilibili-live error: ${err?.response?.body?.trim() || err}`);
+                      log(`telegram post bilibili-live error: ${err?.response?.body || err}`);
                     });
                   }
                 }
@@ -657,7 +657,7 @@ async function main(config) {
               };
             })
             .catch(err => {
-              log(`bilibili-live stream info request error: ${err?.response?.body?.trim() || err}`);
+              log(`bilibili-live stream info request error: ${err?.response?.body || err}`);
             });
           } else {
             log(`bilibili-live not started yet`);
@@ -671,7 +671,7 @@ async function main(config) {
         }
       })
       .catch(err => {
-        log(`bilibili-live user info request error: ${err?.response?.body?.trim() || err}`);
+        log(`bilibili-live user info request error: ${err?.response?.body || err}`);
       });
 
       // Fetch bilibili microblog (dynamics)
@@ -902,7 +902,7 @@ async function main(config) {
                     // log(`telegram post bilibili-mblog success: message_id ${resp.result.message_id}`)
                   })
                   .catch(err => {
-                    log(`telegram post bilibili-mblog error: ${err?.response?.body?.trim() || err}`);
+                    log(`telegram post bilibili-mblog error: ${err?.response?.body || err}`);
                   });
                 }
               }
@@ -929,7 +929,7 @@ async function main(config) {
                   // log(`telegram post bilibili-mblog success: message_id ${resp.result.message_id}`)
                 })
                 .catch(err => {
-                  log(`telegram post bilibili-mblog error: ${err?.response?.body?.trim() || err}`);
+                  log(`telegram post bilibili-mblog error: ${err?.response?.body || err}`);
                 });
               }
 
@@ -947,7 +947,7 @@ async function main(config) {
         }
       })
       .catch(err => {
-        log(`bilibili-mblog request error: ${err?.response?.body?.trim() || err}`);
+        log(`bilibili-mblog request error: ${err?.response?.body || err}`);
       });
 
       // Fetch Weibo
@@ -1124,7 +1124,7 @@ async function main(config) {
                     // log(`telegram post weibo success: message_id ${resp.result.message_id}`)
                   })
                   .catch(err => {
-                    log(`telegram post weibo error: ${err?.response?.body?.trim() || err}`);
+                    log(`telegram post weibo error: ${err?.response?.body || err}`);
                   });
                 }
               }
@@ -1151,7 +1151,7 @@ async function main(config) {
               //     // log(`telegram post weibo success: message_id ${resp.result.message_id}`)
               //   })
               //   .catch(err => {
-              //     log(`telegram post weibo error: ${err?.response?.body?.trim() || err}`);
+              //     log(`telegram post weibo error: ${err?.response?.body || err}`);
               //   });
               // }
 
