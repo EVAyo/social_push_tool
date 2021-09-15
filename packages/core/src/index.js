@@ -101,6 +101,13 @@ function headerOnDemand(cookie) {
   }
 }
 
+function convertWeiboUrl(url) {
+  const originalUrl = new URL(url);
+  const { origin, pathname } = originalUrl;
+  const path = pathname.replace(/^\/.*\//i, '');
+  return `${origin}/mw2000/${path}`;
+}
+
 async function sendTelegram(chatId, userOptions) {
   const options = merge({
     token: config.telegram.token,
@@ -1076,6 +1083,34 @@ async function main(config) {
                   body: {
                     photo: user.avatar_hd,
                     caption: `#微博头像更新，老头像：${dbScope?.weibo?.user?.avatar_hd}`,
+                    reply_markup: {
+                      inline_keyboard: [
+                        [
+                          {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
+                        ],
+                      ]
+                    },
+                  }
+                }).then(resp => {
+                  // log(`telegram post weibo::avatar success: message_id ${resp.result.message_id}`)
+                })
+                .catch(err => {
+                  log(`telegram post weibo::avatar error: ${err}`);
+                });
+              }
+            }
+
+            // If user cover background update
+            if (user.cover_image_phone !== dbScope?.weibo?.user?.cover_image_phone && dbScope?.weibo?.user?.cover_image_phone) {
+              log(`weibo user cover updated: ${user.cover_image_phone}`);
+
+              if (account.tgChannelID && config.telegram.enabled) {
+
+                await sendTelegram(account.tgChannelID, {
+                  method: 'sendPhoto',
+                  body: {
+                    photo: convertWeiboUrl(user.cover_image_phone),
+                    caption: `#微博封面更新，旧封面：${convertWeiboUrl(dbScope?.weibo?.user?.cover_image_phone)}`,
                     reply_markup: {
                       inline_keyboard: [
                         [
