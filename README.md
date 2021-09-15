@@ -26,6 +26,14 @@ Extract data from services and push updates to Telegram or other platforms
 - [ ] general-rss
 - [ ] github
 
+## Supported Senders
+
+- [x] telegram
+
+## System Requirements
+
+- Node.js >= 16
+
 ## Usage
 
 ```bash
@@ -100,4 +108,19 @@ Your full `config.js` file may look like:
     },
   ]
 }
+```
+
+## Development
+
+You need to have [Yarn](https://yarnpkg.com/) installed first
+
+```bash
+# Install dependencies
+yarn install
+
+# Create config file
+vi config.js
+
+# Execute locally
+yarn run start --once --verbose
 ```
