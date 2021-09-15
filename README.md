@@ -125,6 +125,16 @@ vi config.js
 yarn run start --once --verbose
 ```
 
+## FAQ
+
+### Why this name?
+
+The original intention of this project was to monitor updates of a Chinese VTuber group [A-SOUL](https://virtualyoutuber.fandom.com/wiki/A-soul).
+
+### Why not executing checks in parallel
+
+Most services have API limits or rate limits. Executing checks in parallel only make sense with small amount of accounts.
+
 ## License
 
 AGPL-3.0
