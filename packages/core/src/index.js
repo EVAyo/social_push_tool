@@ -822,10 +822,12 @@ async function main(config) {
               }
 
               // Gallery post (text post with images)
-              else if (type === 2) {
+              else if (type === 2 && cardJson?.item?.pictures.length > 0) {
+                const photoCount = cardJson.item.pictures.length;
+                const photoCountText = photoCount > 1 ? `（共 ${photoCount} 张）` : ``;
                 tgOptions.method = 'sendPhoto';
-                tgOptions.body.caption = `#b站相册动态：${cardJson?.item?.description}`;
-                tgOptions.body.photo = cardJson?.item?.pictures[0].img_src;
+                tgOptions.body.caption = `#b站相册动态${photoCountText}：${cardJson?.item?.description}`;
+                tgOptions.body.photo = cardJson.item.pictures[0].img_src;
                 log(`bilibili-mblog got gallery post (${timeAgo(timestamp)})`);
               }
 
@@ -1110,9 +1112,11 @@ async function main(config) {
 
               // If post has photo
               if (status.pic_ids?.length > 0) {
+                const photoCount = status.pic_ids.length;
+                const photoCountText = photoCount > 1 ? `（共 ${photoCount} 张）` : ``;
                 tgOptions.method = 'sendPhoto';
                 tgOptions.body.photo = `https://ww1.sinaimg.cn/large/${status.pic_ids[0]}.jpg`;
-                tgOptions.body.caption = `#微博${visibilityMap[visibility] || ''}照片：${text}`;
+                tgOptions.body.caption = `#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}`;
               }
 
               // If post has video
