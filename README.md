@@ -124,3 +124,7 @@ vi config.js
 # Execute locally
 yarn run start --once --verbose
 ```
+
+## License
+
+AGPL-3.0
