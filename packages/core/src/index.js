@@ -70,8 +70,9 @@ async function generateConfig() {
   return merge(defaultConfig, userConfig.default);
 }
 
+// Merge default configs and user configs
+const config = await generateConfig();
 // const userConfig = argv.config ? JSON.parse(fs.readFileSync(argv.config)) : {};
-
 
 function formatDate(timestamp) {
   let date = timestamp.toString().length === 10 ? new Date(+timestamp * 1000) : new Date(+timestamp);
@@ -149,9 +150,6 @@ async function send(account, messageType, userOptions) {
   const resp = await TelegramBot(tgOptions);
   return resp?.body && JSON.parse(resp.body);
 }
-
-// Merge default configs and user configs
-const config = await generateConfig();
 
 async function main(config) {
   // Initial database
@@ -420,7 +418,7 @@ async function main(config) {
 
             // Check if this is a new post compared to last scrap
             if (id !== dbScope?.douyin?.latestPost?.id && timestamp > dbScope?.douyin?.latestPost?.timestampUnix) {
-              log(`douyin has update: ${id} (${timeAgo(timestamp)}) ${title}`);
+              log(`douyin got update: ${id} (${timeAgo(timestamp)}) ${title}`);
 
               // Send bot message
               if (account.tgChannelID && config.telegram.enabled) {
@@ -973,7 +971,20 @@ async function main(config) {
             const timestamp = +new Date(status.created_at);
             const id = status.bid;
             const visibility = status?.visible?.type;
-            const text = status?.raw_text || stripHtml(status.text);
+            let text = status?.raw_text || stripHtml(status.text);
+
+            if (status?.isLongText) {
+              log('weibo got post too long, trying extended text...')
+              await got(`https://m.weibo.cn/statuses/extend?id=${id}`, weiboGotOptions).then(async resp => {
+                const json = JSON.parse(resp.body);
+
+                if (json?.ok === 1 && json?.data?.longTextContent) {
+                  text = stripHtml(json.data.longTextContent);
+                } else {
+                  log('weibo extended info corrupted, using original text...');
+                }
+              });
+            }
 
             argv.json && fs.writeFile(`db/${account.slug}-weibo.json`, JSON.stringify(json, null, 2), err => {
               if (err) return console.log(err);
@@ -1101,21 +1112,21 @@ async function main(config) {
               if (status.pic_ids?.length > 0) {
                 tgOptions.method = 'sendPhoto';
                 tgOptions.body.photo = `https://ww1.sinaimg.cn/large/${status.pic_ids[0]}.jpg`;
-                tgOptions.body.caption = `#微博照片：${text}`;
+                tgOptions.body.caption = `#微博${visibilityMap[visibility] || ''}照片：${text}`;
               }
 
               // If post has video
               if (status?.page_info?.type === 'video') {
                 tgOptions.method = 'sendVideo';
                 tgOptions.body.video = status?.page_info?.media_info?.stream_url_hd || status?.page_info?.media_info?.stream_url;
-                tgOptions.body.caption = `#微博视频：${text}`;
+                tgOptions.body.caption = `#微博${visibilityMap[visibility] || ''}视频：${text}`;
               }
 
               // TODO: parse 4k
               // https://f.video.weibocdn.com/qpH0Ozj9lx07NO9oXw4E0104120qrc250E0a0.mp4?label=mp4_2160p60&template=4096x1890.20.0&trans_finger=aaa6a0a6b46c000323ae75fc96245471&media_id=4653054126129212&tp=8x8A3El:YTkl0eM8&us=0&ori=1&bf=3&ot=h&ps=3lckmu&uid=7vYqTU&ab=3915-g1,5178-g1,966-g1,1493-g0,1192-g0,1191-g0,1258-g0&Expires=1627682219&ssig=I7RDiLeNCQ&KID=unistore,video
 
               if (account.tgChannelID && config.telegram.enabled) {
-                log(`weibo has update: ${id} (${timeAgo(timestamp)})`);
+                log(`weibo got update: ${id} (${timeAgo(timestamp)})`);
 
                 if ((currentTime - timestamp) >= config.weiboBotThrottle) {
                   log(`weibo too old, notifications skipped`);
