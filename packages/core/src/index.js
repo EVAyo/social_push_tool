@@ -976,6 +976,7 @@ async function main(config) {
               statuses[1]?.created_at &&
               +new Date(statuses[0].created_at) < +new Date(statuses[1].created_at)
             ) ? statuses[1] : statuses[0];
+            const retweeted_status = status?.retweeted_status;
 
             const timestamp = +new Date(status.created_at);
             const id = status.bid;
@@ -1133,10 +1134,14 @@ async function main(config) {
               const tgOptions = {
                 method: 'sendMessage',
                 body: {
-                  text: `#微博${visibilityMap[visibility] || ''}动态：${text}`,
+                  text: `#微博${visibilityMap[visibility] || ''}${retweeted_status ? `转发` : `动态`}：${text}${retweeted_status ? `\n\n被转作者：@${retweeted_status.user.screen_name}\n被转内容：${stripHtml(retweeted_status.text)}` : ''}`,
                   reply_markup: {
                     inline_keyboard: [
-                      [
+                      retweeted_status ? [
+                        {text: 'View', url: `https://weibo.com/${user.id}/${id}`},
+                        {text: 'View Retweeted', url: `https://weibo.com/${retweeted_status.user.id}/${retweeted_status.bid}`},
+                        {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
+                      ] : [
                         {text: 'View', url: `https://weibo.com/${user.id}/${id}`},
                         {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
                       ],
