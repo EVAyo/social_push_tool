@@ -111,6 +111,7 @@ function convertWeiboUrl(url) {
 async function sendTelegram(chatId, userOptions) {
   const options = merge({
     token: config.telegram.token,
+    apiBase: config.telegram.apiBase,
     gotOptions: {
       retry: {
         limit: 3,
