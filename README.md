@@ -36,12 +36,20 @@ Extract data from services and push updates to Telegram or other platforms
 
 ## Usage
 
+Run with npx:
+
 ```bash
 # Show general help
 npx @a-soul/core -h
 
 # Start from specific config file
 npx @a-soul/core run -c config.js
+```
+
+Run with Docker:
+
+```bash
+docker run -v $(pwd)/config.js:/app/config.js -v $(pwd)/db:/app/db sparanoid/a-soul-core -c config.js --color
 ```
 
 ## Configurations
