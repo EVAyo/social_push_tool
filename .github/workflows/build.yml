@@ -50,6 +50,7 @@ jobs:
             sparanoid/a-soul
             ghcr.io/sparanoid/a-soul
           tags: |
+            type=edge
             type=schedule
             type=ref,event=branch
             type=ref,event=pr
