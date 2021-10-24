@@ -2,6 +2,9 @@
 
 Extract data from services and push updates to Telegram or other platforms
 
+- [Docker Hub](https://hub.docker.com/r/sparanoid/a-soul)
+- [ghcr.io](https://github.com/users/sparanoid/packages/container/package/a-soul)
+
 ## Features
 
 - Monitor several services at the same time
