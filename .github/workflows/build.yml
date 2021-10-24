@@ -66,9 +66,8 @@ jobs:
       - name: Build and push
         uses: docker/bake-action@v1
         with:
-          context: ./packages/core/
           files: |
-            ./docker-bake.hcl
+            ./packages/core/docker-bake.hcl
             ${{ steps.meta.outputs.bake-file }}
           targets: build-all
           push: ${{ github.event_name != 'pull_request' }}
