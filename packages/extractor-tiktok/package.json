@@ -21,10 +21,10 @@
   },
   "dependencies": {
     "got": "^11.8.2",
-    "jsdom": "^17.0.0"
+    "jsdom": "^18.0.0"
   },
   "devDependencies": {
-    "xv": "^0.2.3"
+    "xv": "^1.1.0"
   },
   "gitHead": "ef7fad68abccb38f7e257d9ae07be14c05059fda"
 }
