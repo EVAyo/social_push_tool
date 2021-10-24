@@ -4,6 +4,7 @@ variable "DEFAULT_TAG" {
 
 # Special target: https://github.com/docker/metadata-action#bake-definition
 target "docker-metadata-action" {
+  context = "./packages/core"
   tags = "${DEFAULT_TAG}"
 }
 
