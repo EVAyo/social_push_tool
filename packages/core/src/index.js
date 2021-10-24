@@ -9,9 +9,10 @@ import chalk from 'chalk';
 import merge from 'deepmerge';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
-import { formatDistanceToNowStrict } from 'date-fns';
 import { Low, JSONFile } from 'lowdb';
 import { HttpsProxyAgent } from 'hpagent';
+
+import { formatDate, timeAgo, stripHtml, convertWeiboUrl } from './utils.js';
 
 import TelegramBot from '@a-soul/sender-telegram';
 import dyExtract from '@a-soul/extractor-douyin';
@@ -74,38 +75,12 @@ async function generateConfig() {
 const config = await generateConfig();
 // const userConfig = argv.config ? JSON.parse(fs.readFileSync(argv.config)) : {};
 
-function formatDate(timestamp) {
-  let date = timestamp.toString().length === 10 ? new Date(+timestamp * 1000) : new Date(+timestamp);
-  return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
-}
-
-function timeAgo(timestamp, suffix = true) {
-  return formatDistanceToNowStrict(new Date(timestamp), {
-    addSuffix: suffix,
-  });
-}
-
-function stripHtml(string = '', withBr = true) {
-  if (withBr) {
-    return string.replace(/<br ?\/?>/gmi, '\n').replace(/(<([^>]+)>)/gmi, '');
-  } else {
-    return string.replace(/(<([^>]+)>)/gmi, '');
-  }
-}
-
 function headerOnDemand(cookie) {
   return {
     headers: {
       Cookie: cookie
     }
   }
-}
-
-function convertWeiboUrl(url) {
-  const originalUrl = new URL(url);
-  const { origin, pathname } = originalUrl;
-  const path = pathname.replace(/^\/.*\//i, '');
-  return `${origin}/mw2000/${path}`;
 }
 
 async function sendTelegram(chatId, userOptions) {
@@ -1009,6 +984,7 @@ async function main(config) {
 
             const dbStore = {
               scrapedTime: new Date(currentTime),
+              scrapedTimeUnix: +new Date(currentTime),
               user: user,
               latestStatus: {
                 id: id,
