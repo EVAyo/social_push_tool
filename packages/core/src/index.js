@@ -1050,6 +1050,33 @@ async function main(config) {
               }
             }
 
+            // If user verified_reason update
+            if (user?.verified_reason !== dbScope?.weibo?.user?.verified_reason && dbScope?.weibo?.user?.verified_reason) {
+              log(`weibo user verified_reason updated: ${user.verified_reason}`);
+
+              if (account.tgChannelID && config.telegram.enabled) {
+
+                await sendTelegram(account.tgChannelID, {
+                  method: 'sendMessage',
+                  body: {
+                    text: `#微博认证更新\n新：${user.verified_reason}\n旧：${dbScope?.weibo?.user?.verified_reason}`,
+                    reply_markup: {
+                      inline_keyboard: [
+                        [
+                          {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
+                        ],
+                      ]
+                    },
+                  }
+                }).then(resp => {
+                  // log(`telegram post weibo::verified_reason success: message_id ${resp.result.message_id}`)
+                })
+                .catch(err => {
+                  log(`telegram post weibo::verified_reason error: ${err}`);
+                });
+              }
+            }
+
             // If user avatar update
             if (user.avatar_hd !== dbScope?.weibo?.user?.avatar_hd && dbScope?.weibo?.user?.avatar_hd) {
               log(`weibo user avatar updated: ${user.avatar_hd}`);
