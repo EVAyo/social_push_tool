@@ -12,7 +12,8 @@ import { hideBin } from 'yargs/helpers';
 import { Low, JSONFile } from 'lowdb';
 import { HttpsProxyAgent } from 'hpagent';
 
-import { formatDate, timeAgo, stripHtml, convertWeiboUrl } from './utils.js';
+import { formatDate, stripHtml, convertWeiboUrl } from './utils.js';
+import { timeAgo } from './utils/timeAgo.js';
 
 import TelegramBot from '@a-soul/sender-telegram';
 import dyExtract from '@a-soul/extractor-douyin';
@@ -48,7 +49,7 @@ async function generateConfig() {
   const defaultConfig = {
     loopInterval: 60 * 1000, // n seconds
     pluginOptions: {
-      gotOptions: {
+      requestOptions: {
         timeout: {
           request: 10000
         }
@@ -83,24 +84,23 @@ function headerOnDemand(cookie) {
   }
 }
 
-async function sendTelegram(chatId, userOptions) {
+async function sendTelegram(userOptions, userContent) {
   const options = merge({
     token: config.telegram.token,
     apiBase: config.telegram.apiBase,
-    gotOptions: {
+    requestOptions: {
       retry: {
         limit: 3,
       }
     },
-    body: {
-      chat_id: chatId,
-      text: `Test from @a-soul/sender-telegram`,
-      disable_notification: config.telegram.silent
-    },
   }, userOptions);
 
-  const resp = await TelegramBot(options);
-  return resp?.body && JSON.parse(resp.body);
+  try {
+    const resp = await TelegramBot(options, userContent);
+    return resp?.body && JSON.parse(resp.body);
+  } catch (err) {
+    console.log(err);
+  }
 }
 
 // TODO: WIP
@@ -247,23 +247,25 @@ async function main(config) {
 
                   const tgOptions = {
                     method: 'sendPhoto',
-                    body: {
-                      photo: liveCover,
-                      caption: `#抖音开播：${title}`,
-                      reply_markup: {
-                        inline_keyboard: [
-                          [
-                            {text: 'Watch', url: `https://webcast.amemv.com/webcast/reflow/${id_str}`},
-                            {text: `M3U8`, url: `${streamUrl}`},
-                          ],
-                          [
-                            {text: 'Artwork', url: liveCover},
-                            {text: `${nickname}`, url: `https://live.douyin.com/${account.douyinLiveId}`},
-                          ],
-                        ]
-                      },
-                    }
                   };
+
+                  const tgBody = {
+                    chat_id: account.tgChannelID,
+                    photo: liveCover,
+                    caption: `#抖音开播：${title}`,
+                    reply_markup: {
+                      inline_keyboard: [
+                        [
+                          {text: 'Watch', url: `https://webcast.amemv.com/webcast/reflow/${id_str}`},
+                          {text: `M3U8`, url: `${streamUrl}`},
+                        ],
+                        [
+                          {text: 'Artwork', url: liveCover},
+                          {text: `${nickname}`, url: `https://live.douyin.com/${account.douyinLiveId}`},
+                        ],
+                      ]
+                    },
+                  }
 
                   if (account.tgChannelID && config.telegram.enabled) {
 
@@ -273,7 +275,7 @@ async function main(config) {
                       log(`douyin-live too old, notifications skipped`);
                     } else {
                       // This function should be waited since we rely on the `isTgSent` flag
-                      await sendTelegram(account.tgChannelID, tgOptions).then(resp => {
+                      await sendTelegram(tgOptions, tgBody).then(resp => {
                         // log(`telegram post douyin-live success: message_id ${resp.result.message_id}`)
                         dbStore.latestStream.isTgSent = true;
                       })
@@ -384,21 +386,22 @@ async function main(config) {
 
             const tgOptions = {
               method: 'sendVideo',
-              body: {
-                video: videoUrl,
-                caption: `#抖音视频：${title} #${id}`,
-                reply_markup: {
-                  inline_keyboard: [
-                    [
-                      {text: 'Watch', url: shareUrl},
-                      {text: 'Artwork', url: cover},
-                      {text: `${nickname}`, url: `https://www.douyin.com/user/${secUid}`},
-                    ],
-                  ]
-                },
-              }
             };
 
+            const tgBody = {
+              chat_id: account.tgChannelID,
+              video: videoUrl,
+              caption: `#抖音视频：${title} #${id}`,
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    {text: 'Watch', url: shareUrl},
+                    {text: 'Artwork', url: cover},
+                    {text: `${nickname}`, url: `https://www.douyin.com/user/${secUid}`},
+                  ],
+                ]
+              },
+            }
             // Check if this is a new post compared to last scrap
             if (id !== dbScope?.douyin?.latestPost?.id && timestamp > dbScope?.douyin?.latestPost?.timestampUnix) {
               log(`douyin got update: ${id} (${timeAgo(timestamp)}) ${title}`);
@@ -409,7 +412,7 @@ async function main(config) {
                 if ((currentTime - timestamp) >= config.douyinBotThrottle) {
                   log(`douyin latest post too old, notifications skipped`);
                 } else {
-                  await sendTelegram(account.tgChannelID, tgOptions).then(resp => {
+                  await sendTelegram(tgOptions, tgBody).then(resp => {
                     // log(`telegram post douyin success: message_id ${resp.result.message_id}`)
                   })
                   .catch(err => {
@@ -432,7 +435,7 @@ async function main(config) {
       });
 
       // Fetch bilibili live
-      account.biliId && await got(`https://api.bilibili.com/x/space/acc/info?mid=${account.biliId}`, {...config.pluginOptions?.gotOptions, ...proxyOptions}).then(async resp => {
+      account.biliId && await got(`https://api.bilibili.com/x/space/acc/info?mid=${account.biliId}`, {...config.pluginOptions?.requestOptions, ...proxyOptions}).then(async resp => {
         const json = JSON.parse(resp.body);
 
         if (json?.code === 0) {
@@ -494,19 +497,21 @@ async function main(config) {
 
           const tgOptions = {
             method: 'sendPhoto',
-            body: {
-              photo: liveCover,
-              caption: `#b站开播：${liveTitle}`,
-              reply_markup: {
-                inline_keyboard: [
-                  [
-                    {text: 'Watch', url: liveRoom},
-                    {text: 'Artwork', url: liveCover},
-                    {text: `${nickname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
-                  ],
-                ]
-              },
-            }
+          };
+
+          const tgBody = {
+            chat_id: account.tgChannelID,
+            photo: liveCover,
+            caption: `#b站开播：${liveTitle}`,
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  {text: 'Watch', url: liveRoom},
+                  {text: 'Artwork', url: liveCover},
+                  {text: `${nickname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
+                ],
+              ]
+            },
           };
 
           // If user nickname update
@@ -515,18 +520,16 @@ async function main(config) {
 
             if (account.tgChannelID && config.telegram.enabled) {
 
-              await sendTelegram(account.tgChannelID, {
-                method: 'sendMessage',
-                body: {
-                  text: `#b站昵称更新\n新：${nickname}\n旧：${dbScope?.bilibili_live?.nickname}`,
-                  reply_markup: {
-                    inline_keyboard: [
-                      [
-                        {text: `${nickname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
-                      ],
-                    ]
-                  },
-                }
+              await sendTelegram({ method: 'sendMessage' }, {
+                chat_id: account.tgChannelID,
+                text: `#b站昵称更新\n新：${nickname}\n旧：${dbScope?.bilibili_live?.nickname}`,
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      {text: `${nickname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
+                    ],
+                  ]
+                },
               }).then(resp => {
                 // log(`telegram post bilibili-live::nickname success: message_id ${resp.result.message_id}`)
               })
@@ -542,18 +545,16 @@ async function main(config) {
 
             if (account.tgChannelID && config.telegram.enabled) {
 
-              await sendTelegram(account.tgChannelID, {
-                method: 'sendMessage',
-                body: {
-                  text: `#b站签名更新\n新：${sign}\n旧：${dbScope?.bilibili_live?.sign}`,
-                  reply_markup: {
-                    inline_keyboard: [
-                      [
-                        {text: `${nickname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
-                      ],
-                    ]
-                  },
-                }
+              await sendTelegram({ method: 'sendMessage' }, {
+                chat_id: account.tgChannelID,
+                text: `#b站签名更新\n新：${sign}\n旧：${dbScope?.bilibili_live?.sign}`,
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      {text: `${nickname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
+                    ],
+                  ]
+                },
               }).then(resp => {
                 // log(`telegram post bilibili-live::sign success: message_id ${resp.result.message_id}`)
               })
@@ -569,19 +570,17 @@ async function main(config) {
 
             if (account.tgChannelID && config.telegram.enabled) {
 
-              await sendTelegram(account.tgChannelID, {
-                method: 'sendPhoto',
-                body: {
-                  photo: avatar,
-                  caption: `#b站头像更新，老头像：${dbScope?.bilibili_live?.avatar}`,
-                  reply_markup: {
-                    inline_keyboard: [
-                      [
-                        {text: `${nickname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
-                      ],
-                    ]
-                  },
-                }
+              await sendTelegram({ method: 'sendPhoto' }, {
+                chat_id: account.tgChannelID,
+                photo: avatar,
+                caption: `#b站头像更新，老头像：${dbScope?.bilibili_live?.avatar}`,
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      {text: `${nickname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
+                    ],
+                  ]
+                },
               }).then(resp => {
                 // log(`telegram post bilibili-live::avatar success: message_id ${resp.result.message_id}`)
               })
@@ -596,7 +595,7 @@ async function main(config) {
           if (room?.liveStatus === 1) {
 
             // Deprecated v1 API, may be changed in the future
-            await got(`https://api.live.bilibili.com/room/v1/Room/room_init?id=${liveId}`, {...config.pluginOptions?.gotOptions, ...proxyOptions}).then(async resp => {
+            await got(`https://api.live.bilibili.com/room/v1/Room/room_init?id=${liveId}`, {...config.pluginOptions?.requestOptions, ...proxyOptions}).then(async resp => {
               const json = JSON.parse(resp.body);
 
               if (json?.code === 0) {
@@ -624,7 +623,7 @@ async function main(config) {
                     log(`bilibili-live too old, notifications skipped`);
                   } else {
                     // This function should be waited since we rely on the `isTgSent` flag
-                    await sendTelegram(account.tgChannelID, tgOptions).then(resp => {
+                    await sendTelegram(tgOptions, tgBody).then(resp => {
                       // log(`telegram post bilibili-live success: message_id ${resp.result.message_id}`)
                       dbStore.latestStream.isTgSent = true;
                     })
@@ -656,7 +655,7 @@ async function main(config) {
       });
 
       // Fetch bilibili microblog (dynamics)
-      account.biliId && await got(`https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history?host_uid=${account.biliId}&offset_dynamic_id=0&need_top=0&platform=web`, {...config.pluginOptions?.gotOptions, ...proxyOptions}).then(async resp => {
+      account.biliId && await got(`https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history?host_uid=${account.biliId}&offset_dynamic_id=0&need_top=0&platform=web`, {...config.pluginOptions?.requestOptions, ...proxyOptions}).then(async resp => {
         const json = JSON.parse(resp.body);
 
         if (json?.code === 0) {
@@ -706,17 +705,19 @@ async function main(config) {
             if (dynamicId !== dbScope?.bilibili_mblog?.latestDynamic?.id && timestamp > dbScope?.bilibili_mblog?.latestDynamic?.timestampUnix) {
               const tgOptions = {
                 method: 'sendMessage',
-                body: {
-                  text: `${user.info.uname} #b站动态`,
-                  reply_markup: {
-                    inline_keyboard: [
-                      [
-                        {text: 'View', url: `https://t.bilibili.com/${dynamicId}`},
-                        {text: `${user.info.uname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
-                      ],
-                    ]
-                  },
-                }
+              };
+
+              const tgBody = {
+                chat_id: account.tgChannelID,
+                text: `${user.info.uname} #b站动态`,
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      {text: 'View', url: `https://t.bilibili.com/${dynamicId}`},
+                      {text: `${user.info.uname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
+                    ],
+                  ]
+                },
               };
 
               // Check post type
@@ -731,8 +732,8 @@ async function main(config) {
                 // Column post
                 if (originJson?.origin_image_urls) {
                   tgOptions.method = 'sendPhoto';
-                  tgOptions.body.photo = `${originJson?.origin_image_urls}`;
-                  tgOptions.body.caption = `#b站专栏转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.author.name}\n被转标题：${originJson.title}\n\n${originJson.summary}`;
+                  tgBody.photo = `${originJson?.origin_image_urls}`;
+                  tgBody.caption = `#b站专栏转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.author.name}\n被转标题：${originJson.title}\n\n${originJson.summary}`;
                 }
 
                 // Text with gallery
@@ -743,7 +744,7 @@ async function main(config) {
                   if (originJson?.item?.pictures_count > 99) {
                     // TODO: sendMediaGroup doesn't support reply_markup. You have to use a seperate message
                     tgOptions.method = 'sendMediaGroup';
-                    tgOptions.body.media = originJson?.item?.pictures.map((pic, idx) => ({
+                    tgBody.media = originJson?.item?.pictures.map((pic, idx) => ({
                       type: 'photo',
                       // Limit image size with original server and webp: failed (Bad Request: group send failed)
                       // media: pic.img_width > 1036 || pic.img_height > 1036 ? `${pic.img_src}@1036w.webp` : `${pic.img_src}`,
@@ -756,11 +757,11 @@ async function main(config) {
                     }));
 
                     // Only apply caption to the first image to make it auto shown on message list
-                    tgOptions.body.media[0].caption = `#b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.name}\n被转内容：${originJson.item.description}`;
+                    tgBody.media[0].caption = `#b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.name}\n被转内容：${originJson.item.description}`;
 
                     // Debug payload
-                    // console.log(tgOptions.body.media);
-                    // tgOptions.body.media = [
+                    // console.log(tgBody.media);
+                    // tgBody.media = [
                     //   {
                     //     type: 'photo',
                     //     media: `https://i0.hdslb.com/bfs/album/e2052046af707d686783ca5c78533e04e6ef4b86.jpg`,
@@ -781,24 +782,24 @@ async function main(config) {
                   } else {
                     tgOptions.method = 'sendPhoto';
                     if (originJson?.item?.pictures[0].img_width > 1200 || originJson?.item?.pictures[0].img_height > 1200) {
-                      tgOptions.body.photo = `https://experiments.sparanoid.net/imageproxy/1000x1000,fit/${originJson?.item?.pictures[0].img_src}@1036w.webp`;
+                      tgBody.photo = `https://experiments.sparanoid.net/imageproxy/1000x1000,fit/${originJson?.item?.pictures[0].img_src}@1036w.webp`;
                     } else {
-                      tgOptions.body.photo = `${originJson?.item?.pictures[0].img_src}`;
+                      tgBody.photo = `${originJson?.item?.pictures[0].img_src}`;
                     }
-                    tgOptions.body.caption = `#b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.name}\n被转内容：${originJson.item.description}`;
+                    tgBody.caption = `#b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.name}\n被转内容：${originJson.item.description}`;
                   }
                 }
 
                 // Video
                 else if (originJson?.duration && originJson?.videos) {
                   tgOptions.method = 'sendPhoto';
-                  tgOptions.body.photo = `${originJson?.pic}`;
-                  tgOptions.body.caption = `#b站视频转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.owner.name}\n被转视频：${originJson.title}\n\n${originJson.desc}\n${originJson.short_link}`;
+                  tgBody.photo = `${originJson?.pic}`;
+                  tgBody.caption = `#b站视频转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.owner.name}\n被转视频：${originJson.title}\n\n${originJson.desc}\n${originJson.short_link}`;
                 }
 
                 // Plain text
                 else {
-                  tgOptions.body.text = `#b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.uname}\n被转动态：${originJson.item.content}`;
+                  tgBody.text = `#b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.uname}\n被转动态：${originJson.item.content}`;
                 }
 
                 log(`bilibili-mblog got forwarded post (${timeAgo(timestamp)})`);
@@ -809,34 +810,32 @@ async function main(config) {
                 const photoCount = cardJson.item.pictures.length;
                 const photoCountText = photoCount > 1 ? `（共 ${photoCount} 张）` : ``;
                 tgOptions.method = 'sendPhoto';
-                tgOptions.body.caption = `#b站相册动态${photoCountText}：${cardJson?.item?.description}`;
-                tgOptions.body.photo = cardJson.item.pictures[0].img_src;
+                tgBody.caption = `#b站相册动态${photoCountText}：${cardJson?.item?.description}`;
+                tgBody.photo = cardJson.item.pictures[0].img_src;
                 log(`bilibili-mblog got gallery post (${timeAgo(timestamp)})`);
               }
 
               // Text post
               else if (type === 4) {
-                tgOptions.body.text = `#b站动态：${cardJson?.item?.content.trim()}`;
+                tgBody.text = `#b站动态：${cardJson?.item?.content.trim()}`;
                 log(`bilibili-mblog got text post (${timeAgo(timestamp)})`);
               }
 
               // Video post
               else if (type === 8) {
                 tgOptions.method = 'sendPhoto';
-                tgOptions.body = {
-                  photo: cardJson.pic,
-                  // dynamic: microblog text
-                  // desc: video description
-                  caption: `#b站视频：${cardJson.title}\n${cardJson.dynamic}\n${cardJson.desc}`,
-                  reply_markup: {
-                    inline_keyboard: [
-                      [
-                        {text: 'View', url: `https://t.bilibili.com/${dynamicId}`},
-                        {text: 'Watch Video', url: `${cardJson.short_link}`},
-                        {text: `${user.info.uname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
-                      ],
-                    ]
-                  },
+                tgBody.photo = cardJson.pic;
+                // dynamic: microblog text
+                // desc: video description
+                tgBody.caption = `#b站视频：${cardJson.title}\n${cardJson.dynamic}\n${cardJson.desc}`,
+                tgBody.reply_markup = {
+                  inline_keyboard: [
+                    [
+                      {text: 'View', url: `https://t.bilibili.com/${dynamicId}`},
+                      {text: 'Watch Video', url: `${cardJson.short_link}`},
+                      {text: `${user.info.uname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
+                    ],
+                  ]
                 };
 
                 log(`bilibili-mblog got video post (${timeAgo(timestamp)})`);
@@ -850,8 +849,8 @@ async function main(config) {
               // Column post
               else if (type === 64) {
                 tgOptions.method = 'sendPhoto';
-                tgOptions.body.photo = cardJson.origin_image_urls[0];
-                tgOptions.body.caption = `#b站专栏：${cardJson.title}\n\n${cardJson.summary}`;
+                tgBody.photo = cardJson.origin_image_urls[0];
+                tgBody.caption = `#b站专栏：${cardJson.title}\n\n${cardJson.summary}`;
 
                 log(`bilibili-mblog got column post (${timeAgo(timestamp)})`);
               }
@@ -881,7 +880,7 @@ async function main(config) {
                 if ((currentTime - timestamp) >= config.bilibiliBotThrottle) {
                   log(`bilibili-mblog too old, notifications skipped`);
                 } else {
-                  await sendTelegram(account.tgChannelID, tgOptions).then(resp => {
+                  await sendTelegram(tgOptions, tgBody).then(resp => {
                     // log(`telegram post bilibili-mblog success: message_id ${resp.result.message_id}`)
                   })
                   .catch(err => {
@@ -894,20 +893,18 @@ async function main(config) {
 
               if (account.tgChannelID && config.telegram.enabled) {
 
-                await sendTelegram(account.tgChannelID, {
-                  method: 'sendMessage',
-                  body: {
-                    text: `#b站动态删除：监测到最新动态旧于数据库中的动态，可能有动态被删除（也存在网络原因误报）`,
-                    reply_markup: {
-                      inline_keyboard: [
-                        [
-                          {text: 'Latest', url: `https://t.bilibili.com/${dynamicId}`},
-                          {text: 'Deleted', url: `https://t.bilibili.com/${dbScope?.bilibili_mblog?.latestDynamic?.id}`},
-                          {text: `${user.info.uname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
-                        ],
-                      ]
-                    },
-                  }
+                await sendTelegram({ method: 'sendMessage' }, {
+                  chat_id: account.tgChannelID,
+                  text: `#b站动态删除：监测到最新动态旧于数据库中的动态，可能有动态被删除（也存在网络原因误报）`,
+                  reply_markup: {
+                    inline_keyboard: [
+                      [
+                        {text: 'Latest', url: `https://t.bilibili.com/${dynamicId}`},
+                        {text: 'Deleted', url: `https://t.bilibili.com/${dbScope?.bilibili_mblog?.latestDynamic?.id}`},
+                        {text: `${user.info.uname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
+                      ],
+                    ]
+                  },
                 }).then(resp => {
                   // log(`telegram post bilibili-mblog success: message_id ${resp.result.message_id}`)
                 })
@@ -934,8 +931,8 @@ async function main(config) {
       });
 
       // Fetch Weibo
-      const weiboGotOptions = {...config.pluginOptions?.gotOptions, ...headerOnDemand(config.pluginOptions.cookies.weibo)};
-      account.weiboId && await got(`https://m.weibo.cn/profile/info?uid=${account.weiboId}`, weiboGotOptions).then(async resp => {
+      const weiboRequestOptions = {...config.pluginOptions?.requestOptions, ...headerOnDemand(config.pluginOptions.cookies.weibo)};
+      account.weiboId && await got(`https://m.weibo.cn/profile/info?uid=${account.weiboId}`, weiboRequestOptions).then(async resp => {
         const json = JSON.parse(resp.body);
 
         if (json?.ok === 1) {
@@ -961,7 +958,7 @@ async function main(config) {
 
             if (status?.isLongText) {
               log('weibo got post too long, trying extended text...')
-              await got(`https://m.weibo.cn/statuses/extend?id=${id}`, weiboGotOptions).then(async resp => {
+              await got(`https://m.weibo.cn/statuses/extend?id=${id}`, weiboRequestOptions).then(async resp => {
                 const json = JSON.parse(resp.body);
 
                 if (json?.ok === 1 && json?.data?.longTextContent) {
@@ -1002,18 +999,16 @@ async function main(config) {
 
               if (account.tgChannelID && config.telegram.enabled) {
 
-                await sendTelegram(account.tgChannelID, {
-                  method: 'sendMessage',
-                  body: {
-                    text: `#微博昵称更新\n新：${user.screen_name}\n旧：${dbScope?.weibo?.user?.screen_name}`,
-                    reply_markup: {
-                      inline_keyboard: [
-                        [
-                          {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
-                        ],
-                      ]
-                    },
-                  }
+                await sendTelegram({ method: 'sendMessage' }, {
+                  chat_id: account.tgChannelID,
+                  text: `#微博昵称更新\n新：${user.screen_name}\n旧：${dbScope?.weibo?.user?.screen_name}`,
+                  reply_markup: {
+                    inline_keyboard: [
+                      [
+                        {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
+                      ],
+                    ]
+                  },
                 }).then(resp => {
                   // log(`telegram post weibo::nickname success: message_id ${resp.result.message_id}`)
                 })
@@ -1029,18 +1024,16 @@ async function main(config) {
 
               if (account.tgChannelID && config.telegram.enabled) {
 
-                await sendTelegram(account.tgChannelID, {
-                  method: 'sendMessage',
-                  body: {
-                    text: `#微博签名更新\n新：${user.description}\n旧：${dbScope?.weibo?.user?.description}`,
-                    reply_markup: {
-                      inline_keyboard: [
-                        [
-                          {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
-                        ],
-                      ]
-                    },
-                  }
+                await sendTelegram({ method: 'sendMessage' }, {
+                  chat_id: account.tgChannelID,
+                  text: `#微博签名更新\n新：${user.description}\n旧：${dbScope?.weibo?.user?.description}`,
+                  reply_markup: {
+                    inline_keyboard: [
+                      [
+                        {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
+                      ],
+                    ]
+                  },
                 }).then(resp => {
                   // log(`telegram post weibo::sign success: message_id ${resp.result.message_id}`)
                 })
@@ -1056,18 +1049,16 @@ async function main(config) {
 
               if (account.tgChannelID && config.telegram.enabled) {
 
-                await sendTelegram(account.tgChannelID, {
-                  method: 'sendMessage',
-                  body: {
-                    text: `#微博认证更新\n新：${user.verified_reason}\n旧：${dbScope?.weibo?.user?.verified_reason}`,
-                    reply_markup: {
-                      inline_keyboard: [
-                        [
-                          {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
-                        ],
-                      ]
-                    },
-                  }
+                await sendTelegram({ method: 'sendMessage' }, {
+                  chat_id: account.tgChannelID,
+                  text: `#微博认证更新\n新：${user.verified_reason}\n旧：${dbScope?.weibo?.user?.verified_reason}`,
+                  reply_markup: {
+                    inline_keyboard: [
+                      [
+                        {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
+                      ],
+                    ]
+                  },
                 }).then(resp => {
                   // log(`telegram post weibo::verified_reason success: message_id ${resp.result.message_id}`)
                 })
@@ -1083,19 +1074,17 @@ async function main(config) {
 
               if (account.tgChannelID && config.telegram.enabled) {
 
-                await sendTelegram(account.tgChannelID, {
-                  method: 'sendPhoto',
-                  body: {
-                    photo: user.avatar_hd,
-                    caption: `#微博头像更新，老头像：${dbScope?.weibo?.user?.avatar_hd}`,
-                    reply_markup: {
-                      inline_keyboard: [
-                        [
-                          {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
-                        ],
-                      ]
-                    },
-                  }
+                await sendTelegram({ method: 'sendPhoto' }, {
+                  chat_id: account.tgChannelID,
+                  photo: user.avatar_hd,
+                  caption: `#微博头像更新，老头像：${dbScope?.weibo?.user?.avatar_hd}`,
+                  reply_markup: {
+                    inline_keyboard: [
+                      [
+                        {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
+                      ],
+                    ]
+                  },
                 }).then(resp => {
                   // log(`telegram post weibo::avatar success: message_id ${resp.result.message_id}`)
                 })
@@ -1111,19 +1100,17 @@ async function main(config) {
 
               if (account.tgChannelID && config.telegram.enabled) {
 
-                await sendTelegram(account.tgChannelID, {
-                  method: 'sendPhoto',
-                  body: {
-                    photo: convertWeiboUrl(user.cover_image_phone),
-                    caption: `#微博封面更新，旧封面：${convertWeiboUrl(dbScope?.weibo?.user?.cover_image_phone)}`,
-                    reply_markup: {
-                      inline_keyboard: [
-                        [
-                          {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
-                        ],
-                      ]
-                    },
-                  }
+                await sendTelegram({ method: 'sendPhoto' }, {
+                  chat_id: account.tgChannelID,
+                  photo: convertWeiboUrl(user.cover_image_phone),
+                  caption: `#微博封面更新，旧封面：${convertWeiboUrl(dbScope?.weibo?.user?.cover_image_phone)}`,
+                  reply_markup: {
+                    inline_keyboard: [
+                      [
+                        {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
+                      ],
+                    ]
+                  },
                 }).then(resp => {
                   // log(`telegram post weibo::avatar success: message_id ${resp.result.message_id}`)
                 })
@@ -1137,21 +1124,23 @@ async function main(config) {
             if (id !== dbScope?.weibo?.latestStatus?.id && timestamp > dbScope?.weibo?.latestStatus?.timestampUnix) {
               const tgOptions = {
                 method: 'sendMessage',
-                body: {
-                  text: `#微博${visibilityMap[visibility] || ''}${retweeted_status ? `转发` : `动态`}：${text}${retweeted_status ? `\n\n被转作者：@${retweeted_status.user.screen_name}\n被转内容：${stripHtml(retweeted_status.text)}` : ''}`,
-                  reply_markup: {
-                    inline_keyboard: [
-                      retweeted_status ? [
-                        {text: 'View', url: `https://weibo.com/${user.id}/${id}`},
-                        {text: 'View Retweeted', url: `https://weibo.com/${retweeted_status.user.id}/${retweeted_status.bid}`},
-                        {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
-                      ] : [
-                        {text: 'View', url: `https://weibo.com/${user.id}/${id}`},
-                        {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
-                      ],
-                    ]
-                  },
-                }
+              };
+
+              const tgBody = {
+                chat_id: account.tgChannelID,
+                text: `#微博${visibilityMap[visibility] || ''}${retweeted_status ? `转发` : `动态`}：${text}${retweeted_status ? `\n\n被转作者：@${retweeted_status.user.screen_name}\n被转内容：${stripHtml(retweeted_status.text)}` : ''}`,
+                reply_markup: {
+                  inline_keyboard: [
+                    retweeted_status ? [
+                      {text: 'View', url: `https://weibo.com/${user.id}/${id}`},
+                      {text: 'View Retweeted', url: `https://weibo.com/${retweeted_status.user.id}/${retweeted_status.bid}`},
+                      {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
+                    ] : [
+                      {text: 'View', url: `https://weibo.com/${user.id}/${id}`},
+                      {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
+                    ],
+                  ]
+                },
               };
 
               // If post has photo
@@ -1159,15 +1148,15 @@ async function main(config) {
                 const photoCount = status.pic_ids.length;
                 const photoCountText = photoCount > 1 ? `（共 ${photoCount} 张）` : ``;
                 tgOptions.method = 'sendPhoto';
-                tgOptions.body.photo = `https://ww1.sinaimg.cn/large/${status.pic_ids[0]}.jpg`;
-                tgOptions.body.caption = `#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}`;
+                tgBody.photo = `https://ww1.sinaimg.cn/large/${status.pic_ids[0]}.jpg`;
+                tgBody.caption = `#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}`;
               }
 
               // If post has video
               if (status?.page_info?.type === 'video') {
                 tgOptions.method = 'sendVideo';
-                tgOptions.body.video = status?.page_info?.media_info?.stream_url_hd || status?.page_info?.media_info?.stream_url;
-                tgOptions.body.caption = `#微博${visibilityMap[visibility] || ''}视频：${text}`;
+                tgBody.video = status?.page_info?.media_info?.stream_url_hd || status?.page_info?.media_info?.stream_url;
+                tgBody.caption = `#微博${visibilityMap[visibility] || ''}视频：${text}`;
               }
 
               // TODO: parse 4k
@@ -1179,7 +1168,7 @@ async function main(config) {
                 if ((currentTime - timestamp) >= config.weiboBotThrottle) {
                   log(`weibo too old, notifications skipped`);
                 } else {
-                  await sendTelegram(account.tgChannelID, tgOptions).then(resp => {
+                  await sendTelegram(tgOptions, tgBody).then(resp => {
                     // log(`telegram post weibo success: message_id ${resp.result.message_id}`)
                   })
                   .catch(err => {
@@ -1193,19 +1182,16 @@ async function main(config) {
               // NOTE: Disable deleted weibo detection. Buggy
               // if (account.tgChannelID && config.telegram.enabled) {
 
-              //   await sendTelegram(account.tgChannelID, {
-              //     method: 'sendMessage',
-              //     body: {
-              //       text: `监测到最新微博旧于数据库中的微博，可能有微博被删除`,
-              //       reply_markup: {
-              //         inline_keyboard: [
-              //           [
-              //             {text: 'View', url: `https://weibo.com/${user.id}/${id}`},
-              //             {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
-              //           ],
-              //         ]
-              //       },
-              //     }
+              //   await sendTelegram({ method: 'sendMessage' }, {
+              //     text: `监测到最新微博旧于数据库中的微博，可能有微博被删除`,
+              //     reply_markup: {
+              //       inline_keyboard: [
+              //         [
+              //           {text: 'View', url: `https://weibo.com/${user.id}/${id}`},
+              //           {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
+              //         ],
+              //       ]
+              //     },
               //   }).then(resp => {
               //     // log(`telegram post weibo success: message_id ${resp.result.message_id}`)
               //   })
