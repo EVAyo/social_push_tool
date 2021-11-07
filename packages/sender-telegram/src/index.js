@@ -1,12 +1,14 @@
 import got from 'got';
+import fetch from 'node-fetch';
 import merge from 'deepmerge';
 
-async function send(userOptions = {}) {
+async function send(userOptions = {}, userBody = {}) {
   const options = merge({
+    payload: `json`,
     apiBase: `https://api.telegram.org/bot`,
     token: process.env.TELEGRAM_TOKEN,
     method: `sendMessage`,
-    gotOptions: {
+    requestOptions: {
       headers: {
         'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36',
       },
@@ -31,23 +33,42 @@ async function send(userOptions = {}) {
         ],
       }
     },
-    body: {
-      chat_id: ``,
-      text: `Test from @a-soul/sender-telegram`,
-    },
   }, userOptions);
 
   if (!options.token) { throw new Error(`Telegram bot token is missing`) };
 
-  try {
-    const resp = await got.post(`${options.apiBase}${options.token}/${options.method}`, {
-      json: options.body,
-      ...options.gotOptions
-    });
+  const payload = options.payload === `form` ? {
+    body: userBody,
+  } : {
+    json: userBody,
+  };
 
-    return resp;
-  } catch (err) {
-    console.log(err.response.body);
+  if (options.payload === `form`) {
+    // Switch to node-fetch for FormData since got is buggy
+    // https://github.com/sindresorhus/got/issues/1907
+    try {
+      const resp = await fetch(`${options.apiBase}${options.token}/${options.method}`, {
+        method: 'post',
+        ...payload,
+        ...options.requestOptions,
+      });
+
+      console.log(await resp.json());
+      return resp
+    } catch (err) {
+      console.log(err);
+    }
+  } else {
+    try {
+      const resp = await got.post(`${options.apiBase}${options.token}/${options.method}`, {
+        ...payload,
+        ...options.requestOptions
+      });
+
+      return resp;
+    } catch (err) {
+      console.log(err);
+    }
   }
 }
 
