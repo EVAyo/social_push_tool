@@ -1,14 +1,6 @@
-import { formatDistanceToNowStrict } from 'date-fns';
-
 export function formatDate(timestamp) {
   let date = timestamp.toString().length === 10 ? new Date(+timestamp * 1000) : new Date(+timestamp);
   return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
-}
-
-export function timeAgo(timestamp, suffix = true) {
-  return formatDistanceToNowStrict(new Date(timestamp), {
-    addSuffix: suffix,
-  });
 }
 
 export function stripHtml(string = '', withBr = true) {

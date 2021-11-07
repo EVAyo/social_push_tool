@@ -21,10 +21,15 @@
     "chalk": "^4.1.2",
     "date-fns": "^2.25.0",
     "deepmerge": "^4.2.2",
-    "got": "^12.0.0-beta.1",
+    "form-data": "^4.0.0",
+    "formdata-node": "^4.3.1",
+    "get-stream": "^6.0.1",
+    "got": "^12.0.0-beta.4",
     "hpagent": "^0.1.2",
     "lowdb": "^3.0.0",
+    "modern-async": "^1.0.4",
     "set-interval-async": "^2.0.3",
+    "sharp": "^0.29.2",
     "yargs": "^17.2.1"
   },
   "gitHead": "2784fe0723eee2d830259e2c95e4f3fff3a41075"

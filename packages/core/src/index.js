@@ -11,9 +11,11 @@ import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { Low, JSONFile } from 'lowdb';
 import { HttpsProxyAgent } from 'hpagent';
+import { FormData } from 'formdata-node';
 
 import { formatDate, stripHtml, convertWeiboUrl } from './utils.js';
 import { timeAgo } from './utils/timeAgo.js';
+import { readProcessedImage } from './utils/processImage.js';
 
 import TelegramBot from '@a-soul/sender-telegram';
 import dyExtract from '@a-soul/extractor-douyin';
@@ -97,7 +99,7 @@ async function sendTelegram(userOptions, userContent) {
 
   try {
     const resp = await TelegramBot(options, userContent);
-    return resp?.body && JSON.parse(resp.body);
+    return resp;
   } catch (err) {
     console.log(err);
   }
@@ -1126,30 +1128,37 @@ async function main(config) {
                 method: 'sendMessage',
               };
 
+              const tgMarkup = {
+                inline_keyboard: [
+                  retweeted_status ? [
+                    {text: 'View', url: `https://weibo.com/${user.id}/${id}`},
+                    {text: 'View Retweeted', url: `https://weibo.com/${retweeted_status.user.id}/${retweeted_status.bid}`},
+                    {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
+                  ] : [
+                    {text: 'View', url: `https://weibo.com/${user.id}/${id}`},
+                    {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
+                  ],
+                ]
+              };
+
               const tgBody = {
                 chat_id: account.tgChannelID,
                 text: `#微博${visibilityMap[visibility] || ''}${retweeted_status ? `转发` : `动态`}：${text}${retweeted_status ? `\n\n被转作者：@${retweeted_status.user.screen_name}\n被转内容：${stripHtml(retweeted_status.text)}` : ''}`,
-                reply_markup: {
-                  inline_keyboard: [
-                    retweeted_status ? [
-                      {text: 'View', url: `https://weibo.com/${user.id}/${id}`},
-                      {text: 'View Retweeted', url: `https://weibo.com/${retweeted_status.user.id}/${retweeted_status.bid}`},
-                      {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
-                    ] : [
-                      {text: 'View', url: `https://weibo.com/${user.id}/${id}`},
-                      {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
-                    ],
-                  ]
-                },
+                reply_markup: tgMarkup,
               };
+
+              const tgForm = new FormData();
+              tgForm.append('chat_id', account.tgChannelID);
+              tgForm.append('reply_markup', JSON.stringify(tgMarkup));
 
               // If post has photo
               if (status.pic_ids?.length > 0) {
                 const photoCount = status.pic_ids.length;
                 const photoCountText = photoCount > 1 ? `（共 ${photoCount} 张）` : ``;
                 tgOptions.method = 'sendPhoto';
-                tgBody.photo = `https://ww1.sinaimg.cn/large/${status.pic_ids[0]}.jpg`;
-                tgBody.caption = `#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}`;
+                tgOptions.payload = 'form';
+                tgForm.append('photo', await readProcessedImage(`https://ww1.sinaimg.cn/large/${status.pic_ids[0]}.jpg`));
+                tgForm.append('caption', `#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}`);
               }
 
               // If post has video
@@ -1168,7 +1177,7 @@ async function main(config) {
                 if ((currentTime - timestamp) >= config.weiboBotThrottle) {
                   log(`weibo too old, notifications skipped`);
                 } else {
-                  await sendTelegram(tgOptions, tgBody).then(resp => {
+                  await sendTelegram(tgOptions, tgOptions.payload === 'form' ? tgForm : tgBody).then(resp => {
                     // log(`telegram post weibo success: message_id ${resp.result.message_id}`)
                   })
                   .catch(err => {
