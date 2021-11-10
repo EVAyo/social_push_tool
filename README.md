@@ -92,12 +92,14 @@ Your full `config.js` file may look like:
   },
   telegram: {
     enabled: true,
+    apiBase: 'https://experiments.sparanoid.net/tgbot',
     token: ''
   },
   accounts: [
     {
       enabled: false,
       slug: '嘉然',
+      showSlug: true,
       biliId: '672328094',
       biliLiveId: '22637261',
       douyinId: 'MS4wLjABAAAA5ZrIrbgva_HMeHuNn64goOD2XYnk4ItSypgRHlbSh1c',
@@ -109,6 +111,7 @@ Your full `config.js` file may look like:
     {
       enabled: true,
       slug: '贝拉',
+      showSlug: true,
       biliId: '672353429',
       biliLiveId: '22632424',
       douyinId: 'MS4wLjABAAAAlpnJ0bXVDV6BNgbHUYVWnnIagRqeeZyNyXB84JXTqAS5tgGjAtw0ZZkv0KSHYyhP',

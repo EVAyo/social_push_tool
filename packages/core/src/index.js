@@ -184,6 +184,9 @@ async function main(config) {
         }
       } : {};
 
+      // Append account slug in output (useful for multiple account in channel)
+      const msgPrefix = account.showSlug ? `#${account.slug}` : ``;
+
       // Fetch Douyin live
       account.douyinLiveId && await dyExtract(`https://live.douyin.com/${account.douyinLiveId}`, config.pluginOptions).then(async resp => {
         const json = resp?.initialState?.roomStore?.roomInfo;
@@ -254,7 +257,7 @@ async function main(config) {
                   const tgBody = {
                     chat_id: account.tgChannelID,
                     photo: liveCover,
-                    caption: `#抖音开播：${title}`,
+                    caption: `${msgPrefix} #抖音开播：${title}`,
                     reply_markup: {
                       inline_keyboard: [
                         [
@@ -393,7 +396,7 @@ async function main(config) {
             const tgBody = {
               chat_id: account.tgChannelID,
               video: videoUrl,
-              caption: `#抖音视频：${title} #${id}`,
+              caption: `${msgPrefix} #抖音视频：${title} #${id}`,
               reply_markup: {
                 inline_keyboard: [
                   [
@@ -504,7 +507,7 @@ async function main(config) {
           const tgBody = {
             chat_id: account.tgChannelID,
             photo: liveCover,
-            caption: `#b站开播：${liveTitle}`,
+            caption: `${msgPrefix} #b站开播：${liveTitle}`,
             reply_markup: {
               inline_keyboard: [
                 [
@@ -524,7 +527,7 @@ async function main(config) {
 
               await sendTelegram({ method: 'sendMessage' }, {
                 chat_id: account.tgChannelID,
-                text: `#b站昵称更新\n新：${nickname}\n旧：${dbScope?.bilibili_live?.nickname}`,
+                text: `${msgPrefix} #b站昵称更新\n新：${nickname}\n旧：${dbScope?.bilibili_live?.nickname}`,
                 reply_markup: {
                   inline_keyboard: [
                     [
@@ -549,7 +552,7 @@ async function main(config) {
 
               await sendTelegram({ method: 'sendMessage' }, {
                 chat_id: account.tgChannelID,
-                text: `#b站签名更新\n新：${sign}\n旧：${dbScope?.bilibili_live?.sign}`,
+                text: `${msgPrefix} #b站签名更新\n新：${sign}\n旧：${dbScope?.bilibili_live?.sign}`,
                 reply_markup: {
                   inline_keyboard: [
                     [
@@ -575,7 +578,7 @@ async function main(config) {
               await sendTelegram({ method: 'sendPhoto' }, {
                 chat_id: account.tgChannelID,
                 photo: avatar,
-                caption: `#b站头像更新，老头像：${dbScope?.bilibili_live?.avatar}`,
+                caption: `${msgPrefix} #b站头像更新，老头像：${dbScope?.bilibili_live?.avatar}`,
                 reply_markup: {
                   inline_keyboard: [
                     [
@@ -735,7 +738,7 @@ async function main(config) {
                 if (originJson?.origin_image_urls) {
                   tgOptions.method = 'sendPhoto';
                   tgBody.photo = `${originJson?.origin_image_urls}`;
-                  tgBody.caption = `#b站专栏转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.author.name}\n被转标题：${originJson.title}\n\n${originJson.summary}`;
+                  tgBody.caption = `${msgPrefix} #b站专栏转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.author.name}\n被转标题：${originJson.title}\n\n${originJson.summary}`;
                 }
 
                 // Text with gallery
@@ -759,7 +762,7 @@ async function main(config) {
                     }));
 
                     // Only apply caption to the first image to make it auto shown on message list
-                    tgBody.media[0].caption = `#b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.name}\n被转内容：${originJson.item.description}`;
+                    tgBody.media[0].caption = `${msgPrefix} #b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.name}\n被转内容：${originJson.item.description}`;
 
                     // Debug payload
                     // console.log(tgBody.media);
@@ -788,7 +791,7 @@ async function main(config) {
                     } else {
                       tgBody.photo = `${originJson?.item?.pictures[0].img_src}`;
                     }
-                    tgBody.caption = `#b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.name}\n被转内容：${originJson.item.description}`;
+                    tgBody.caption = `${msgPrefix} #b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.name}\n被转内容：${originJson.item.description}`;
                   }
                 }
 
@@ -796,12 +799,12 @@ async function main(config) {
                 else if (originJson?.duration && originJson?.videos) {
                   tgOptions.method = 'sendPhoto';
                   tgBody.photo = `${originJson?.pic}`;
-                  tgBody.caption = `#b站视频转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.owner.name}\n被转视频：${originJson.title}\n\n${originJson.desc}\n${originJson.short_link}`;
+                  tgBody.caption = `${msgPrefix} #b站视频转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.owner.name}\n被转视频：${originJson.title}\n\n${originJson.desc}\n${originJson.short_link}`;
                 }
 
                 // Plain text
                 else {
-                  tgBody.text = `#b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.uname}\n被转动态：${originJson.item.content}`;
+                  tgBody.text = `${msgPrefix} #b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.uname}\n被转动态：${originJson.item.content}`;
                 }
 
                 log(`bilibili-mblog got forwarded post (${timeAgo(timestamp)})`);
@@ -812,14 +815,14 @@ async function main(config) {
                 const photoCount = cardJson.item.pictures.length;
                 const photoCountText = photoCount > 1 ? `（共 ${photoCount} 张）` : ``;
                 tgOptions.method = 'sendPhoto';
-                tgBody.caption = `#b站相册动态${photoCountText}：${cardJson?.item?.description}`;
+                tgBody.caption = `${msgPrefix} #b站相册动态${photoCountText}：${cardJson?.item?.description}`;
                 tgBody.photo = cardJson.item.pictures[0].img_src;
                 log(`bilibili-mblog got gallery post (${timeAgo(timestamp)})`);
               }
 
               // Text post
               else if (type === 4) {
-                tgBody.text = `#b站动态：${cardJson?.item?.content.trim()}`;
+                tgBody.text = `${msgPrefix} #b站动态：${cardJson?.item?.content.trim()}`;
                 log(`bilibili-mblog got text post (${timeAgo(timestamp)})`);
               }
 
@@ -829,7 +832,7 @@ async function main(config) {
                 tgBody.photo = cardJson.pic;
                 // dynamic: microblog text
                 // desc: video description
-                tgBody.caption = `#b站视频：${cardJson.title}\n${cardJson.dynamic}\n${cardJson.desc}`,
+                tgBody.caption = `${msgPrefix} #b站视频：${cardJson.title}\n${cardJson.dynamic}\n${cardJson.desc}`,
                 tgBody.reply_markup = {
                   inline_keyboard: [
                     [
@@ -852,7 +855,7 @@ async function main(config) {
               else if (type === 64) {
                 tgOptions.method = 'sendPhoto';
                 tgBody.photo = cardJson.origin_image_urls[0];
-                tgBody.caption = `#b站专栏：${cardJson.title}\n\n${cardJson.summary}`;
+                tgBody.caption = `${msgPrefix} #b站专栏：${cardJson.title}\n\n${cardJson.summary}`;
 
                 log(`bilibili-mblog got column post (${timeAgo(timestamp)})`);
               }
@@ -897,7 +900,7 @@ async function main(config) {
 
                 await sendTelegram({ method: 'sendMessage' }, {
                   chat_id: account.tgChannelID,
-                  text: `#b站动态删除：监测到最新动态旧于数据库中的动态，可能有动态被删除（也存在网络原因误报）`,
+                  text: `${msgPrefix} #b站动态删除：监测到最新动态旧于数据库中的动态，可能有动态被删除（也存在网络原因误报）`,
                   reply_markup: {
                     inline_keyboard: [
                       [
@@ -1003,7 +1006,7 @@ async function main(config) {
 
                 await sendTelegram({ method: 'sendMessage' }, {
                   chat_id: account.tgChannelID,
-                  text: `#微博昵称更新\n新：${user.screen_name}\n旧：${dbScope?.weibo?.user?.screen_name}`,
+                  text: `${msgPrefix} #微博昵称更新\n新：${user.screen_name}\n旧：${dbScope?.weibo?.user?.screen_name}`,
                   reply_markup: {
                     inline_keyboard: [
                       [
@@ -1028,7 +1031,7 @@ async function main(config) {
 
                 await sendTelegram({ method: 'sendMessage' }, {
                   chat_id: account.tgChannelID,
-                  text: `#微博签名更新\n新：${user.description}\n旧：${dbScope?.weibo?.user?.description}`,
+                  text: `${msgPrefix} #微博签名更新\n新：${user.description}\n旧：${dbScope?.weibo?.user?.description}`,
                   reply_markup: {
                     inline_keyboard: [
                       [
@@ -1053,7 +1056,7 @@ async function main(config) {
 
                 await sendTelegram({ method: 'sendMessage' }, {
                   chat_id: account.tgChannelID,
-                  text: `#微博认证更新\n新：${user.verified_reason}\n旧：${dbScope?.weibo?.user?.verified_reason}`,
+                  text: `${msgPrefix} #微博认证更新\n新：${user.verified_reason}\n旧：${dbScope?.weibo?.user?.verified_reason}`,
                   reply_markup: {
                     inline_keyboard: [
                       [
@@ -1079,7 +1082,7 @@ async function main(config) {
                 await sendTelegram({ method: 'sendPhoto' }, {
                   chat_id: account.tgChannelID,
                   photo: user.avatar_hd,
-                  caption: `#微博头像更新，老头像：${dbScope?.weibo?.user?.avatar_hd}`,
+                  caption: `${msgPrefix} #微博头像更新，老头像：${dbScope?.weibo?.user?.avatar_hd}`,
                   reply_markup: {
                     inline_keyboard: [
                       [
@@ -1105,7 +1108,7 @@ async function main(config) {
                 await sendTelegram({ method: 'sendPhoto' }, {
                   chat_id: account.tgChannelID,
                   photo: convertWeiboUrl(user.cover_image_phone),
-                  caption: `#微博封面更新，旧封面：${convertWeiboUrl(dbScope?.weibo?.user?.cover_image_phone)}`,
+                  caption: `${msgPrefix} #微博封面更新，旧封面：${convertWeiboUrl(dbScope?.weibo?.user?.cover_image_phone)}`,
                   reply_markup: {
                     inline_keyboard: [
                       [
@@ -1143,7 +1146,7 @@ async function main(config) {
 
               const tgBody = {
                 chat_id: account.tgChannelID,
-                text: `#微博${visibilityMap[visibility] || ''}${retweeted_status ? `转发` : `动态`}：${text}${retweeted_status ? `\n\n被转作者：@${retweeted_status.user.screen_name}\n被转内容：${stripHtml(retweeted_status.text)}` : ''}`,
+                text: `${msgPrefix} #微博${visibilityMap[visibility] || ''}${retweeted_status ? `转发` : `动态`}：${text}${retweeted_status ? `\n\n被转作者：@${retweeted_status.user.screen_name}\n被转内容：${stripHtml(retweeted_status.text)}` : ''}`,
                 reply_markup: tgMarkup,
               };
 
@@ -1158,14 +1161,14 @@ async function main(config) {
                 tgOptions.method = 'sendPhoto';
                 tgOptions.payload = 'form';
                 tgForm.append('photo', await readProcessedImage(`https://ww1.sinaimg.cn/large/${status.pic_ids[0]}.jpg`));
-                tgForm.append('caption', `#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}`);
+                tgForm.append('caption', `${msgPrefix} #微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}`);
               }
 
               // If post has video
               if (status?.page_info?.type === 'video') {
                 tgOptions.method = 'sendVideo';
                 tgBody.video = status?.page_info?.media_info?.stream_url_hd || status?.page_info?.media_info?.stream_url;
-                tgBody.caption = `#微博${visibilityMap[visibility] || ''}视频：${text}`;
+                tgBody.caption = `${msgPrefix} #微博${visibilityMap[visibility] || ''}视频：${text}`;
               }
 
               // TODO: parse 4k
