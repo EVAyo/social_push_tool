@@ -712,18 +712,24 @@ async function main(config) {
                 method: 'sendMessage',
               };
 
+              const tgMarkup = {
+                inline_keyboard: [
+                  [
+                    {text: 'View', url: `https://t.bilibili.com/${dynamicId}`},
+                    {text: `${user.info.uname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
+                  ],
+                ]
+              };
+
               const tgBody = {
                 chat_id: account.tgChannelID,
                 text: `${user.info.uname} #b站动态`,
-                reply_markup: {
-                  inline_keyboard: [
-                    [
-                      {text: 'View', url: `https://t.bilibili.com/${dynamicId}`},
-                      {text: `${user.info.uname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
-                    ],
-                  ]
-                },
+                reply_markup: tgMarkup,
               };
+
+              const tgForm = new FormData();
+              tgForm.append('chat_id', account.tgChannelID);
+              tgForm.append('reply_markup', JSON.stringify(tgMarkup));
 
               // Check post type
               // https://www.mywiki.cn/dgck81lnn/index.php/%E5%93%94%E5%93%A9%E5%93%94%E5%93%A9API%E8%AF%A6%E8%A7%A3
@@ -815,8 +821,13 @@ async function main(config) {
                 const photoCount = cardJson.item.pictures.length;
                 const photoCountText = photoCount > 1 ? `（共 ${photoCount} 张）` : ``;
                 tgOptions.method = 'sendPhoto';
-                tgBody.caption = `${msgPrefix} #b站相册动态${photoCountText}：${cardJson?.item?.description}`;
-                tgBody.photo = cardJson.item.pictures[0].img_src;
+                tgOptions.payload = 'form';
+                // NOTE: old JSON method
+                // tgBody.caption = `${msgPrefix} #b站相册动态${photoCountText}：${cardJson?.item?.description}`;
+                // tgBody.photo = cardJson.item.pictures[0].img_src;
+                tgForm.append('photo', await readProcessedImage(`${cardJson.item.pictures[0].img_src}`));
+                tgForm.append('caption', `${msgPrefix} #b站相册动态${photoCountText}：${cardJson?.item?.description}`);
+
                 log(`bilibili-mblog got gallery post (${timeAgo(timestamp)})`);
               }
 
@@ -885,12 +896,35 @@ async function main(config) {
                 if ((currentTime - timestamp) >= config.bilibiliBotThrottle) {
                   log(`bilibili-mblog too old, notifications skipped`);
                 } else {
-                  await sendTelegram(tgOptions, tgBody).then(resp => {
+                  await sendTelegram(tgOptions, tgOptions?.payload === 'form' ? tgForm : tgBody).then(resp => {
                     // log(`telegram post bilibili-mblog success: message_id ${resp.result.message_id}`)
                   })
                   .catch(err => {
                     log(`telegram post bilibili-mblog error: ${err?.response?.body || err}`);
                   });
+
+                  // Send an additional message if original post has more than one photo
+                  if (cardJson?.item?.pictures.length > 1) {
+                    await Promise.all(cardJson.item.pictures.map(async (pic, idx) => {
+                      const photoCount = cardJson.item.pictures.length;
+                      const photoCountText = photoCount > 1 ? `（${idx + 1}/${photoCount}）` : ``;
+                      const tgForm = new FormData();
+                      tgForm.append('chat_id', account.tgChannelID);
+                      tgForm.append('reply_markup', JSON.stringify(tgMarkup));
+                      tgForm.append('photo', await readProcessedImage(`${cardJson.item.pictures[idx].img_src}`));
+                      tgForm.append('caption', `${msgPrefix} #b站相册动态${photoCountText}：${cardJson?.item?.description}`);
+
+                      await sendTelegram({
+                        method: 'sendPhoto',
+                        payload: 'form',
+                      }, tgForm).then(resp => {
+                        log(`telegram post bilibili-mblog (batch #${idx + 1}) success`)
+                      })
+                      .catch(err => {
+                        log(`telegram post bilibili-mblog (batch #${idx + 1}) error: ${err?.response?.body || err}`);
+                      });
+                    }));
+                  }
                 }
               }
             } else if (dynamicId !== dbScope?.bilibili_mblog?.latestDynamic?.id && timestamp < dbScope?.bilibili_mblog?.latestDynamic?.timestampUnix) {
@@ -1178,7 +1212,8 @@ async function main(config) {
                 const photoCountText = photoCount > 1 ? `（共 ${photoCount} 张）` : ``;
                 tgOptions.method = 'sendPhoto';
                 tgOptions.payload = 'form';
-                tgForm.append('photo', await readProcessedImage(`https://ww1.sinaimg.cn/large/${status.pic_ids[0]}.jpg`));
+                // tgForm.append('photo', await readProcessedImage(`https://ww1.sinaimg.cn/large/${status.pic_ids[0]}.jpg`));
+                tgForm.append('photo', await readProcessedImage(`${status.pics[0].large.url}`));
                 tgForm.append('caption', `${msgPrefix} #微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}`);
 
                 // NOTE: Method to send multiple photos in one sendMediaGroup
@@ -1220,7 +1255,7 @@ async function main(config) {
                 if ((currentTime - timestamp) >= config.weiboBotThrottle) {
                   log(`weibo too old, notifications skipped`);
                 } else {
-                  await sendTelegram(tgOptions, tgOptions.payload === 'form' ? tgForm : tgBody).then(resp => {
+                  await sendTelegram(tgOptions, tgOptions?.payload === 'form' ? tgForm : tgBody).then(resp => {
                     // log(`telegram post weibo success: message_id ${resp.result.message_id}`)
                   })
                   .catch(err => {
@@ -1242,7 +1277,7 @@ async function main(config) {
                         method: 'sendPhoto',
                         payload: 'form',
                       }, tgForm).then(resp => {
-                        // log(`telegram post weibo success: message_id ${resp.result.message_id}`)
+                        log(`telegram post weibo (batch #${idx + 1}) success`)
                       })
                       .catch(err => {
                         log(`telegram post weibo (batch #${idx + 1}) error: ${err?.response?.body || err}`);
