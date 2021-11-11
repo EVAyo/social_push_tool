@@ -911,7 +911,7 @@ async function main(config) {
                   });
 
                   // Send an additional message if original post has more than one photo
-                  if (cardJson?.item?.pictures.length > 1) {
+                  if (cardJson?.item?.pictures?.length > 1) {
                     await Promise.all(cardJson.item.pictures.map(async (pic, idx) => {
                       const photoCount = cardJson.item.pictures.length;
                       const photoCountText = photoCount > 1 ? `（${idx + 1}/${photoCount}）` : ``;
