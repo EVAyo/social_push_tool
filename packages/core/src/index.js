@@ -1100,14 +1100,14 @@ async function main(config) {
             }
 
             // If user verified_reason update
-            if (user?.verified_reason !== dbScope?.weibo?.user?.verified_reason && dbScope?.weibo?.user?.verified_reason) {
+            if (user?.verified_reason !== dbScope?.weibo?.user?.verified_reason) {
               log(`weibo user verified_reason updated: ${user.verified_reason}`);
 
               if (account.tgChannelID && config.telegram.enabled) {
 
                 await sendTelegram({ method: 'sendMessage' }, {
                   chat_id: account.tgChannelID,
-                  text: `${msgPrefix} #微博认证更新\n新：${user.verified_reason}\n旧：${dbScope?.weibo?.user?.verified_reason}`,
+                  text: `${msgPrefix} #微博认证更新\n新：${user?.verified_reason || '无认证'}\n旧：${dbScope?.weibo?.user?.verified_reason || '无认证'}`,
                   reply_markup: {
                     inline_keyboard: [
                       [
