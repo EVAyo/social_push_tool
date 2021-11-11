@@ -974,6 +974,16 @@ async function main(config) {
               });
             }
 
+            // If the status has additional geolocation info
+            if (status?.page_info?.type === 'place') {
+              text += `\n\n坐标：${status.page_info.page_title}（${status.page_info.content1}）`;
+            }
+
+            // If the status has custom sending source
+            if (status?.source) {
+              text += `\n\n发送自：${status.source}`;
+            }
+
             argv.json && fs.writeFile(`db/${account.slug}-weibo.json`, JSON.stringify(json, null, 2), err => {
               if (err) return console.log(err);
             });
