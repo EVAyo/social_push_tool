@@ -1131,6 +1131,10 @@ async function main(config) {
                 method: 'sendMessage',
               };
 
+              const tgOptionsAlt = {
+                method: 'sendMessage',
+              };
+
               const tgMarkup = {
                 inline_keyboard: [
                   retweeted_status ? [
@@ -1150,6 +1154,10 @@ async function main(config) {
                 reply_markup: tgMarkup,
               };
 
+              const tgBodyAlt = {
+                chat_id: account.tgChannelID,
+              };
+
               const tgForm = new FormData();
               tgForm.append('chat_id', account.tgChannelID);
               tgForm.append('reply_markup', JSON.stringify(tgMarkup));
@@ -1162,6 +1170,28 @@ async function main(config) {
                 tgOptions.payload = 'form';
                 tgForm.append('photo', await readProcessedImage(`https://ww1.sinaimg.cn/large/${status.pic_ids[0]}.jpg`));
                 tgForm.append('caption', `${msgPrefix} #微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}`);
+
+                // NOTE: Method to send multiple photos in one sendMediaGroup
+                // Pros: efficient, no need to download each photo
+                // Cons: message send will fail if any photo fails to fetch fron Telegram servers
+                // if (status.pic_ids?.length > 1) {
+                //   tgOptionsAlt.method = 'sendMediaGroup';
+                //   const acceptedPhotos = status.pic_ids.slice(0, 9);
+                //   tgBodyAlt.media = acceptedPhotos.map((pic, idx) => ({
+                //     type: 'photo',
+                //     // Limit image size with original server and webp: failed (Bad Request: group send failed)
+                //     // media: pic.img_width > 1036 || pic.img_height > 1036 ? `${pic.img_src}@1036w.webp` : `${pic.img_src}`,
+
+                //     // Use wp.com proxy to serve image: failed (Bad Request: group send failed)
+                //     // media: `https://i0.wp.com/${pic.img_src.replace('https://').replace('http://')}?w=200`,
+
+                //     // Use my own proxy and webp prefix from bilibili: sucess
+                //     media: `https://experiments.sparanoid.net/imageproxy/1000x1000,fit,jpeg/${status.pics[idx].large.url}`,
+                //   }));
+
+                //   // Only apply caption to the first image to make it auto shown on message list
+                //   tgBodyAlt.media[0].caption = `${msgPrefix} #微博${visibilityMap[visibility] || ''}照片${photoCountText} #多图相册：${text}`;
+                // }
               }
 
               // If post has video
@@ -1186,6 +1216,29 @@ async function main(config) {
                   .catch(err => {
                     log(`telegram post weibo error: ${err?.response?.body || err}`);
                   });
+
+                  // Send an additional message if original post has more than one photo
+                  if (status.pic_ids?.length > 1) {
+                    await Promise.all(status.pic_ids.map(async (pic, idx) => {
+                      const photoCount = status.pic_ids.length;
+                      const photoCountText = photoCount > 1 ? `（${idx + 1}/${photoCount}）` : ``;
+                      const tgForm = new FormData();
+                      tgForm.append('chat_id', account.tgChannelID);
+                      tgForm.append('reply_markup', JSON.stringify(tgMarkup));
+                      tgForm.append('photo', await readProcessedImage(`${status.pics[idx].large.url}`));
+                      tgForm.append('caption', `${msgPrefix} #微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}`);
+
+                      await sendTelegram({
+                        method: 'sendPhoto',
+                        payload: 'form',
+                      }, tgForm).then(resp => {
+                        // log(`telegram post weibo success: message_id ${resp.result.message_id}`)
+                      })
+                      .catch(err => {
+                        log(`telegram post weibo (batch #${idx + 1}) error: ${err?.response?.body || err}`);
+                      });
+                    }));
+                  }
                 }
               }
             } else if (id !== dbScope?.weibo?.latestStatus?.id && timestamp < dbScope?.weibo?.latestStatus?.timestampUnix) {
