@@ -673,7 +673,7 @@ async function main(config) {
 
             const cardMeta = card.desc;
             const cardJson = JSON.parse(card.card);
-            const cardExtendedJson = JSON.parse(card?.extension?.lbs);
+            const cardExtendedJson = card?.extension?.lbs && JSON.parse(card.extension.lbs) || null;
             let extendedMeta = '';
 
             const {
