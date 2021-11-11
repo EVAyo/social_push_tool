@@ -673,6 +673,8 @@ async function main(config) {
 
             const cardMeta = card.desc;
             const cardJson = JSON.parse(card.card);
+            const cardExtendedJson = JSON.parse(card?.extension?.lbs);
+            let extendedMeta = '';
 
             const {
               uid,
@@ -730,6 +732,11 @@ async function main(config) {
               const tgForm = new FormData();
               tgForm.append('chat_id', account.tgChannelID);
               tgForm.append('reply_markup', JSON.stringify(tgMarkup));
+
+              // If the status has additional geolocation info
+              if (cardExtendedJson) {
+                extendedMeta += `\n\n坐标：${cardExtendedJson.show_title}（${cardExtendedJson.address}）`;
+              }
 
               // Check post type
               // https://www.mywiki.cn/dgck81lnn/index.php/%E5%93%94%E5%93%A9%E5%93%94%E5%93%A9API%E8%AF%A6%E8%A7%A3
@@ -826,14 +833,14 @@ async function main(config) {
                 // tgBody.caption = `${msgPrefix} #b站相册动态${photoCountText}：${cardJson?.item?.description}`;
                 // tgBody.photo = cardJson.item.pictures[0].img_src;
                 tgForm.append('photo', await readProcessedImage(`${cardJson.item.pictures[0].img_src}`));
-                tgForm.append('caption', `${msgPrefix} #b站相册动态${photoCountText}：${cardJson?.item?.description}`);
+                tgForm.append('caption', `${msgPrefix} #b站相册动态${photoCountText}：${cardJson?.item?.description}${extendedMeta}`);
 
                 log(`bilibili-mblog got gallery post (${timeAgo(timestamp)})`);
               }
 
               // Text post
               else if (type === 4) {
-                tgBody.text = `${msgPrefix} #b站动态：${cardJson?.item?.content.trim()}`;
+                tgBody.text = `${msgPrefix} #b站动态：${cardJson?.item?.content.trim()}${extendedMeta}`;
                 log(`bilibili-mblog got text post (${timeAgo(timestamp)})`);
               }
 
@@ -912,7 +919,7 @@ async function main(config) {
                       tgForm.append('chat_id', account.tgChannelID);
                       tgForm.append('reply_markup', JSON.stringify(tgMarkup));
                       tgForm.append('photo', await readProcessedImage(`${cardJson.item.pictures[idx].img_src}`));
-                      tgForm.append('caption', `${msgPrefix} #b站相册动态${photoCountText}：${cardJson?.item?.description}`);
+                      tgForm.append('caption', `${msgPrefix} #b站相册动态${photoCountText}：${cardJson?.item?.description}${extendedMeta}`);
 
                       await sendTelegram({
                         method: 'sendPhoto',
