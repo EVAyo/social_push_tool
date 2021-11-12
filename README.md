@@ -77,7 +77,7 @@ Your full `config.js` file may look like:
 {
   rateLimitProxy: 'http://10.2.1.2:7890',
   pluginOptions: {
-    gotOptions: {
+    requestOptions: {
       timeout: {
         request: 3000
       },

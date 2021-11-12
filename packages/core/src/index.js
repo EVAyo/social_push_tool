@@ -78,6 +78,14 @@ async function generateConfig() {
 const config = await generateConfig();
 // const userConfig = argv.config ? JSON.parse(fs.readFileSync(argv.config)) : {};
 
+// Used by extractor-douyin
+function cookieOnDemand(cookie) {
+  return {
+    cookies: cookie
+  }
+}
+
+// Used by got directly
 function headerOnDemand(cookie) {
   return {
     headers: {
@@ -188,7 +196,7 @@ async function main(config) {
       const msgPrefix = account.showSlug ? `#${account.slug}` : ``;
 
       // Fetch Douyin live
-      account.douyinLiveId && await dyExtract(`https://live.douyin.com/${account.douyinLiveId}`, config.pluginOptions).then(async resp => {
+      account.douyinLiveId && await dyExtract(`https://live.douyin.com/${account.douyinLiveId}`, {...config.pluginOptions, ...cookieOnDemand(config.pluginOptions.customCookies.douyin)}).then(async resp => {
         const json = resp?.initialState?.roomStore?.roomInfo;
 
         if (json) {
@@ -198,7 +206,7 @@ async function main(config) {
           if (status === 2) {
             argv.verbose && log(`douyin-live seems started, begin second check...`);
 
-            await dyExtract(`https://webcast.amemv.com/webcast/reflow/${id_str}`, config.pluginOptions).then(async resp => {
+            await dyExtract(`https://webcast.amemv.com/webcast/reflow/${id_str}`, {...config.pluginOptions, ...cookieOnDemand(config.pluginOptions.customCookies.douyin)}).then(async resp => {
               const currentTime = Date.now();
               const json = resp?.['/webcast/reflow/:id'];
 
@@ -319,7 +327,7 @@ async function main(config) {
       });
 
       // Fetch Douyin
-      account.douyinId && await dyExtract(`https://www.douyin.com/user/${account.douyinId}`, config.pluginOptions).then(async resp => {
+      account.douyinId && await dyExtract(`https://www.douyin.com/user/${account.douyinId}`, {...config.pluginOptions, ...cookieOnDemand(config.pluginOptions.customCookies.douyin)}).then(async resp => {
         const currentTime = Date.now();
 
         // Douyin trends to change object key regularly. (ie. C_10, C_12, C_14)
@@ -977,7 +985,8 @@ async function main(config) {
       });
 
       // Fetch Weibo
-      const weiboRequestOptions = {...config.pluginOptions?.requestOptions, ...headerOnDemand(config.pluginOptions.cookies.weibo)};
+      const weiboRequestOptions = {...config.pluginOptions?.requestOptions, ...headerOnDemand(config.pluginOptions.customCookies.weibo)};
+
       account.weiboId && await got(`https://m.weibo.cn/profile/info?uid=${account.weiboId}`, weiboRequestOptions).then(async resp => {
         const json = JSON.parse(resp.body);
 

@@ -25,7 +25,7 @@ console.log(resp._location);
 const options = {
   mobileUserAgent: `got`,
   desktopUserAgent: `got`,
-  gotOptions: {
+  requestOptions: {
     timeout: {
       request: 3000
     },

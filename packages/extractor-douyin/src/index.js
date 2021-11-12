@@ -8,7 +8,7 @@ async function extract(url, options = {}) {
 
   const mobileUserAgent = options?.mobileUserAgent || 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.2 Mobile/15E148 Safari/604.1';
   const desktopUserAgent = options?.desktopUserAgent || 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.69 Safari/537.36';
-  const gotOptions = options?.gotOptions || {};
+  const requestOptions = options?.requestOptions || {};
   const cookieOptions = options?.cookies || '';
 
   try {
@@ -28,7 +28,7 @@ async function extract(url, options = {}) {
         'user-agent': reqUserAgent,
         cookie: cookieOptions,
       },
-      ...gotOptions
+      ...requestOptions
     });
 
     const el_target = '#RENDER_DATA';
