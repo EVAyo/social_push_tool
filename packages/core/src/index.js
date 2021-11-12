@@ -603,6 +603,119 @@ async function main(config) {
             }
           }
 
+          // If user fans_medal update
+          if (fans_medal?.medal?.target_id !== dbScope?.bilibili_live?.fans_medal?.medal?.target_id) {
+            const medalOld = dbScope?.bilibili_live?.fans_medal?.medal;
+            const medalNew = fans_medal?.medal;
+
+            log(`bilibili-live fans_medal updated: ${medalNew?.medal_name || '无佩戴'}`);
+
+            if (account.tgChannelID && config.telegram.enabled) {
+
+              await sendTelegram({ method: 'sendMessage' }, {
+                chat_id: account.tgChannelID,
+                text: `${msgPrefix} #b站佩戴粉丝牌变更\n新：${medalNew?.medal_name || '无佩戴'}${medalNew?.level ? ' / lv' + medalNew?.level : ''}${medalNew?.target_id ? ' / uid:' + medalNew?.target_id : ''}` +
+                  `\n旧：${medalOld?.medal_name || '无佩戴'}${medalOld?.level ? ' / lv' + medalOld?.level : ''}${medalOld?.target_id ? ' / uid:' + medalOld?.target_id : ''}`,
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      {text: `${nickname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
+                    ],
+                  ]
+                },
+              }).then(resp => {
+                // log(`telegram post bilibili-live::fans_medal success: message_id ${resp.result.message_id}`)
+              })
+              .catch(err => {
+                log(`telegram post bilibili-live::fans_medal error: ${err?.response?.body || err}`);
+              });
+            }
+          }
+
+          // If user pendant update
+          if (pendant?.pid !== dbScope?.bilibili_live?.pendant?.pid) {
+            const pendantOld = dbScope?.bilibili_live?.pendant;
+
+            log(`bilibili-live pendant updated: ${pendant?.name || '无佩戴'}`);
+
+            if (account.tgChannelID && config.telegram.enabled) {
+
+              await sendTelegram({ method: 'sendMessage' }, {
+                chat_id: account.tgChannelID,
+                text: `${msgPrefix} #b站头像挂件变更\n新：${pendant?.name || '无佩戴'}` +
+                  `\n旧：${pendantOld?.name || '无佩戴'}`,
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      {text: `${nickname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
+                    ],
+                  ]
+                },
+              }).then(resp => {
+                // log(`telegram post bilibili-live::pendant success: message_id ${resp.result.message_id}`)
+              })
+              .catch(err => {
+                log(`telegram post bilibili-live::pendant error: ${err?.response?.body || err}`);
+              });
+            }
+          }
+
+          // If user nameplate update
+          if (nameplate?.nid !== dbScope?.bilibili_live?.nameplate?.nid) {
+            const nameplateOld = dbScope?.bilibili_live?.nameplate;
+
+            log(`bilibili-live nameplate updated: ${nameplate?.name || '无佩戴'}`);
+
+            if (account.tgChannelID && config.telegram.enabled) {
+
+              await sendTelegram({ method: 'sendMessage' }, {
+                chat_id: account.tgChannelID,
+                text: `${msgPrefix} #b站勋章变更\n新：${nameplate?.name || '无勋章'}${nameplate?.condition ? '（' + nameplate?.condition + '）' : ''}` +
+                  `\n旧：${nameplateOld?.name || '无勋章'}${nameplateOld?.condition ? '（' + nameplateOld?.condition + '）' : ''}`,
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      {text: `${nickname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
+                    ],
+                  ]
+                },
+              }).then(resp => {
+                // log(`telegram post bilibili-live::nameplate success: message_id ${resp.result.message_id}`)
+              })
+              .catch(err => {
+                log(`telegram post bilibili-live::nameplate error: ${err?.response?.body || err}`);
+              });
+            }
+          }
+
+          // If user official verification update
+          if (official?.title !== dbScope?.bilibili_live?.official?.title) {
+            const officialOld = dbScope?.bilibili_live?.official;
+
+            log(`bilibili-live official verification updated: ${official?.title || '无认证'}`);
+
+            if (account.tgChannelID && config.telegram.enabled) {
+
+              await sendTelegram({ method: 'sendMessage' }, {
+                chat_id: account.tgChannelID,
+                text: `${msgPrefix} #b站认证变更\n新：${official?.title || '无认证'}` +
+                  `\n旧：${officialOld?.title || '无认证'}`,
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      {text: `${nickname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
+                    ],
+                  ]
+                },
+              }).then(resp => {
+                // log(`telegram post bilibili-live::official verification success: message_id ${resp.result.message_id}`)
+              })
+              .catch(err => {
+                log(`telegram post bilibili-live::official verification error: ${err?.response?.body || err}`);
+              });
+            }
+          }
+
           // 1: live
           // 0: not live
           if (room?.liveStatus === 1) {
@@ -708,6 +821,40 @@ async function main(config) {
                 timeAgo: timeAgo(timestamp),
               }
             };
+
+            // If user decorate_card verification update
+            if (user?.decorate_card?.id !== dbScope?.bilibili_mblog?.user?.decorate_card?.id) {
+              const decoOld = dbScope?.bilibili_mblog?.user?.decorate_card;
+              const decoNew = user?.decorate_card;
+
+              log(`bilibili-mblog decorate_card updated: ${decoNew?.name || '无装扮'}`);
+
+              if (account.tgChannelID && config.telegram.enabled) {
+
+                await sendTelegram({ method: 'sendMessage' }, {
+                  chat_id: account.tgChannelID,
+                  text: `${msgPrefix} #b站粉丝装扮变更\n新：${decoNew?.name || '无装扮'}#${decoNew?.fan?.number || '（无编号）'}` +
+                    `\n旧：${decoOld?.name || '无装扮'}#${decoNew?.fan?.number || '（无编号）'}`,
+                  reply_markup: {
+                    inline_keyboard: decoNew?.id ? [
+                      [
+                        {text: `${user.info.uname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
+                        {text: `装扮链接`, url: `${decoNew?.jump_url || '未知'}`},
+                      ],
+                    ] : [
+                      [
+                        {text: `${user.info.uname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
+                      ],
+                    ]
+                  },
+                }).then(resp => {
+                  // log(`telegram post bilibili-mblog::decorate_card success: message_id ${resp.result.message_id}`)
+                })
+                .catch(err => {
+                  log(`telegram post bilibili-mblog::decorate_card error: ${err?.response?.body || err}`);
+                });
+              }
+            }
 
             // NOTE: card content (mblog content) is escaped inside JSON,
             // uncomment the following to output parsed JSON for debugging
