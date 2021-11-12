@@ -82,7 +82,9 @@ Your full `config.js` file may look like:
         request: 3000
       },
     },
-    cookies: {
+    customCookies: {
+      // Nov 11, 2021
+      // Douyin main site now request `__ac_nonce` and `__ac_signature` to work
       douyin: ``,
       // get `SESSDATA` cookie from https://www.bilibili.com/
       bilibili: `SESSDATA=XXX`,
