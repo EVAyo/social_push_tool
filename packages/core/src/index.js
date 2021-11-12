@@ -839,7 +839,7 @@ async function main(config) {
                     inline_keyboard: decoNew?.id ? [
                       [
                         {text: `${user.info.uname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
-                        {text: `装扮链接`, url: `${decoNew?.jump_url || '未知'}`},
+                        {text: `Decoration Link`, url: `${decoNew?.jump_url || '未知'}`},
                       ],
                     ] : [
                       [
@@ -1276,6 +1276,32 @@ async function main(config) {
                 })
                 .catch(err => {
                   log(`telegram post weibo::verified_reason error: ${err}`);
+                });
+              }
+            }
+
+            // If user follow_count update
+            if (user?.follow_count !== dbScope?.weibo?.user?.follow_count) {
+              log(`weibo user follow_count updated: ${user.follow_count}`);
+
+              if (account.tgChannelID && config.telegram.enabled) {
+
+                await sendTelegram({ method: 'sendMessage' }, {
+                  chat_id: account.tgChannelID,
+                  text: `${msgPrefix} #微博关注数变更\n新：${user?.follow_count || '未知'}\n旧：${dbScope?.weibo?.user?.follow_count || '未知'}`,
+                  reply_markup: {
+                    inline_keyboard: [
+                      [
+                        {text: `View Following`, url: `https://weibo.com/u/page/follow/${user.id}`},
+                        {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
+                      ],
+                    ]
+                  },
+                }).then(resp => {
+                  // log(`telegram post weibo::follow_count success: message_id ${resp.result.message_id}`)
+                })
+                .catch(err => {
+                  log(`telegram post weibo::follow_count error: ${err}`);
                 });
               }
             }
