@@ -1,8 +1,15 @@
 import { equal } from 'assert/strict';
+import dotenv from 'dotenv'
 import extract from './index.js';
 
-const resp = await extract(`https://www.douyin.com/user/MS4wLjABAAAA5ZrIrbgva_HMeHuNn64goOD2XYnk4ItSypgRHlbSh1c`);
-const liveDesktopResp = await extract(`https://live.douyin.com/820648166099`);
+dotenv.config()
+
+const options = {
+  cookies: process.env.DOUYIN_COOKIES
+}
+
+const resp = await extract(`https://www.douyin.com/user/MS4wLjABAAAA5ZrIrbgva_HMeHuNn64goOD2XYnk4ItSypgRHlbSh1c`, options);
+const liveDesktopResp = await extract(`https://live.douyin.com/820648166099`, options);
 const liveMobileResp = await extract(`https://webcast.amemv.com/webcast/reflow/6996256987986021157`);
 
 export function jsonContentExists() {

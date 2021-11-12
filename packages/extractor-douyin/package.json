@@ -25,6 +25,7 @@
     "jsdom": "^18.0.0"
   },
   "devDependencies": {
+    "dotenv": "^10.0.0",
     "xv": "^1.1.0"
   },
   "gitHead": "e751129bf6d769cd29bde40d441d33a6efb31481"
