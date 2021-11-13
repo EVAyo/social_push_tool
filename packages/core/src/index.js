@@ -833,13 +833,13 @@ async function main(config) {
 
                 await sendTelegram({ method: 'sendMessage' }, {
                   chat_id: account.tgChannelID,
-                  text: `${msgPrefix} #b站粉丝装扮变更\n新：${decoNew?.name || '无装扮'}#${decoNew?.fan?.number || '（无编号）'}` +
-                    `\n旧：${decoOld?.name || '无装扮'}#${decoNew?.fan?.number || '（无编号）'}`,
+                  text: `${msgPrefix} #b站粉丝装扮变更\n新：${decoNew?.name || '无装扮'}${decoNew?.fan?.number ? '#' + decoNew?.fan?.number : '（无编号）'}` +
+                    `\n旧：${decoOld?.name || '无装扮'}#${decoOld?.fan?.number ? '#' + decoOld?.fan?.number : '（无编号）'}`,
                   reply_markup: {
                     inline_keyboard: decoNew?.id ? [
                       [
-                        {text: `${user.info.uname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
                         {text: `Decoration Link`, url: `${decoNew?.jump_url || '未知'}`},
+                        {text: `${user.info.uname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
                       ],
                     ] : [
                       [
