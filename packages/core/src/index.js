@@ -553,7 +553,7 @@ async function main(config) {
           }
 
           // If user sign update
-          if (nickname !== 'bilibili' && sign !== dbScope?.bilibili_live?.sign && dbScope?.bilibili_live?.sign) {
+          if (nickname !== 'bilibili' && sign !== dbScope?.bilibili_live?.sign && dbScope?.bilibili_live) {
             log(`bilibili-live user sign updated: ${sign}`);
 
             if (account.tgChannelID && config.telegram.enabled) {
@@ -604,7 +604,7 @@ async function main(config) {
           }
 
           // If user fans_medal update
-          if (fans_medal?.medal?.target_id !== dbScope?.bilibili_live?.fans_medal?.medal?.target_id) {
+          if (fans_medal?.medal?.target_id !== dbScope?.bilibili_live?.fans_medal?.medal?.target_id && dbScope?.bilibili_live) {
             const medalOld = dbScope?.bilibili_live?.fans_medal?.medal;
             const medalNew = fans_medal?.medal;
 
@@ -633,7 +633,7 @@ async function main(config) {
           }
 
           // If user pendant update
-          if (pendant?.pid !== dbScope?.bilibili_live?.pendant?.pid) {
+          if (pendant?.pid !== dbScope?.bilibili_live?.pendant?.pid && dbScope?.bilibili_live) {
             const pendantOld = dbScope?.bilibili_live?.pendant;
 
             log(`bilibili-live pendant updated: ${pendant?.name || '无佩戴'}`);
@@ -661,7 +661,7 @@ async function main(config) {
           }
 
           // If user nameplate update
-          if (nameplate?.nid !== dbScope?.bilibili_live?.nameplate?.nid) {
+          if (nameplate?.nid !== dbScope?.bilibili_live?.nameplate?.nid && dbScope?.bilibili_live) {
             const nameplateOld = dbScope?.bilibili_live?.nameplate;
 
             log(`bilibili-live nameplate updated: ${nameplate?.name || '无佩戴'}`);
@@ -689,7 +689,7 @@ async function main(config) {
           }
 
           // If user official verification update
-          if (official?.title !== dbScope?.bilibili_live?.official?.title) {
+          if (official?.title !== dbScope?.bilibili_live?.official?.title && dbScope?.bilibili_live) {
             const officialOld = dbScope?.bilibili_live?.official;
 
             log(`bilibili-live official verification updated: ${official?.title || '无认证'}`);
@@ -823,7 +823,7 @@ async function main(config) {
             };
 
             // If user decorate_card verification update
-            if (user?.decorate_card?.id !== dbScope?.bilibili_mblog?.user?.decorate_card?.id) {
+            if (user?.decorate_card?.id !== dbScope?.bilibili_mblog?.user?.decorate_card?.id && dbScope?.bilibili_mblog) {
               const decoOld = dbScope?.bilibili_mblog?.user?.decorate_card;
               const decoNew = user?.decorate_card;
 
@@ -1256,7 +1256,7 @@ async function main(config) {
             }
 
             // If user verified_reason update
-            if (user?.verified_reason !== dbScope?.weibo?.user?.verified_reason) {
+            if (user?.verified_reason !== dbScope?.weibo?.user?.verified_reason && dbScope?.weibo?.user) {
               log(`weibo user verified_reason updated: ${user.verified_reason}`);
 
               if (account.tgChannelID && config.telegram.enabled) {
@@ -1281,7 +1281,7 @@ async function main(config) {
             }
 
             // If user follow_count update
-            if (user?.follow_count !== dbScope?.weibo?.user?.follow_count) {
+            if (user?.follow_count !== dbScope?.weibo?.user?.follow_count && dbScope?.weibo?.user) {
               log(`weibo user follow_count updated: ${user.follow_count}`);
 
               if (account.tgChannelID && config.telegram.enabled) {
