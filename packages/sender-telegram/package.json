@@ -1,6 +1,6 @@
 {
   "name": "@a-soul/sender-telegram",
-  "version": "1.2.10",
+  "version": "1.2.11",
   "description": "Send processed data to Telegram",
   "main": "src/index.js",
   "repository": "https://github.com/sparanoid/a-soul",
