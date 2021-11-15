@@ -913,54 +913,19 @@ async function main(config) {
                 else if (originJson?.item?.description && originJson?.item?.pictures) {
                   // console.log(originJson?.item.pictures);
 
-                  // NOTE: Change the following to `> 1` to enable
-                  if (originJson?.item?.pictures_count > 99) {
-                    // TODO: sendMediaGroup doesn't support reply_markup. You have to use a seperate message
-                    tgOptions.method = 'sendMediaGroup';
-                    tgBody.media = originJson?.item?.pictures.map((pic, idx) => ({
-                      type: 'photo',
-                      // Limit image size with original server and webp: failed (Bad Request: group send failed)
-                      // media: pic.img_width > 1036 || pic.img_height > 1036 ? `${pic.img_src}@1036w.webp` : `${pic.img_src}`,
+                  const photoCount = originJson.item.pictures.length;
+                  const photoCountText = photoCount > 1 ? `（共 ${photoCount} 张）` : ``;
+                  tgOptions.method = 'sendPhoto';
+                  tgOptions.payload = 'form';
+                  tgForm.append('photo', await readProcessedImage(`${originJson?.item?.pictures[0].img_src}`));
+                  tgForm.append('caption', `${msgPrefix} #b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.name}\n被转内容：${photoCountText}：${originJson?.item?.description}${extendedMeta}`);
 
-                      // Use wp.com proxy to serve image: failed (Bad Request: group send failed)
-                      // media: `https://i0.wp.com/${pic.img_src.replace('https://').replace('http://')}?w=200`,
-
-                      // Use my own proxy and webp prefix from bilibili: sucess
-                      media: `https://experiments.sparanoid.net/imageproxy/1000x1000,fit/${pic.img_src}@1036w.webp`,
-                    }));
-
-                    // Only apply caption to the first image to make it auto shown on message list
-                    tgBody.media[0].caption = `${msgPrefix} #b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.name}\n被转内容：${originJson.item.description}`;
-
-                    // Debug payload
-                    // console.log(tgBody.media);
-                    // tgBody.media = [
-                    //   {
-                    //     type: 'photo',
-                    //     media: `https://i0.hdslb.com/bfs/album/e2052046af707d686783ca5c78533e04e6ef4b86.jpg`,
-                    //   },
-                    //   {
-                    //     type: 'photo',
-                    //     media: `https://i0.hdslb.com/bfs/album/e2052046af707d686783ca5c78533e04e6ef4b86.jpg`,
-                    //   },
-                    //   {
-                    //     type: 'photo',
-                    //     media: `https://i0.hdslb.com/bfs/album/e2052046af707d686783ca5c78533e04e6ef4b86.jpg`,
-                    //   },
-                    //   {
-                    //     type: 'photo',
-                    //     media: `https://i0.hdslb.com/bfs/album/e2052046af707d686783ca5c78533e04e6ef4b86.jpg`,
-                    //   },
-                    // ];
-                  } else {
-                    tgOptions.method = 'sendPhoto';
-                    if (originJson?.item?.pictures[0].img_width > 1200 || originJson?.item?.pictures[0].img_height > 1200) {
-                      tgBody.photo = `https://experiments.sparanoid.net/imageproxy/1000x1000,fit/${originJson?.item?.pictures[0].img_src}@1036w.webp`;
-                    } else {
-                      tgBody.photo = `${originJson?.item?.pictures[0].img_src}`;
-                    }
-                    tgBody.caption = `${msgPrefix} #b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.name}\n被转内容：${originJson.item.description}`;
-                  }
+                  // if (originJson?.item?.pictures[0].img_width > 1200 || originJson?.item?.pictures[0].img_height > 1200) {
+                  //   tgBody.photo = `https://experiments.sparanoid.net/imageproxy/1000x1000,fit/${originJson?.item?.pictures[0].img_src}@1036w.webp`;
+                  // } else {
+                  //   tgBody.photo = `${originJson?.item?.pictures[0].img_src}`;
+                  // }
+                  // tgBody.caption = `${msgPrefix} #b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.name}\n被转内容：${originJson.item.description}`;
                 }
 
                 // Video
