@@ -795,6 +795,7 @@ async function main(config) {
             const cardMeta = card.desc;
             const cardJson = JSON.parse(card.card);
             const cardExtendedJson = card?.extension?.lbs && JSON.parse(card.extension.lbs) || null;
+            const cardAddon = card?.display?.add_on_card_info?.[0] || null;
             let extendedMeta = '';
 
             const {
@@ -887,6 +888,11 @@ async function main(config) {
               const tgForm = new FormData();
               tgForm.append('chat_id', account.tgChannelID);
               tgForm.append('reply_markup', JSON.stringify(tgMarkup));
+
+              // If the status has additional meta (ie. reserved events)
+              if (cardAddon) {
+                extendedMeta += `\n\n预约：${cardAddon.reserve_attach_card.title}（${cardAddon.reserve_attach_card?.desc_first?.text || '无详情'}）`;
+              }
 
               // If the status has additional geolocation info
               if (cardExtendedJson) {
