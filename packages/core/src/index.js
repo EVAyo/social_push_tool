@@ -18,6 +18,7 @@ import { timeAgo } from './utils/timeAgo.js';
 import { readProcessedImage } from './utils/processImage.js';
 
 import TelegramBot from '@a-soul/sender-telegram';
+import GoQcHttp from '@a-soul/sender-go-qchttp';
 import dyExtract from '@a-soul/extractor-douyin';
 
 const argv = yargs(hideBin(process.argv))
@@ -113,6 +114,28 @@ async function sendTelegram(userOptions, userContent) {
   }
 }
 
+async function sendQGuild(userOptions, userContent) {
+  const options = merge({
+    apiBase: config.qGuild.apiBase,
+    requestOptions: {
+      retry: {
+        limit: 3,
+      }
+    },
+  }, userOptions);
+
+  try {
+    const resp = await GoQcHttp(options, userContent);
+    return resp;
+  } catch (err) {
+    console.log(err);
+  }
+}
+
+function generateCqCode(url, type = 'image') {
+  return `[CQ:${type},file=${url}]\n`;
+}
+
 // TODO: WIP
 async function send(account, messageType, userOptions) {
   const messageTypeMap = {
@@ -193,7 +216,7 @@ async function main(config) {
       } : {};
 
       // Append account slug in output (useful for multiple account in channel)
-      const msgPrefix = account.showSlug ? `#${account.slug}` : ``;
+      const msgPrefix = account.showSlug ? `#${account.slug} ` : ``;
 
       // Fetch Douyin live
       account.douyinLiveId && await dyExtract(`https://live.douyin.com/${account.douyinLiveId}`, {...config.pluginOptions, ...cookieOnDemand(config.pluginOptions.customCookies.douyin)}).then(async resp => {
@@ -265,7 +288,7 @@ async function main(config) {
                   const tgBody = {
                     chat_id: account.tgChannelId,
                     photo: liveCover,
-                    caption: `${msgPrefix} #抖音开播：${title}`,
+                    caption: `${msgPrefix}#抖音开播：${title}`,
                     reply_markup: {
                       inline_keyboard: [
                         [
@@ -280,13 +303,28 @@ async function main(config) {
                     },
                   }
 
-                  if (account.tgChannelId && config.telegram.enabled) {
+                  if (dbScope?.douyin_live?.latestStream?.isTgSent) {
+                    log(`douyin-live notification sent, skipping...`);
+                  } else if ((currentTime - timestamp) >= config.douyinLiveBotThrottle) {
+                    log(`douyin-live too old, notifications skipped`);
+                  } else {
 
-                    if (dbScope?.douyin_live?.latestStream?.isTgSent) {
-                      log(`douyin-live notification sent, skipping...`);
-                    } else if ((currentTime - timestamp) >= config.douyinLiveBotThrottle) {
-                      log(`douyin-live too old, notifications skipped`);
-                    } else {
+                    if (account.qGuildId && config.qGuild.enabled) {
+
+                      await sendQGuild({method: 'send_guild_channel_msg'}, {
+                        guild_id: account.qGuildId,
+                        channel_id: account.qGuildChannelId,
+                        message: `${msgPrefix}#抖音开播：${title}\n地址：https://webcast.amemv.com/webcast/reflow/${id_str}\nM3U8提取：${streamUrl}\n[CQ:image,file=${liveCover}]`,
+                      }).then(resp => {
+                        // log(`go-qchttp post weibo success: ${resp}`);
+                      })
+                      .catch(err => {
+                        log(`go-qchttp post douyin-live error: ${err?.response?.body || err}`);
+                      });
+                    }
+
+                    if (account.tgChannelId && config.telegram.enabled) {
+
                       // This function should be waited since we rely on the `isTgSent` flag
                       await sendTelegram(tgOptions, tgBody).then(resp => {
                         // log(`telegram post douyin-live success: message_id ${resp.result.message_id}`)
@@ -404,7 +442,7 @@ async function main(config) {
             const tgBody = {
               chat_id: account.tgChannelId,
               video: videoUrl,
-              caption: `${msgPrefix} #抖音视频：${title} #${id}`,
+              caption: `${msgPrefix}#抖音视频：${title} #${id}`,
               reply_markup: {
                 inline_keyboard: [
                   [
@@ -420,11 +458,25 @@ async function main(config) {
               log(`douyin got update: ${id} (${timeAgo(timestamp)}) ${title}`);
 
               // Send bot message
-              if (account.tgChannelId && config.telegram.enabled) {
+              if ((currentTime - timestamp) >= config.douyinBotThrottle) {
+                log(`douyin latest post too old, notifications skipped`);
+              } else {
+                if (account.qGuildId && config.qGuild.enabled) {
 
-                if ((currentTime - timestamp) >= config.douyinBotThrottle) {
-                  log(`douyin latest post too old, notifications skipped`);
-                } else {
+                  await sendQGuild({method: 'send_guild_channel_msg'}, {
+                    guild_id: account.qGuildId,
+                    channel_id: account.qGuildChannelId,
+                    message: `${msgPrefix}#抖音视频：${title}\n地址：${shareUrl}\n[CQ:image,file=${cover}]`,
+                  }).then(resp => {
+                    // log(`go-qchttp post weibo success: ${resp}`);
+                  })
+                  .catch(err => {
+                    log(`go-qchttp post douyin error: ${err?.response?.body || err}`);
+                  });
+                }
+
+                if (account.tgChannelId && config.telegram.enabled) {
+
                   await sendTelegram(tgOptions, tgBody).then(resp => {
                     // log(`telegram post douyin success: message_id ${resp.result.message_id}`)
                   })
@@ -515,7 +567,7 @@ async function main(config) {
           const tgBody = {
             chat_id: account.tgChannelId,
             photo: liveCover,
-            caption: `${msgPrefix} #b站开播：${liveTitle}`,
+            caption: `${msgPrefix}#b站开播：${liveTitle}`,
             reply_markup: {
               inline_keyboard: [
                 [
@@ -531,11 +583,25 @@ async function main(config) {
           if (nickname !== 'bilibili' && nickname !== dbScope?.bilibili_live?.nickname && dbScope?.bilibili_live?.nickname) {
             log(`bilibili-live user nickname updated: ${nickname}`);
 
+            if (account.qGuildId && config.qGuild.enabled) {
+
+              await sendQGuild({method: 'send_guild_channel_msg'}, {
+                guild_id: account.qGuildId,
+                channel_id: account.qGuildChannelId,
+                message: `${msgPrefix}#b站昵称更新\n新：${nickname}\n旧：${dbScope?.bilibili_live?.nickname}`,
+              }).then(resp => {
+                // log(`go-qchttp post weibo success: ${resp}`);
+              })
+              .catch(err => {
+                log(`go-qchttp post bilibili-live::nickname error: ${err?.response?.body || err}`);
+              });
+            }
+
             if (account.tgChannelId && config.telegram.enabled) {
 
               await sendTelegram({ method: 'sendMessage' }, {
                 chat_id: account.tgChannelId,
-                text: `${msgPrefix} #b站昵称更新\n新：${nickname}\n旧：${dbScope?.bilibili_live?.nickname}`,
+                text: `${msgPrefix}#b站昵称更新\n新：${nickname}\n旧：${dbScope?.bilibili_live?.nickname}`,
                 reply_markup: {
                   inline_keyboard: [
                     [
@@ -556,11 +622,25 @@ async function main(config) {
           if (nickname !== 'bilibili' && sign !== dbScope?.bilibili_live?.sign && dbScope?.bilibili_live) {
             log(`bilibili-live user sign updated: ${sign}`);
 
+            if (account.qGuildId && config.qGuild.enabled) {
+
+              await sendQGuild({method: 'send_guild_channel_msg'}, {
+                guild_id: account.qGuildId,
+                channel_id: account.qGuildChannelId,
+                message: `${msgPrefix}#b站签名更新\n新：${sign}\n旧：${dbScope?.bilibili_live?.sign}`,
+              }).then(resp => {
+                // log(`go-qchttp post weibo success: ${resp}`);
+              })
+              .catch(err => {
+                log(`go-qchttp post bilibili-live::sign error: ${err?.response?.body || err}`);
+              });
+            }
+
             if (account.tgChannelId && config.telegram.enabled) {
 
               await sendTelegram({ method: 'sendMessage' }, {
                 chat_id: account.tgChannelId,
-                text: `${msgPrefix} #b站签名更新\n新：${sign}\n旧：${dbScope?.bilibili_live?.sign}`,
+                text: `${msgPrefix}#b站签名更新\n新：${sign}\n旧：${dbScope?.bilibili_live?.sign}`,
                 reply_markup: {
                   inline_keyboard: [
                     [
@@ -581,12 +661,26 @@ async function main(config) {
           if (nickname !== 'bilibili' && avatarHash?.pathname !== dbScope?.bilibili_live?.avatar && dbScope?.bilibili_live?.avatar) {
             log(`bilibili-live user avatar updated: ${avatar}`);
 
+            if (account.qGuildId && config.qGuild.enabled) {
+
+              await sendQGuild({method: 'send_guild_channel_msg'}, {
+                guild_id: account.qGuildId,
+                channel_id: account.qGuildChannelId,
+                message: `${msgPrefix}#b站头像更新\n新头像：[CQ:image,file=${avatar}]\n老头像：[CQ:image,file=${dbScope?.bilibili_live?.avatar}]`,
+              }).then(resp => {
+                // log(`go-qchttp post weibo success: ${resp}`);
+              })
+              .catch(err => {
+                log(`go-qchttp post bilibili-live::avatar error: ${err?.response?.body || err}`);
+              });
+            }
+
             if (account.tgChannelId && config.telegram.enabled) {
 
               await sendTelegram({ method: 'sendPhoto' }, {
                 chat_id: account.tgChannelId,
                 photo: avatar,
-                caption: `${msgPrefix} #b站头像更新，老头像：${dbScope?.bilibili_live?.avatar}`,
+                caption: `${msgPrefix}#b站头像更新，老头像：${dbScope?.bilibili_live?.avatar}`,
                 reply_markup: {
                   inline_keyboard: [
                     [
@@ -610,11 +704,26 @@ async function main(config) {
 
             log(`bilibili-live fans_medal updated: ${medalNew?.medal_name || '无佩戴'}`);
 
+            if (account.qGuildId && config.qGuild.enabled) {
+
+              await sendQGuild({method: 'send_guild_channel_msg'}, {
+                guild_id: account.qGuildId,
+                channel_id: account.qGuildChannelId,
+                message: `${msgPrefix}#b站佩戴粉丝牌变更\n新：${medalNew?.medal_name || '无佩戴'}${medalNew?.level ? ' / lv' + medalNew?.level : ''}${medalNew?.target_id ? ' / uid:' + medalNew?.target_id : ''}` +
+                  `\n旧：${medalOld?.medal_name || '无佩戴'}${medalOld?.level ? ' / lv' + medalOld?.level : ''}${medalOld?.target_id ? ' / uid:' + medalOld?.target_id : ''}`,
+              }).then(resp => {
+                // log(`go-qchttp post weibo success: ${resp}`);
+              })
+              .catch(err => {
+                log(`go-qchttp post bilibili-live::fans_medal error: ${err?.response?.body || err}`);
+              });
+            }
+
             if (account.tgChannelId && config.telegram.enabled) {
 
               await sendTelegram({ method: 'sendMessage' }, {
                 chat_id: account.tgChannelId,
-                text: `${msgPrefix} #b站佩戴粉丝牌变更\n新：${medalNew?.medal_name || '无佩戴'}${medalNew?.level ? ' / lv' + medalNew?.level : ''}${medalNew?.target_id ? ' / uid:' + medalNew?.target_id : ''}` +
+                text: `${msgPrefix}#b站佩戴粉丝牌变更\n新：${medalNew?.medal_name || '无佩戴'}${medalNew?.level ? ' / lv' + medalNew?.level : ''}${medalNew?.target_id ? ' / uid:' + medalNew?.target_id : ''}` +
                   `\n旧：${medalOld?.medal_name || '无佩戴'}${medalOld?.level ? ' / lv' + medalOld?.level : ''}${medalOld?.target_id ? ' / uid:' + medalOld?.target_id : ''}`,
                 reply_markup: {
                   inline_keyboard: [
@@ -638,11 +747,26 @@ async function main(config) {
 
             log(`bilibili-live pendant updated: ${pendant?.name || '无佩戴'}`);
 
+            if (account.qGuildId && config.qGuild.enabled) {
+
+              await sendQGuild({method: 'send_guild_channel_msg'}, {
+                guild_id: account.qGuildId,
+                channel_id: account.qGuildChannelId,
+                message: `${msgPrefix}#b站头像挂件变更\n新：${pendant?.name || '无佩戴'}` +
+                  `\n旧：${pendantOld?.name || '无佩戴'}`,
+              }).then(resp => {
+                // log(`go-qchttp post weibo success: ${resp}`);
+              })
+              .catch(err => {
+                log(`go-qchttp post bilibili-live::pendant error: ${err?.response?.body || err}`);
+              });
+            }
+
             if (account.tgChannelId && config.telegram.enabled) {
 
               await sendTelegram({ method: 'sendMessage' }, {
                 chat_id: account.tgChannelId,
-                text: `${msgPrefix} #b站头像挂件变更\n新：${pendant?.name || '无佩戴'}` +
+                text: `${msgPrefix}#b站头像挂件变更\n新：${pendant?.name || '无佩戴'}` +
                   `\n旧：${pendantOld?.name || '无佩戴'}`,
                 reply_markup: {
                   inline_keyboard: [
@@ -666,11 +790,26 @@ async function main(config) {
 
             log(`bilibili-live nameplate updated: ${nameplate?.name || '无佩戴'}`);
 
+            if (account.qGuildId && config.qGuild.enabled) {
+
+              await sendQGuild({method: 'send_guild_channel_msg'}, {
+                guild_id: account.qGuildId,
+                channel_id: account.qGuildChannelId,
+                message: `${msgPrefix}#b站勋章变更\n新：${nameplate?.name || '无勋章'}${nameplate?.condition ? '（' + nameplate?.condition + '）' : ''}` +
+                  `\n旧：${nameplateOld?.name || '无勋章'}${nameplateOld?.condition ? '（' + nameplateOld?.condition + '）' : ''}`,
+              }).then(resp => {
+                // log(`go-qchttp post weibo success: ${resp}`);
+              })
+              .catch(err => {
+                log(`go-qchttp post bilibili-live::nameplate error: ${err?.response?.body || err}`);
+              });
+            }
+
             if (account.tgChannelId && config.telegram.enabled) {
 
               await sendTelegram({ method: 'sendMessage' }, {
                 chat_id: account.tgChannelId,
-                text: `${msgPrefix} #b站勋章变更\n新：${nameplate?.name || '无勋章'}${nameplate?.condition ? '（' + nameplate?.condition + '）' : ''}` +
+                text: `${msgPrefix}#b站勋章变更\n新：${nameplate?.name || '无勋章'}${nameplate?.condition ? '（' + nameplate?.condition + '）' : ''}` +
                   `\n旧：${nameplateOld?.name || '无勋章'}${nameplateOld?.condition ? '（' + nameplateOld?.condition + '）' : ''}`,
                 reply_markup: {
                   inline_keyboard: [
@@ -694,11 +833,26 @@ async function main(config) {
 
             log(`bilibili-live official verification updated: ${official?.title || '无认证'}`);
 
+            if (account.qGuildId && config.qGuild.enabled) {
+
+              await sendQGuild({method: 'send_guild_channel_msg'}, {
+                guild_id: account.qGuildId,
+                channel_id: account.qGuildChannelId,
+                message: `${msgPrefix}#b站认证变更\n新：${official?.title || '无认证'}` +
+                  `\n旧：${officialOld?.title || '无认证'}`,
+              }).then(resp => {
+                // log(`go-qchttp post weibo success: ${resp}`);
+              })
+              .catch(err => {
+                log(`go-qchttp post bilibili-live::official verification error: ${err?.response?.body || err}`);
+              });
+            }
+
             if (account.tgChannelId && config.telegram.enabled) {
 
               await sendTelegram({ method: 'sendMessage' }, {
                 chat_id: account.tgChannelId,
-                text: `${msgPrefix} #b站认证变更\n新：${official?.title || '无认证'}` +
+                text: `${msgPrefix}#b站认证变更\n新：${official?.title || '无认证'}` +
                   `\n旧：${officialOld?.title || '无认证'}`,
                 reply_markup: {
                   inline_keyboard: [
@@ -741,13 +895,27 @@ async function main(config) {
                   log(`bilibili-live started: ${liveTitle} (${timeAgo(timestamp)})`);
                 }
 
-                if (account.tgChannelId && config.telegram.enabled) {
+                if (dbScope?.bilibili_live?.latestStream?.isTgSent) {
+                  log(`bilibili-live notification sent, skipping...`);
+                } else if ((currentTime - timestamp) >= config.bilibiliLiveBotThrottle) {
+                  log(`bilibili-live too old, notifications skipped`);
+                } else {
+                  if (account.qGuildId && config.qGuild.enabled) {
 
-                  if (dbScope?.bilibili_live?.latestStream?.isTgSent) {
-                    log(`bilibili-live notification sent, skipping...`);
-                  } else if ((currentTime - timestamp) >= config.bilibiliLiveBotThrottle) {
-                    log(`bilibili-live too old, notifications skipped`);
-                  } else {
+                    await sendQGuild({method: 'send_guild_channel_msg'}, {
+                      guild_id: account.qGuildId,
+                      channel_id: account.qGuildChannelId,
+                      message: `${msgPrefix}#b站开播：${liveTitle}\n直播间：${liveRoom}\n[CQ:image,file=${liveCover}]`,
+                    }).then(resp => {
+                      // log(`go-qchttp post weibo success: ${resp}`);
+                    })
+                    .catch(err => {
+                      log(`go-qchttp post bilibili-live error: ${err?.response?.body || err}`);
+                    });
+                  }
+
+                  if (account.tgChannelId && config.telegram.enabled) {
+
                     // This function should be waited since we rely on the `isTgSent` flag
                     await sendTelegram(tgOptions, tgBody).then(resp => {
                       // log(`telegram post bilibili-live success: message_id ${resp.result.message_id}`)
@@ -830,11 +998,26 @@ async function main(config) {
 
               log(`bilibili-mblog decorate_card updated: ${decoNew?.name || '无装扮'}`);
 
+              if (account.qGuildId && config.qGuild.enabled) {
+
+                await sendQGuild({method: 'send_guild_channel_msg'}, {
+                  guild_id: account.qGuildId,
+                  channel_id: account.qGuildChannelId,
+                  message: `${msgPrefix}#b站粉丝装扮变更\n新：${decoNew?.name || '无装扮'}${decoNew?.fan?.number ? '#' + decoNew?.fan?.number : '（无编号）'}` +
+                    `\n旧：${decoOld?.name || '无装扮'}#${decoOld?.fan?.number ? '#' + decoOld?.fan?.number : '（无编号）'}`,
+                }).then(resp => {
+                  // log(`go-qchttp post weibo success: ${resp}`);
+                })
+                .catch(err => {
+                  log(`go-qchttp post bilibili-mblog::decorate_card error: ${err?.response?.body || err}`);
+                });
+              }
+
               if (account.tgChannelId && config.telegram.enabled) {
 
                 await sendTelegram({ method: 'sendMessage' }, {
                   chat_id: account.tgChannelId,
-                  text: `${msgPrefix} #b站粉丝装扮变更\n新：${decoNew?.name || '无装扮'}${decoNew?.fan?.number ? '#' + decoNew?.fan?.number : '（无编号）'}` +
+                  text: `${msgPrefix}#b站粉丝装扮变更\n新：${decoNew?.name || '无装扮'}${decoNew?.fan?.number ? '#' + decoNew?.fan?.number : '（无编号）'}` +
                     `\n旧：${decoOld?.name || '无装扮'}#${decoOld?.fan?.number ? '#' + decoOld?.fan?.number : '（无编号）'}`,
                   reply_markup: {
                     inline_keyboard: decoNew?.id ? [
@@ -885,6 +1068,12 @@ async function main(config) {
                 reply_markup: tgMarkup,
               };
 
+              const qgBody = {
+                guild_id: account.qGuildId,
+                channel_id: account.qGuildChannelId,
+                message: `${msgPrefix}#b站动态`,
+              };
+
               const tgForm = new FormData();
               tgForm.append('chat_id', account.tgChannelId);
               tgForm.append('reply_markup', JSON.stringify(tgMarkup));
@@ -912,7 +1101,8 @@ async function main(config) {
                 if (originJson?.origin_image_urls) {
                   tgOptions.method = 'sendPhoto';
                   tgBody.photo = `${originJson?.origin_image_urls}`;
-                  tgBody.caption = `${msgPrefix} #b站专栏转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.author.name}\n被转标题：${originJson.title}\n\n${originJson.summary}`;
+                  tgBody.caption = `${msgPrefix}#b站专栏转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.author.name}\n被转标题：${originJson.title}\n\n${originJson.summary}`;
+                  qgBody.message = `${msgPrefix}#b站专栏转发：${cardJson?.item?.content.trim()}\n动态链接：https://t.bilibili.com/${dynamicId}\n\n被转作者：@${originJson.author.name}\n被转标题：${originJson.title}\n\n${originJson.summary}\n[CQ:image,file=${originJson?.origin_image_urls}]`;
                 }
 
                 // Text with gallery
@@ -924,26 +1114,29 @@ async function main(config) {
                   tgOptions.method = 'sendPhoto';
                   tgOptions.payload = 'form';
                   tgForm.append('photo', await readProcessedImage(`${originJson?.item?.pictures[0].img_src}`));
-                  tgForm.append('caption', `${msgPrefix} #b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.name}\n被转内容：${photoCountText}：${originJson?.item?.description}${extendedMeta}`);
+                  tgForm.append('caption', `${msgPrefix}#b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.name}\n被转内容：${photoCountText}：${originJson?.item?.description}${extendedMeta}`);
+                  qgBody.message = `${msgPrefix}#b站转发：${cardJson?.item?.content.trim()}\n动态链接：https://t.bilibili.com/${dynamicId}\n\n被转作者：@${originJson.user.name}\n被转内容：${photoCountText}：${originJson?.item?.description}${extendedMeta}\n[CQ:image,file=${originJson?.item?.pictures[0].img_src}]`;
 
                   // if (originJson?.item?.pictures[0].img_width > 1200 || originJson?.item?.pictures[0].img_height > 1200) {
                   //   tgBody.photo = `https://experiments.sparanoid.net/imageproxy/1000x1000,fit/${originJson?.item?.pictures[0].img_src}@1036w.webp`;
                   // } else {
                   //   tgBody.photo = `${originJson?.item?.pictures[0].img_src}`;
                   // }
-                  // tgBody.caption = `${msgPrefix} #b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.name}\n被转内容：${originJson.item.description}`;
+                  // tgBody.caption = `${msgPrefix}#b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.name}\n被转内容：${originJson.item.description}`;
                 }
 
                 // Video
                 else if (originJson?.duration && originJson?.videos) {
                   tgOptions.method = 'sendPhoto';
                   tgBody.photo = `${originJson?.pic}`;
-                  tgBody.caption = `${msgPrefix} #b站视频转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.owner.name}\n被转视频：${originJson.title}\n\n${originJson.desc}\n${originJson.short_link}`;
+                  tgBody.caption = `${msgPrefix}#b站视频转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.owner.name}\n被转视频：${originJson.title}\n\n${originJson.desc}\n${originJson.short_link}`;
+                  qgBody.message = `${msgPrefix}#b站视频转发：${cardJson?.item?.content.trim()}\n动态链接：https://t.bilibili.com/${dynamicId}\n\n被转作者：@${originJson.owner.name}\n被转视频：${originJson.title}\n\n${originJson.desc}\n${originJson.short_link}\n[CQ:image,file=${originJson?.pic}]`;
                 }
 
                 // Plain text
                 else {
-                  tgBody.text = `${msgPrefix} #b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.uname}\n被转动态：${originJson.item.content}`;
+                  tgBody.text = `${msgPrefix}#b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.uname}\n被转动态：${originJson.item.content}`;
+                  qgBody.message = `${msgPrefix}#b站转发：${cardJson?.item?.content.trim()}\n动态链接：https://t.bilibili.com/${dynamicId}\n\n被转作者：@${originJson.user.uname}\n被转动态：${originJson.item.content}`;
                 }
 
                 log(`bilibili-mblog got forwarded post (${timeAgo(timestamp)})`);
@@ -956,17 +1149,19 @@ async function main(config) {
                 tgOptions.method = 'sendPhoto';
                 tgOptions.payload = 'form';
                 // NOTE: old JSON method
-                // tgBody.caption = `${msgPrefix} #b站相册动态${photoCountText}：${cardJson?.item?.description}`;
+                // tgBody.caption = `${msgPrefix}#b站相册动态${photoCountText}：${cardJson?.item?.description}`;
                 // tgBody.photo = cardJson.item.pictures[0].img_src;
                 tgForm.append('photo', await readProcessedImage(`${cardJson.item.pictures[0].img_src}`));
-                tgForm.append('caption', `${msgPrefix} #b站相册动态${photoCountText}：${cardJson?.item?.description}${extendedMeta}`);
+                tgForm.append('caption', `${msgPrefix}#b站相册动态${photoCountText}：${cardJson?.item?.description}${extendedMeta}`);
+                qgBody.message = `${msgPrefix}#b站相册动态${photoCountText}：${cardJson?.item?.description}${extendedMeta}\n动态链接：https://t.bilibili.com/${dynamicId}\n${cardJson.item.pictures.map(item => generateCqCode(item.img_src))}`;
 
                 log(`bilibili-mblog got gallery post (${timeAgo(timestamp)})`);
               }
 
               // Text post
               else if (type === 4) {
-                tgBody.text = `${msgPrefix} #b站动态：${cardJson?.item?.content.trim()}${extendedMeta}`;
+                tgBody.text = `${msgPrefix}#b站动态：${cardJson?.item?.content.trim()}${extendedMeta}`;
+                qgBody.message = `${msgPrefix}#b站动态：${cardJson?.item?.content.trim()}${extendedMeta}\n动态链接：https://t.bilibili.com/${dynamicId}`;
                 log(`bilibili-mblog got text post (${timeAgo(timestamp)})`);
               }
 
@@ -976,7 +1171,7 @@ async function main(config) {
                 tgBody.photo = cardJson.pic;
                 // dynamic: microblog text
                 // desc: video description
-                tgBody.caption = `${msgPrefix} #b站视频：${cardJson.title}\n${cardJson.dynamic}\n${cardJson.desc}`,
+                tgBody.caption = `${msgPrefix}#b站视频：${cardJson.title}\n${cardJson.dynamic}\n${cardJson.desc}`,
                 tgBody.reply_markup = {
                   inline_keyboard: [
                     [
@@ -986,6 +1181,7 @@ async function main(config) {
                     ],
                   ]
                 };
+                qgBody.message = `${msgPrefix}#b站视频：${cardJson.title}\n${cardJson.dynamic}\n${cardJson.desc}\n动态链接：https://t.bilibili.com/${dynamicId}\n视频链接：${cardJson.short_link}\n[CQ:image,file=${cardJson.pic}]`;
 
                 log(`bilibili-mblog got video post (${timeAgo(timestamp)})`);
               }
@@ -999,7 +1195,8 @@ async function main(config) {
               else if (type === 64) {
                 tgOptions.method = 'sendPhoto';
                 tgBody.photo = cardJson.origin_image_urls[0];
-                tgBody.caption = `${msgPrefix} #b站专栏：${cardJson.title}\n\n${cardJson.summary}`;
+                tgBody.caption = `${msgPrefix}#b站专栏：${cardJson.title}\n\n${cardJson.summary}`;
+                qgBody.message = `${msgPrefix}#b站专栏：${cardJson.title}\n\n${cardJson.summary}\n动态链接：https://t.bilibili.com/${dynamicId}\n${cardJson.origin_image_urls.map(item => generateCqCode(item))}`;
 
                 log(`bilibili-mblog got column post (${timeAgo(timestamp)})`);
               }
@@ -1024,11 +1221,22 @@ async function main(config) {
                 log(`bilibili-mblog got unkown type (${timeAgo(timestamp)})`);
               }
 
-              if (account.tgChannelId && config.telegram.enabled) {
+              if ((currentTime - timestamp) >= config.bilibiliBotThrottle) {
+                log(`bilibili-mblog too old, notifications skipped`);
+              } else {
 
-                if ((currentTime - timestamp) >= config.bilibiliBotThrottle) {
-                  log(`bilibili-mblog too old, notifications skipped`);
-                } else {
+                if (account.qGuildId && config.qGuild.enabled) {
+
+                  await sendQGuild({method: 'send_guild_channel_msg'}, qgBody).then(resp => {
+                    // log(`go-qchttp post weibo success: ${resp}`);
+                  })
+                  .catch(err => {
+                    log(`go-qchttp post bilibili-mblog error: ${err?.response?.body || err}`);
+                  });
+                }
+
+                if (account.tgChannelId && config.telegram.enabled) {
+
                   await sendTelegram(tgOptions, tgOptions?.payload === 'form' ? tgForm : tgBody).then(resp => {
                     // log(`telegram post bilibili-mblog success: message_id ${resp.result.message_id}`)
                   })
@@ -1045,7 +1253,7 @@ async function main(config) {
                       tgForm.append('chat_id', account.tgChannelId);
                       tgForm.append('reply_markup', JSON.stringify(tgMarkup));
                       tgForm.append('photo', await readProcessedImage(`${cardJson.item.pictures[idx].img_src}`));
-                      tgForm.append('caption', `${msgPrefix} #b站相册动态${photoCountText}：${cardJson?.item?.description}${extendedMeta}`);
+                      tgForm.append('caption', `${msgPrefix}#b站相册动态${photoCountText}：${cardJson?.item?.description}${extendedMeta}`);
 
                       await sendTelegram({
                         method: 'sendPhoto',
@@ -1063,11 +1271,25 @@ async function main(config) {
             } else if (dynamicId !== dbScope?.bilibili_mblog?.latestDynamic?.id && timestamp < dbScope?.bilibili_mblog?.latestDynamic?.timestampUnix) {
               log(`bilibili-mblog new post older than database. latest: ${dynamicId} (${timeAgo(timestamp)})`);
 
+              if (account.qGuildId && config.qGuild.enabled) {
+
+                await sendQGuild({method: 'send_guild_channel_msg'}, {
+                  guild_id: account.qGuildId,
+                  channel_id: account.qGuildChannelId,
+                  message: `${msgPrefix}#b站动态删除：监测到最新动态旧于数据库中的动态，可能有动态被删除（也存在网络原因误报）\n最新动态：https://t.bilibili.com/${dynamicId}\n被删动态：https://t.bilibili.com/${dbScope?.bilibili_mblog?.latestDynamic?.id}`,
+                }).then(resp => {
+                  // log(`go-qchttp post weibo success: ${resp}`);
+                })
+                .catch(err => {
+                  log(`go-qchttp post bilibili-blog error: ${err?.response?.body || err}`);
+                });
+              }
+
               if (account.tgChannelId && config.telegram.enabled) {
 
                 await sendTelegram({ method: 'sendMessage' }, {
                   chat_id: account.tgChannelId,
-                  text: `${msgPrefix} #b站动态删除：监测到最新动态旧于数据库中的动态，可能有动态被删除（也存在网络原因误报）`,
+                  text: `${msgPrefix}#b站动态删除：监测到最新动态旧于数据库中的动态，可能有动态被删除（也存在网络原因误报）`,
                   reply_markup: {
                     inline_keyboard: [
                       [
@@ -1184,7 +1406,7 @@ async function main(config) {
 
                 await sendTelegram({ method: 'sendMessage' }, {
                   chat_id: account.tgChannelId,
-                  text: `${msgPrefix} #微博昵称更新\n新：${user.screen_name}\n旧：${dbScope?.weibo?.user?.screen_name}`,
+                  text: `${msgPrefix}#微博昵称更新\n新：${user.screen_name}\n旧：${dbScope?.weibo?.user?.screen_name}`,
                   reply_markup: {
                     inline_keyboard: [
                       [
@@ -1199,6 +1421,20 @@ async function main(config) {
                   log(`telegram post weibo::nickname error: ${err}`);
                 });
               }
+
+              if (account.qGuildId && config.qGuild.enabled) {
+
+                await sendQGuild({method: 'send_guild_channel_msg'}, {
+                  guild_id: account.qGuildId,
+                  channel_id: account.qGuildChannelId,
+                  message: `${msgPrefix}#微博昵称更新\n新：${user.screen_name}\n旧：${dbScope?.weibo?.user?.screen_name}`,
+                }).then(resp => {
+                  // log(`go-qchttp post weibo success: ${resp}`);
+                })
+                .catch(err => {
+                  log(`go-qchttp post weibo::nickname error: ${err?.response?.body || err}`);
+                });
+              }
             }
 
             // If user description update
@@ -1209,7 +1445,7 @@ async function main(config) {
 
                 await sendTelegram({ method: 'sendMessage' }, {
                   chat_id: account.tgChannelId,
-                  text: `${msgPrefix} #微博签名更新\n新：${user.description}\n旧：${dbScope?.weibo?.user?.description}`,
+                  text: `${msgPrefix}#微博签名更新\n新：${user.description}\n旧：${dbScope?.weibo?.user?.description}`,
                   reply_markup: {
                     inline_keyboard: [
                       [
@@ -1224,6 +1460,20 @@ async function main(config) {
                   log(`telegram post weibo::sign error: ${err}`);
                 });
               }
+
+              if (account.qGuildId && config.qGuild.enabled) {
+
+                await sendQGuild({method: 'send_guild_channel_msg'}, {
+                  guild_id: account.qGuildId,
+                  channel_id: account.qGuildChannelId,
+                  message: `${msgPrefix}#微博签名更新\n新：${user.description}\n旧：${dbScope?.weibo?.user?.description}`,
+                }).then(resp => {
+                  // log(`go-qchttp post weibo success: ${resp}`);
+                })
+                .catch(err => {
+                  log(`go-qchttp post weibo::sign error: ${err?.response?.body || err}`);
+                });
+              }
             }
 
             // If user verified_reason update
@@ -1234,7 +1484,7 @@ async function main(config) {
 
                 await sendTelegram({ method: 'sendMessage' }, {
                   chat_id: account.tgChannelId,
-                  text: `${msgPrefix} #微博认证更新\n新：${user?.verified_reason || '无认证'}\n旧：${dbScope?.weibo?.user?.verified_reason || '无认证'}`,
+                  text: `${msgPrefix}#微博认证更新\n新：${user?.verified_reason || '无认证'}\n旧：${dbScope?.weibo?.user?.verified_reason || '无认证'}`,
                   reply_markup: {
                     inline_keyboard: [
                       [
@@ -1249,6 +1499,20 @@ async function main(config) {
                   log(`telegram post weibo::verified_reason error: ${err}`);
                 });
               }
+
+              if (account.qGuildId && config.qGuild.enabled) {
+
+                await sendQGuild({method: 'send_guild_channel_msg'}, {
+                  guild_id: account.qGuildId,
+                  channel_id: account.qGuildChannelId,
+                  message: `${msgPrefix}#微博认证更新\n新：${user?.verified_reason || '无认证'}\n旧：${dbScope?.weibo?.user?.verified_reason || '无认证'}`,
+                }).then(resp => {
+                  // log(`go-qchttp post weibo success: ${resp}`);
+                })
+                .catch(err => {
+                  log(`go-qchttp post weibo::verified_reason error: ${err?.response?.body || err}`);
+                });
+              }
             }
 
             // If user follow_count update
@@ -1259,7 +1523,7 @@ async function main(config) {
 
                 await sendTelegram({ method: 'sendMessage' }, {
                   chat_id: account.tgChannelId,
-                  text: `${msgPrefix} #微博关注数变更\n新：${user?.follow_count || '未知'}\n旧：${dbScope?.weibo?.user?.follow_count || '未知'}`,
+                  text: `${msgPrefix}#微博关注数变更\n新：${user?.follow_count || '未知'}\n旧：${dbScope?.weibo?.user?.follow_count || '未知'}`,
                   reply_markup: {
                     inline_keyboard: [
                       [
@@ -1275,6 +1539,20 @@ async function main(config) {
                   log(`telegram post weibo::follow_count error: ${err}`);
                 });
               }
+
+              if (account.qGuildId && config.qGuild.enabled) {
+
+                await sendQGuild({method: 'send_guild_channel_msg'}, {
+                  guild_id: account.qGuildId,
+                  channel_id: account.qGuildChannelId,
+                  message: `${msgPrefix}#微博关注数变更\n新：${user?.follow_count || '未知'}\n旧：${dbScope?.weibo?.user?.follow_count || '未知'}`,
+                }).then(resp => {
+                  // log(`go-qchttp post weibo success: ${resp}`);
+                })
+                .catch(err => {
+                  log(`go-qchttp post weibo::follow_count error: ${err?.response?.body || err}`);
+                });
+              }
             }
 
             // If user avatar update
@@ -1286,7 +1564,7 @@ async function main(config) {
                 await sendTelegram({ method: 'sendPhoto' }, {
                   chat_id: account.tgChannelId,
                   photo: user.avatar_hd,
-                  caption: `${msgPrefix} #微博头像更新，老头像：${dbScope?.weibo?.user?.avatar_hd}`,
+                  caption: `${msgPrefix}#微博头像更新，老头像：${dbScope?.weibo?.user?.avatar_hd}`,
                   reply_markup: {
                     inline_keyboard: [
                       [
@@ -1301,6 +1579,20 @@ async function main(config) {
                   log(`telegram post weibo::avatar error: ${err}`);
                 });
               }
+
+              if (account.qGuildId && config.qGuild.enabled) {
+
+                await sendQGuild({method: 'send_guild_channel_msg'}, {
+                  guild_id: account.qGuildId,
+                  channel_id: account.qGuildChannelId,
+                  message: `${msgPrefix}#微博头像更新\n新头像：[CQ:image,file=${user.avatar_hd}]\n老头像：[CQ:image,file=${dbScope?.weibo?.user?.avatar_hd}]`,
+                }).then(resp => {
+                  // log(`go-qchttp post weibo success: ${resp}`);
+                })
+                .catch(err => {
+                  log(`go-qchttp post weibo::avatar error: ${err?.response?.body || err}`);
+                });
+              }
             }
 
             // If user cover background update
@@ -1312,7 +1604,7 @@ async function main(config) {
                 await sendTelegram({ method: 'sendPhoto' }, {
                   chat_id: account.tgChannelId,
                   photo: convertWeiboUrl(user.cover_image_phone),
-                  caption: `${msgPrefix} #微博封面更新，旧封面：${convertWeiboUrl(dbScope?.weibo?.user?.cover_image_phone)}`,
+                  caption: `${msgPrefix}#微博封面更新，旧封面：${convertWeiboUrl(dbScope?.weibo?.user?.cover_image_phone)}`,
                   reply_markup: {
                     inline_keyboard: [
                       [
@@ -1325,6 +1617,20 @@ async function main(config) {
                 })
                 .catch(err => {
                   log(`telegram post weibo::avatar error: ${err}`);
+                });
+              }
+
+              if (account.qGuildId && config.qGuild.enabled) {
+
+                await sendQGuild({method: 'send_guild_channel_msg'}, {
+                  guild_id: account.qGuildId,
+                  channel_id: account.qGuildChannelId,
+                  message: `${msgPrefix}#微博封面更新\n新头像：[CQ:image,file=${convertWeiboUrl(user.cover_image_phone)}]\n老头像：[CQ:image,file=${convertWeiboUrl(dbScope?.weibo?.user?.cover_image_phone)}]`,
+                }).then(resp => {
+                  // log(`go-qchttp post weibo success: ${resp}`);
+                })
+                .catch(err => {
+                  log(`go-qchttp post weibo::avatar error: ${err?.response?.body || err}`);
                 });
               }
             }
@@ -1354,8 +1660,14 @@ async function main(config) {
 
               const tgBody = {
                 chat_id: account.tgChannelId,
-                text: `${msgPrefix} #微博${visibilityMap[visibility] || ''}${retweeted_status ? `转发` : `动态`}：${text}${retweeted_status ? `\n\n被转作者：@${retweeted_status.user.screen_name}\n被转内容：${stripHtml(retweeted_status.text)}` : ''}`,
+                text: `${msgPrefix}#微博${visibilityMap[visibility] || ''}${retweeted_status ? `转发` : `动态`}：${text}${retweeted_status ? `\n\n被转作者：@${retweeted_status.user.screen_name}\n被转内容：${stripHtml(retweeted_status.text)}` : ''}`,
                 reply_markup: tgMarkup,
+              };
+
+              const qgBody = {
+                guild_id: account.qGuildId,
+                channel_id: account.qGuildChannelId,
+                message: `${msgPrefix}#微博${visibilityMap[visibility] || ''}${retweeted_status ? `转发` : `动态`}：${text}${retweeted_status ? `\n\n被转作者：@${retweeted_status.user.screen_name}\n被转内容：${stripHtml(retweeted_status.text)}` : ''}`,
               };
 
               const tgBodyAlt = {
@@ -1374,7 +1686,8 @@ async function main(config) {
                 tgOptions.payload = 'form';
                 // tgForm.append('photo', await readProcessedImage(`https://ww1.sinaimg.cn/large/${status.pic_ids[0]}.jpg`));
                 tgForm.append('photo', await readProcessedImage(`${status.pics[0].large.url}`));
-                tgForm.append('caption', `${msgPrefix} #微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}`);
+                tgForm.append('caption', `${msgPrefix}#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}`);
+                qgBody.message = `${msgPrefix}#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}\n地址：https://weibo.com/${user.id}/${id}\n${status.pics.map(item => generateCqCode(item.large.url))}`;
 
                 // NOTE: Method to send multiple photos in one sendMediaGroup
                 // Pros: efficient, no need to download each photo
@@ -1395,7 +1708,7 @@ async function main(config) {
                 //   }));
 
                 //   // Only apply caption to the first image to make it auto shown on message list
-                //   tgBodyAlt.media[0].caption = `${msgPrefix} #微博${visibilityMap[visibility] || ''}照片${photoCountText} #多图相册：${text}`;
+                //   tgBodyAlt.media[0].caption = `${msgPrefix}#微博${visibilityMap[visibility] || ''}照片${photoCountText} #多图相册：${text}`;
                 // }
               }
 
@@ -1403,18 +1716,31 @@ async function main(config) {
               if (status?.page_info?.type === 'video') {
                 tgOptions.method = 'sendVideo';
                 tgBody.video = status?.page_info?.media_info?.stream_url_hd || status?.page_info?.media_info?.stream_url;
-                tgBody.caption = `${msgPrefix} #微博${visibilityMap[visibility] || ''}视频：${text}`;
+                tgBody.caption = `${msgPrefix}#微博${visibilityMap[visibility] || ''}视频：${text}`;
+                qgBody.message = `${msgPrefix}#微博${visibilityMap[visibility] || ''}视频：${text}\n地址：https://weibo.com/${user.id}/${id}`;
               }
 
               // TODO: parse 4k
               // https://f.video.weibocdn.com/qpH0Ozj9lx07NO9oXw4E0104120qrc250E0a0.mp4?label=mp4_2160p60&template=4096x1890.20.0&trans_finger=aaa6a0a6b46c000323ae75fc96245471&media_id=4653054126129212&tp=8x8A3El:YTkl0eM8&us=0&ori=1&bf=3&ot=h&ps=3lckmu&uid=7vYqTU&ab=3915-g1,5178-g1,966-g1,1493-g0,1192-g0,1191-g0,1258-g0&Expires=1627682219&ssig=I7RDiLeNCQ&KID=unistore,video
 
-              if (account.tgChannelId && config.telegram.enabled) {
-                log(`weibo got update: ${id} (${timeAgo(timestamp)})`);
+              log(`weibo got update: ${id} (${timeAgo(timestamp)})`);
 
-                if ((currentTime - timestamp) >= config.weiboBotThrottle) {
-                  log(`weibo too old, notifications skipped`);
-                } else {
+              if ((currentTime - timestamp) >= config.weiboBotThrottle) {
+                log(`weibo too old, notifications skipped`);
+              } else {
+
+                if (account.qGuildId && config.qGuild.enabled) {
+
+                  await sendQGuild({method: 'send_guild_channel_msg'}, qgBody).then(resp => {
+                    // log(`go-qchttp post weibo success: ${resp}`);
+                  })
+                  .catch(err => {
+                    log(`go-qchttp post weibo error: ${err?.response?.body || err}`);
+                  });
+                }
+
+                if (account.tgChannelId && config.telegram.enabled) {
+
                   await sendTelegram(tgOptions, tgOptions?.payload === 'form' ? tgForm : tgBody).then(resp => {
                     // log(`telegram post weibo success: message_id ${resp.result.message_id}`)
                   })
@@ -1431,7 +1757,7 @@ async function main(config) {
                       tgForm.append('chat_id', account.tgChannelId);
                       tgForm.append('reply_markup', JSON.stringify(tgMarkup));
                       tgForm.append('photo', await readProcessedImage(`${status.pics[idx].large.url}`));
-                      tgForm.append('caption', `${msgPrefix} #微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}`);
+                      tgForm.append('caption', `${msgPrefix}#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}`);
 
                       await sendTelegram({
                         method: 'sendPhoto',
