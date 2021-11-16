@@ -32,6 +32,7 @@ Extract data from services and push updates to Telegram or other platforms
 ## Supported Senders
 
 - [x] telegram
+- [x] go-cqhttp (QQ)
 
 ## System Requirements
 
