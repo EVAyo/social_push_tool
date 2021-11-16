@@ -134,7 +134,7 @@ async function send(account, messageType, userOptions) {
     token: config.telegram.token,
     method: messageTypeMap[messageType].telegram,
     body: {
-      chat_id: account.tgChannelID,
+      chat_id: account.tgChannelId,
       text: `Test from @a-soul/sender-telegram`,
       disable_notification: config.telegram.silent
     },
@@ -263,7 +263,7 @@ async function main(config) {
                   };
 
                   const tgBody = {
-                    chat_id: account.tgChannelID,
+                    chat_id: account.tgChannelId,
                     photo: liveCover,
                     caption: `${msgPrefix} #抖音开播：${title}`,
                     reply_markup: {
@@ -280,7 +280,7 @@ async function main(config) {
                     },
                   }
 
-                  if (account.tgChannelID && config.telegram.enabled) {
+                  if (account.tgChannelId && config.telegram.enabled) {
 
                     if (dbScope?.douyin_live?.latestStream?.isTgSent) {
                       log(`douyin-live notification sent, skipping...`);
@@ -402,7 +402,7 @@ async function main(config) {
             };
 
             const tgBody = {
-              chat_id: account.tgChannelID,
+              chat_id: account.tgChannelId,
               video: videoUrl,
               caption: `${msgPrefix} #抖音视频：${title} #${id}`,
               reply_markup: {
@@ -420,7 +420,7 @@ async function main(config) {
               log(`douyin got update: ${id} (${timeAgo(timestamp)}) ${title}`);
 
               // Send bot message
-              if (account.tgChannelID && config.telegram.enabled) {
+              if (account.tgChannelId && config.telegram.enabled) {
 
                 if ((currentTime - timestamp) >= config.douyinBotThrottle) {
                   log(`douyin latest post too old, notifications skipped`);
@@ -513,7 +513,7 @@ async function main(config) {
           };
 
           const tgBody = {
-            chat_id: account.tgChannelID,
+            chat_id: account.tgChannelId,
             photo: liveCover,
             caption: `${msgPrefix} #b站开播：${liveTitle}`,
             reply_markup: {
@@ -531,10 +531,10 @@ async function main(config) {
           if (nickname !== 'bilibili' && nickname !== dbScope?.bilibili_live?.nickname && dbScope?.bilibili_live?.nickname) {
             log(`bilibili-live user nickname updated: ${nickname}`);
 
-            if (account.tgChannelID && config.telegram.enabled) {
+            if (account.tgChannelId && config.telegram.enabled) {
 
               await sendTelegram({ method: 'sendMessage' }, {
-                chat_id: account.tgChannelID,
+                chat_id: account.tgChannelId,
                 text: `${msgPrefix} #b站昵称更新\n新：${nickname}\n旧：${dbScope?.bilibili_live?.nickname}`,
                 reply_markup: {
                   inline_keyboard: [
@@ -556,10 +556,10 @@ async function main(config) {
           if (nickname !== 'bilibili' && sign !== dbScope?.bilibili_live?.sign && dbScope?.bilibili_live) {
             log(`bilibili-live user sign updated: ${sign}`);
 
-            if (account.tgChannelID && config.telegram.enabled) {
+            if (account.tgChannelId && config.telegram.enabled) {
 
               await sendTelegram({ method: 'sendMessage' }, {
-                chat_id: account.tgChannelID,
+                chat_id: account.tgChannelId,
                 text: `${msgPrefix} #b站签名更新\n新：${sign}\n旧：${dbScope?.bilibili_live?.sign}`,
                 reply_markup: {
                   inline_keyboard: [
@@ -581,10 +581,10 @@ async function main(config) {
           if (nickname !== 'bilibili' && avatarHash?.pathname !== dbScope?.bilibili_live?.avatar && dbScope?.bilibili_live?.avatar) {
             log(`bilibili-live user avatar updated: ${avatar}`);
 
-            if (account.tgChannelID && config.telegram.enabled) {
+            if (account.tgChannelId && config.telegram.enabled) {
 
               await sendTelegram({ method: 'sendPhoto' }, {
-                chat_id: account.tgChannelID,
+                chat_id: account.tgChannelId,
                 photo: avatar,
                 caption: `${msgPrefix} #b站头像更新，老头像：${dbScope?.bilibili_live?.avatar}`,
                 reply_markup: {
@@ -610,10 +610,10 @@ async function main(config) {
 
             log(`bilibili-live fans_medal updated: ${medalNew?.medal_name || '无佩戴'}`);
 
-            if (account.tgChannelID && config.telegram.enabled) {
+            if (account.tgChannelId && config.telegram.enabled) {
 
               await sendTelegram({ method: 'sendMessage' }, {
-                chat_id: account.tgChannelID,
+                chat_id: account.tgChannelId,
                 text: `${msgPrefix} #b站佩戴粉丝牌变更\n新：${medalNew?.medal_name || '无佩戴'}${medalNew?.level ? ' / lv' + medalNew?.level : ''}${medalNew?.target_id ? ' / uid:' + medalNew?.target_id : ''}` +
                   `\n旧：${medalOld?.medal_name || '无佩戴'}${medalOld?.level ? ' / lv' + medalOld?.level : ''}${medalOld?.target_id ? ' / uid:' + medalOld?.target_id : ''}`,
                 reply_markup: {
@@ -638,10 +638,10 @@ async function main(config) {
 
             log(`bilibili-live pendant updated: ${pendant?.name || '无佩戴'}`);
 
-            if (account.tgChannelID && config.telegram.enabled) {
+            if (account.tgChannelId && config.telegram.enabled) {
 
               await sendTelegram({ method: 'sendMessage' }, {
-                chat_id: account.tgChannelID,
+                chat_id: account.tgChannelId,
                 text: `${msgPrefix} #b站头像挂件变更\n新：${pendant?.name || '无佩戴'}` +
                   `\n旧：${pendantOld?.name || '无佩戴'}`,
                 reply_markup: {
@@ -666,10 +666,10 @@ async function main(config) {
 
             log(`bilibili-live nameplate updated: ${nameplate?.name || '无佩戴'}`);
 
-            if (account.tgChannelID && config.telegram.enabled) {
+            if (account.tgChannelId && config.telegram.enabled) {
 
               await sendTelegram({ method: 'sendMessage' }, {
-                chat_id: account.tgChannelID,
+                chat_id: account.tgChannelId,
                 text: `${msgPrefix} #b站勋章变更\n新：${nameplate?.name || '无勋章'}${nameplate?.condition ? '（' + nameplate?.condition + '）' : ''}` +
                   `\n旧：${nameplateOld?.name || '无勋章'}${nameplateOld?.condition ? '（' + nameplateOld?.condition + '）' : ''}`,
                 reply_markup: {
@@ -694,10 +694,10 @@ async function main(config) {
 
             log(`bilibili-live official verification updated: ${official?.title || '无认证'}`);
 
-            if (account.tgChannelID && config.telegram.enabled) {
+            if (account.tgChannelId && config.telegram.enabled) {
 
               await sendTelegram({ method: 'sendMessage' }, {
-                chat_id: account.tgChannelID,
+                chat_id: account.tgChannelId,
                 text: `${msgPrefix} #b站认证变更\n新：${official?.title || '无认证'}` +
                   `\n旧：${officialOld?.title || '无认证'}`,
                 reply_markup: {
@@ -741,7 +741,7 @@ async function main(config) {
                   log(`bilibili-live started: ${liveTitle} (${timeAgo(timestamp)})`);
                 }
 
-                if (account.tgChannelID && config.telegram.enabled) {
+                if (account.tgChannelId && config.telegram.enabled) {
 
                   if (dbScope?.bilibili_live?.latestStream?.isTgSent) {
                     log(`bilibili-live notification sent, skipping...`);
@@ -830,10 +830,10 @@ async function main(config) {
 
               log(`bilibili-mblog decorate_card updated: ${decoNew?.name || '无装扮'}`);
 
-              if (account.tgChannelID && config.telegram.enabled) {
+              if (account.tgChannelId && config.telegram.enabled) {
 
                 await sendTelegram({ method: 'sendMessage' }, {
-                  chat_id: account.tgChannelID,
+                  chat_id: account.tgChannelId,
                   text: `${msgPrefix} #b站粉丝装扮变更\n新：${decoNew?.name || '无装扮'}${decoNew?.fan?.number ? '#' + decoNew?.fan?.number : '（无编号）'}` +
                     `\n旧：${decoOld?.name || '无装扮'}#${decoOld?.fan?.number ? '#' + decoOld?.fan?.number : '（无编号）'}`,
                   reply_markup: {
@@ -880,13 +880,13 @@ async function main(config) {
               };
 
               const tgBody = {
-                chat_id: account.tgChannelID,
+                chat_id: account.tgChannelId,
                 text: `${user.info.uname} #b站动态`,
                 reply_markup: tgMarkup,
               };
 
               const tgForm = new FormData();
-              tgForm.append('chat_id', account.tgChannelID);
+              tgForm.append('chat_id', account.tgChannelId);
               tgForm.append('reply_markup', JSON.stringify(tgMarkup));
 
               // If the status has additional meta (ie. reserved events)
@@ -1024,7 +1024,7 @@ async function main(config) {
                 log(`bilibili-mblog got unkown type (${timeAgo(timestamp)})`);
               }
 
-              if (account.tgChannelID && config.telegram.enabled) {
+              if (account.tgChannelId && config.telegram.enabled) {
 
                 if ((currentTime - timestamp) >= config.bilibiliBotThrottle) {
                   log(`bilibili-mblog too old, notifications skipped`);
@@ -1042,7 +1042,7 @@ async function main(config) {
                       const photoCount = cardJson.item.pictures.length;
                       const photoCountText = photoCount > 1 ? `（${idx + 1}/${photoCount}）` : ``;
                       const tgForm = new FormData();
-                      tgForm.append('chat_id', account.tgChannelID);
+                      tgForm.append('chat_id', account.tgChannelId);
                       tgForm.append('reply_markup', JSON.stringify(tgMarkup));
                       tgForm.append('photo', await readProcessedImage(`${cardJson.item.pictures[idx].img_src}`));
                       tgForm.append('caption', `${msgPrefix} #b站相册动态${photoCountText}：${cardJson?.item?.description}${extendedMeta}`);
@@ -1063,10 +1063,10 @@ async function main(config) {
             } else if (dynamicId !== dbScope?.bilibili_mblog?.latestDynamic?.id && timestamp < dbScope?.bilibili_mblog?.latestDynamic?.timestampUnix) {
               log(`bilibili-mblog new post older than database. latest: ${dynamicId} (${timeAgo(timestamp)})`);
 
-              if (account.tgChannelID && config.telegram.enabled) {
+              if (account.tgChannelId && config.telegram.enabled) {
 
                 await sendTelegram({ method: 'sendMessage' }, {
-                  chat_id: account.tgChannelID,
+                  chat_id: account.tgChannelId,
                   text: `${msgPrefix} #b站动态删除：监测到最新动态旧于数据库中的动态，可能有动态被删除（也存在网络原因误报）`,
                   reply_markup: {
                     inline_keyboard: [
@@ -1180,10 +1180,10 @@ async function main(config) {
             if (user.screen_name !== dbScope?.weibo?.user?.screen_name && dbScope?.weibo?.user?.screen_name) {
               log(`weibo user nickname updated: ${user.screen_name}`);
 
-              if (account.tgChannelID && config.telegram.enabled) {
+              if (account.tgChannelId && config.telegram.enabled) {
 
                 await sendTelegram({ method: 'sendMessage' }, {
-                  chat_id: account.tgChannelID,
+                  chat_id: account.tgChannelId,
                   text: `${msgPrefix} #微博昵称更新\n新：${user.screen_name}\n旧：${dbScope?.weibo?.user?.screen_name}`,
                   reply_markup: {
                     inline_keyboard: [
@@ -1205,10 +1205,10 @@ async function main(config) {
             if (user.description !== dbScope?.weibo?.user?.description && dbScope?.weibo?.user?.description) {
               log(`weibo user sign updated: ${user.description}`);
 
-              if (account.tgChannelID && config.telegram.enabled) {
+              if (account.tgChannelId && config.telegram.enabled) {
 
                 await sendTelegram({ method: 'sendMessage' }, {
-                  chat_id: account.tgChannelID,
+                  chat_id: account.tgChannelId,
                   text: `${msgPrefix} #微博签名更新\n新：${user.description}\n旧：${dbScope?.weibo?.user?.description}`,
                   reply_markup: {
                     inline_keyboard: [
@@ -1230,10 +1230,10 @@ async function main(config) {
             if (user?.verified_reason !== dbScope?.weibo?.user?.verified_reason && dbScope?.weibo?.user) {
               log(`weibo user verified_reason updated: ${user.verified_reason}`);
 
-              if (account.tgChannelID && config.telegram.enabled) {
+              if (account.tgChannelId && config.telegram.enabled) {
 
                 await sendTelegram({ method: 'sendMessage' }, {
-                  chat_id: account.tgChannelID,
+                  chat_id: account.tgChannelId,
                   text: `${msgPrefix} #微博认证更新\n新：${user?.verified_reason || '无认证'}\n旧：${dbScope?.weibo?.user?.verified_reason || '无认证'}`,
                   reply_markup: {
                     inline_keyboard: [
@@ -1255,10 +1255,10 @@ async function main(config) {
             if (user?.follow_count !== dbScope?.weibo?.user?.follow_count && dbScope?.weibo?.user) {
               log(`weibo user follow_count updated: ${user.follow_count}`);
 
-              if (account.tgChannelID && config.telegram.enabled) {
+              if (account.tgChannelId && config.telegram.enabled) {
 
                 await sendTelegram({ method: 'sendMessage' }, {
-                  chat_id: account.tgChannelID,
+                  chat_id: account.tgChannelId,
                   text: `${msgPrefix} #微博关注数变更\n新：${user?.follow_count || '未知'}\n旧：${dbScope?.weibo?.user?.follow_count || '未知'}`,
                   reply_markup: {
                     inline_keyboard: [
@@ -1281,10 +1281,10 @@ async function main(config) {
             if (user.avatar_hd !== dbScope?.weibo?.user?.avatar_hd && dbScope?.weibo?.user?.avatar_hd) {
               log(`weibo user avatar updated: ${user.avatar_hd}`);
 
-              if (account.tgChannelID && config.telegram.enabled) {
+              if (account.tgChannelId && config.telegram.enabled) {
 
                 await sendTelegram({ method: 'sendPhoto' }, {
-                  chat_id: account.tgChannelID,
+                  chat_id: account.tgChannelId,
                   photo: user.avatar_hd,
                   caption: `${msgPrefix} #微博头像更新，老头像：${dbScope?.weibo?.user?.avatar_hd}`,
                   reply_markup: {
@@ -1307,10 +1307,10 @@ async function main(config) {
             if (user.cover_image_phone !== dbScope?.weibo?.user?.cover_image_phone && dbScope?.weibo?.user?.cover_image_phone) {
               log(`weibo user cover updated: ${user.cover_image_phone}`);
 
-              if (account.tgChannelID && config.telegram.enabled) {
+              if (account.tgChannelId && config.telegram.enabled) {
 
                 await sendTelegram({ method: 'sendPhoto' }, {
-                  chat_id: account.tgChannelID,
+                  chat_id: account.tgChannelId,
                   photo: convertWeiboUrl(user.cover_image_phone),
                   caption: `${msgPrefix} #微博封面更新，旧封面：${convertWeiboUrl(dbScope?.weibo?.user?.cover_image_phone)}`,
                   reply_markup: {
@@ -1353,17 +1353,17 @@ async function main(config) {
               };
 
               const tgBody = {
-                chat_id: account.tgChannelID,
+                chat_id: account.tgChannelId,
                 text: `${msgPrefix} #微博${visibilityMap[visibility] || ''}${retweeted_status ? `转发` : `动态`}：${text}${retweeted_status ? `\n\n被转作者：@${retweeted_status.user.screen_name}\n被转内容：${stripHtml(retweeted_status.text)}` : ''}`,
                 reply_markup: tgMarkup,
               };
 
               const tgBodyAlt = {
-                chat_id: account.tgChannelID,
+                chat_id: account.tgChannelId,
               };
 
               const tgForm = new FormData();
-              tgForm.append('chat_id', account.tgChannelID);
+              tgForm.append('chat_id', account.tgChannelId);
               tgForm.append('reply_markup', JSON.stringify(tgMarkup));
 
               // If post has photo
@@ -1409,7 +1409,7 @@ async function main(config) {
               // TODO: parse 4k
               // https://f.video.weibocdn.com/qpH0Ozj9lx07NO9oXw4E0104120qrc250E0a0.mp4?label=mp4_2160p60&template=4096x1890.20.0&trans_finger=aaa6a0a6b46c000323ae75fc96245471&media_id=4653054126129212&tp=8x8A3El:YTkl0eM8&us=0&ori=1&bf=3&ot=h&ps=3lckmu&uid=7vYqTU&ab=3915-g1,5178-g1,966-g1,1493-g0,1192-g0,1191-g0,1258-g0&Expires=1627682219&ssig=I7RDiLeNCQ&KID=unistore,video
 
-              if (account.tgChannelID && config.telegram.enabled) {
+              if (account.tgChannelId && config.telegram.enabled) {
                 log(`weibo got update: ${id} (${timeAgo(timestamp)})`);
 
                 if ((currentTime - timestamp) >= config.weiboBotThrottle) {
@@ -1428,7 +1428,7 @@ async function main(config) {
                       const photoCount = status.pic_ids.length;
                       const photoCountText = photoCount > 1 ? `（${idx + 1}/${photoCount}）` : ``;
                       const tgForm = new FormData();
-                      tgForm.append('chat_id', account.tgChannelID);
+                      tgForm.append('chat_id', account.tgChannelId);
                       tgForm.append('reply_markup', JSON.stringify(tgMarkup));
                       tgForm.append('photo', await readProcessedImage(`${status.pics[idx].large.url}`));
                       tgForm.append('caption', `${msgPrefix} #微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}`);
@@ -1450,7 +1450,7 @@ async function main(config) {
               log(`weibo new post older than database. latest: ${id} (${timeAgo(timestamp)})`);
 
               // NOTE: Disable deleted weibo detection. Buggy
-              // if (account.tgChannelID && config.telegram.enabled) {
+              // if (account.tgChannelId && config.telegram.enabled) {
 
               //   await sendTelegram({ method: 'sendMessage' }, {
               //     text: `监测到最新微博旧于数据库中的微博，可能有微博被删除`,

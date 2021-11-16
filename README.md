@@ -107,7 +107,7 @@ Your full `config.js` file may look like:
       douyinId: 'MS4wLjABAAAA5ZrIrbgva_HMeHuNn64goOD2XYnk4ItSypgRHlbSh1c',
       douyinLiveId: '',
       weiboId: '7595006312',
-      tgChannelID: 41205411,
+      tgChannelId: 41205411,
       color: '#e799b0',
     },
     {
@@ -119,7 +119,7 @@ Your full `config.js` file may look like:
       douyinId: 'MS4wLjABAAAAlpnJ0bXVDV6BNgbHUYVWnnIagRqeeZyNyXB84JXTqAS5tgGjAtw0ZZkv0KSHYyhP',
       douyinLiveId: '820648166099',
       weiboId: '7594710405',
-      tgChannelID: '41205411',
+      tgChannelId: '41205411',
       color: '#bd7d74',
     },
   ]
