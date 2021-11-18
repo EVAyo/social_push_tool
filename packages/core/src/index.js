@@ -579,6 +579,45 @@ async function main(config) {
             },
           };
 
+          // If live room title update
+          if (liveTitle !== dbScope?.bilibili_live?.latestStream?.liveTitle && dbScope?.bilibili_live?.latestStream) {
+            log(`bilibili-live title updated: ${liveTitle}`);
+
+            if (account.qGuildId && config.qGuild.enabled) {
+
+              await sendQGuild({method: 'send_guild_channel_msg'}, {
+                guild_id: account.qGuildId,
+                channel_id: account.qGuildChannelId,
+                message: `${msgPrefix}#b站直播间标题更新\n新：${liveTitle}\n旧：${dbScope?.bilibili_live?.latestStream?.liveTitle}`,
+              }).then(resp => {
+                // log(`go-qchttp post weibo success: ${resp}`);
+              })
+              .catch(err => {
+                log(`go-qchttp post bilibili-live title error: ${err?.response?.body || err}`);
+              });
+            }
+
+            if (account.tgChannelId && config.telegram.enabled) {
+
+              await sendTelegram({ method: 'sendMessage' }, {
+                chat_id: account.tgChannelId,
+                text: `${msgPrefix}#b站直播间标题更新\n新：${liveTitle}\n旧：${dbScope?.bilibili_live?.latestStream?.liveTitle}`,
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      {text: `${nickname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
+                    ],
+                  ]
+                },
+              }).then(resp => {
+                // log(`telegram post bilibili-live title success: message_id ${resp.result.message_id}`)
+              })
+              .catch(err => {
+                log(`telegram post bilibili-live title error: ${err?.response?.body || err}`);
+              });
+            }
+          }
+
           // If user nickname update
           if (nickname !== 'bilibili' && nickname !== dbScope?.bilibili_live?.nickname && dbScope?.bilibili_live?.nickname) {
             log(`bilibili-live user nickname updated: ${nickname}`);
