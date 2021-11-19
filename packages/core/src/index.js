@@ -1389,6 +1389,7 @@ async function main(config) {
             const timestamp = +new Date(status.created_at);
             const id = status.bid;
             const visibility = status?.visible?.type;
+            const editCount = status?.edit_count || 0;
             let text = status?.raw_text || stripHtml(status.text);
 
             if (status?.isLongText) {
@@ -1432,6 +1433,7 @@ async function main(config) {
                 id: id,
                 text: text,
                 visibility: visibility,
+                editCount: editCount,
                 timestamp: new Date(timestamp),
                 timestampUnix: timestamp,
                 timeAgo: timeAgo(timestamp),
