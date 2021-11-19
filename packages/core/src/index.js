@@ -1286,6 +1286,7 @@ async function main(config) {
                   // Send an additional message if original post has more than one photo
                   if (cardJson?.item?.pictures?.length > 1) {
                     await Promise.all(cardJson.item.pictures.map(async (pic, idx) => {
+                      if (idx === 0) return;
                       const photoCount = cardJson.item.pictures.length;
                       const photoCountText = photoCount > 1 ? `（${idx + 1}/${photoCount}）` : ``;
                       const tgForm = new FormData();
@@ -1790,6 +1791,7 @@ async function main(config) {
                   // Send an additional message if original post has more than one photo
                   if (status.pic_ids?.length > 1) {
                     await Promise.all(status.pic_ids.map(async (pic, idx) => {
+                      if (idx === 0) return;
                       const photoCount = status.pic_ids.length;
                       const photoCountText = photoCount > 1 ? `（${idx + 1}/${photoCount}）` : ``;
                       const tgForm = new FormData();
