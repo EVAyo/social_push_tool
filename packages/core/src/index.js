@@ -1043,7 +1043,7 @@ async function main(config) {
                   guild_id: account.qGuildId,
                   channel_id: account.qGuildChannelId,
                   message: `${msgPrefix}#b站粉丝装扮变更\n新：${decoNew?.name || '无装扮'}${decoNew?.fan?.number ? '#' + decoNew?.fan?.number : '（无编号）'}` +
-                    `\n旧：${decoOld?.name || '无装扮'}#${decoOld?.fan?.number ? '#' + decoOld?.fan?.number : '（无编号）'}`,
+                    `\n旧：${decoOld?.name || '无装扮'}${decoOld?.fan?.number ? '#' + decoOld?.fan?.number : '（无编号）'}`,
                 }).then(resp => {
                   // log(`go-qchttp post weibo success: ${resp}`);
                 })
@@ -1057,7 +1057,7 @@ async function main(config) {
                 await sendTelegram({ method: 'sendMessage' }, {
                   chat_id: account.tgChannelId,
                   text: `${msgPrefix}#b站粉丝装扮变更\n新：${decoNew?.name || '无装扮'}${decoNew?.fan?.number ? '#' + decoNew?.fan?.number : '（无编号）'}` +
-                    `\n旧：${decoOld?.name || '无装扮'}#${decoOld?.fan?.number ? '#' + decoOld?.fan?.number : '（无编号）'}`,
+                    `\n旧：${decoOld?.name || '无装扮'}${decoOld?.fan?.number ? '#' + decoOld?.fan?.number : '（无编号）'}`,
                   reply_markup: {
                     inline_keyboard: decoNew?.id ? [
                       [
