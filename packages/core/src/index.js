@@ -1567,7 +1567,7 @@ async function main(config) {
 
                 await sendTelegram({ method: 'sendMessage' }, {
                   chat_id: account.tgChannelId,
-                  text: `${msgPrefix}#微博关注数变更\n新：${user?.follow_count || '未知'}\n旧：${dbScope?.weibo?.user?.follow_count || '未知'}`,
+                  text: `${msgPrefix}#微博关注数变更 （可能存在网络原因误报）\n新：${user?.follow_count || '未知'}\n旧：${dbScope?.weibo?.user?.follow_count || '未知'}`,
                   reply_markup: {
                     inline_keyboard: [
                       [
@@ -1584,19 +1584,19 @@ async function main(config) {
                 });
               }
 
-              if (account.qGuildId && config.qGuild.enabled) {
+              // if (account.qGuildId && config.qGuild.enabled) {
 
-                await sendQGuild({method: 'send_guild_channel_msg'}, {
-                  guild_id: account.qGuildId,
-                  channel_id: account.qGuildChannelId,
-                  message: `${msgPrefix}#微博关注数变更\n新：${user?.follow_count || '未知'}\n旧：${dbScope?.weibo?.user?.follow_count || '未知'}`,
-                }).then(resp => {
-                  // log(`go-qchttp post weibo success: ${resp}`);
-                })
-                .catch(err => {
-                  log(`go-qchttp post weibo::follow_count error: ${err?.response?.body || err}`);
-                });
-              }
+              //   await sendQGuild({method: 'send_guild_channel_msg'}, {
+              //     guild_id: account.qGuildId,
+              //     channel_id: account.qGuildChannelId,
+              //     message: `${msgPrefix}#微博关注数变更 （可能存在网络原因误报）\n新：${user?.follow_count || '未知'}\n旧：${dbScope?.weibo?.user?.follow_count || '未知'}`,
+              //   }).then(resp => {
+              //     // log(`go-qchttp post weibo success: ${resp}`);
+              //   })
+              //   .catch(err => {
+              //     log(`go-qchttp post weibo::follow_count error: ${err?.response?.body || err}`);
+              //   });
+              // }
             }
 
             // If user avatar update
