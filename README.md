@@ -75,8 +75,14 @@ Minimal `config.js`:
 Your full `config.js` file may look like:
 
 ```js
-{
-  rateLimitProxy: 'http://10.2.1.2:7890',
+export default {
+  loopInterval: 60 * 1000, // ms
+  douyinBotThrottle: 24 * 3600 * 1000, // 24 hours, if latest post older than this value, do not send notifications
+  douyinLiveBotThrottle: 1200 * 1000, // 20 mins
+  bilibiliBotThrottle: 65 * 60 * 1000, // 65 mins, bilibili sometimes got limit rate for 60 mins.
+  bilibiliLiveBotThrottle: 65 * 60 * 1000,
+  weiboBotThrottle: 3600 * 1000,
+  rateLimitProxy: 'http://10.2.1.2:7890', // Custom proxy to bypass bilibili API rate limit
   pluginOptions: {
     requestOptions: {
       timeout: {
@@ -85,8 +91,8 @@ Your full `config.js` file may look like:
     },
     customCookies: {
       // Nov 11, 2021
-      // Douyin main site now request `__ac_nonce` and `__ac_signature` to work
-      douyin: ``,
+      // Douyin main site now require `__ac_nonce` and `__ac_signature` to work
+      douyin: `__ac_nonce=XXX; __ac_signature=XXX;`,
       // get `SESSDATA` cookie from https://www.bilibili.com/
       bilibili: `SESSDATA=XXX`,
       // get `SUB` cookie from https://m.weibo.cn/
@@ -95,13 +101,23 @@ Your full `config.js` file may look like:
   },
   telegram: {
     enabled: true,
+    // Custom Telegram proxy, remove this to use the official endpoint
     apiBase: 'https://experiments.sparanoid.net/tgbot',
     token: ''
   },
+  qGuild: {
+    enabled: true,
+    // go-cqhttp endpoint
+    // See https://github.com/Mrs4s/go-cqhttp for documentation
+    apiBase: 'http://10.2.1.2:5700',
+  },
   accounts: [
     {
+      // Use `false` to disable checking this profile
       enabled: false,
       slug: '嘉然',
+      // Set to `true` to add `slug` at the beginning of the notification
+      // Useful for pushing notifications with multiple accounts in one channel
       showSlug: true,
       biliId: '672328094',
       biliLiveId: '22637261',
@@ -109,6 +125,9 @@ Your full `config.js` file may look like:
       douyinLiveId: '',
       weiboId: '7595006312',
       tgChannelId: 41205411,
+      qGuildId: '12345678901234567',
+      qGuildChannelId: 1234567,
+      // Show custom color output in console. Nothing useful
       color: '#e799b0',
     },
     {
