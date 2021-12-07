@@ -1247,8 +1247,11 @@ async function main(config) {
                 log(`bilibili-mblog got audio post (${timeAgo(timestamp)})`);
               }
 
+              // General card link (calendar, etc.)
               // Share audio bookmark
               else if (type === 2048) {
+                tgBody.text = `${msgPrefix}#b站动态：${cardJson?.vest?.content.trim()}${extendedMeta}`;
+                qgBody.message = `${msgPrefix}#b站动态：${cardJson?.vest?.content.trim()}${extendedMeta}\n动态链接：https://t.bilibili.com/${dynamicId}`;
                 log(`bilibili-mblog got share audio bookmark (${timeAgo(timestamp)})`);
               }
 
