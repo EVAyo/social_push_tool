@@ -101,8 +101,7 @@ export default {
   },
   telegram: {
     enabled: true,
-    // Custom Telegram proxy, remove this to use the official endpoint
-    apiBase: 'https://experiments.sparanoid.net/tgbot',
+    apiBase: 'https://api.telegram.org/bot',
     token: ''
   },
   qGuild: {
