@@ -21,8 +21,7 @@
   },
   "dependencies": {
     "deepmerge": "^4.2.2",
-    "got": "^12.0.0",
-    "node-fetch": "^3.0.0"
+    "got": "^12.0.0"
   },
   "devDependencies": {
     "xv": "^1.1.0"

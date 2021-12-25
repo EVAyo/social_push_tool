@@ -1,5 +1,4 @@
 import got from 'got';
-import fetch from 'node-fetch';
 import merge from 'deepmerge';
 
 async function send(userOptions = {}, userBody = {}) {
@@ -43,32 +42,15 @@ async function send(userOptions = {}, userBody = {}) {
     json: userBody,
   };
 
-  if (options.payload === `form`) {
-    // Switch to node-fetch for FormData since got is buggy
-    // https://github.com/sindresorhus/got/issues/1907
-    try {
-      const resp = await fetch(`${options.apiBase}${options.token}/${options.method}`, {
-        method: 'post',
-        ...payload,
-        ...options.requestOptions,
-      });
+  try {
+    const resp = await got.post(`${options.apiBase}${options.token}/${options.method}`, {
+      ...payload,
+      ...options.requestOptions
+    });
 
-      console.log(await resp.json());
-      return resp
-    } catch (err) {
-      console.log(err);
-    }
-  } else {
-    try {
-      const resp = await got.post(`${options.apiBase}${options.token}/${options.method}`, {
-        ...payload,
-        ...options.requestOptions
-      });
-
-      return resp;
-    } catch (err) {
-      console.log(err);
-    }
+    return resp;
+  } catch (err) {
+    console.log(err);
   }
 }
 

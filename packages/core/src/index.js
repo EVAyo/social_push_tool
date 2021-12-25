@@ -581,8 +581,12 @@ async function main(config) {
           };
 
           // If live room title update
-          // Ignore when roundStatus is true. This can help avoid xxxxx的投稿视频 spam
-          if (!roundStatus && liveTitle !== dbScope?.bilibili_live?.latestStream?.liveTitle && dbScope?.bilibili_live?.latestStream) {
+          if (
+            // Ignore when roundStatus is true. This can help avoid xxxxx的投稿视频 spam
+            !roundStatus
+            && liveTitle !== dbScope?.bilibili_live?.latestStream?.liveTitle
+            && dbScope?.bilibili_live?.latestStream
+          ) {
             log(`bilibili-live title updated: ${liveTitle}`);
 
             if (account.qGuildId && config.qGuild.enabled) {
