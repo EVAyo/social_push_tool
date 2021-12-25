@@ -1566,7 +1566,11 @@ async function main(config) {
             if (user?.follow_count !== dbScope?.weibo?.user?.follow_count && dbScope?.weibo?.user) {
               log(`weibo user follow_count updated: ${user.follow_count}`);
 
-              if (account.tgChannelId && config.telegram.enabled) {
+              // Avoid false positive from Weibo API
+              const followBefore = dbScope?.weibo?.user?.follow_count || 0;
+              const followAfter = user?.follow_count || 0;
+
+              if (account.tgChannelId && config.telegram.enabled && Math.abs(followAfter - followBefore) < 5) {
 
                 await sendTelegram({ method: 'sendMessage' }, {
                   chat_id: account.tgChannelId,
