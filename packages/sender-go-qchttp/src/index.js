@@ -1,5 +1,4 @@
 import got from 'got';
-import fetch from 'node-fetch';
 import merge from 'deepmerge';
 
 async function send(userOptions = {}, userBody = {}) {
