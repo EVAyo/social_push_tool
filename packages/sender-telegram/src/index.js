@@ -30,7 +30,22 @@ async function send(userOptions = {}, userBody = {}) {
           522,
           524
         ],
-      }
+      },
+      hooks: {
+        // Eject error body by default
+        // https://github.com/sindresorhus/got/issues/1126
+        beforeError: [
+          error => {
+            const {response} = error;
+            if (response && response.body) {
+              error.name = 'SenderTelegramError';
+              error.message = `${response.body}`;
+            }
+
+            return error;
+          }
+        ]
+      },
     },
   }, userOptions);
 
