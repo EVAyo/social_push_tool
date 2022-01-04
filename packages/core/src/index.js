@@ -1156,9 +1156,10 @@ async function main(config) {
 
                   const photoCount = originJson.item.pictures.length;
                   const photoCountText = photoCount > 1 ? `（共 ${photoCount} 张）` : ``;
-                  tgOptions.method = 'sendPhoto';
+                  const photoExt = originJson?.item?.pictures[0].img_src.split('.').pop();
+                  tgOptions.method = photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto';
                   tgOptions.payload = 'form';
-                  tgForm.append('photo', await readProcessedImage(`${originJson?.item?.pictures[0].img_src}`));
+                  tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${originJson?.item?.pictures[0].img_src}`));
                   tgForm.append('caption', `${msgPrefix}#b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.name}\n被转内容：${photoCountText}：${originJson?.item?.description}${extendedMeta}`);
                   qgBody.message = `${msgPrefix}#b站转发：${cardJson?.item?.content.trim()}\n动态链接：https://t.bilibili.com/${dynamicId}\n\n被转作者：@${originJson.user.name}\n被转内容：${photoCountText}：${originJson?.item?.description}${extendedMeta}\n[CQ:image,file=${originJson?.item?.pictures[0].img_src}]`;
 
@@ -1191,12 +1192,13 @@ async function main(config) {
               else if (type === 2 && cardJson?.item?.pictures.length > 0) {
                 const photoCount = cardJson.item.pictures.length;
                 const photoCountText = photoCount > 1 ? `（共 ${photoCount} 张）` : ``;
-                tgOptions.method = 'sendPhoto';
+                const photoExt = cardJson.item.pictures[0].img_src.split('.').pop();
+                tgOptions.method = photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto';
                 tgOptions.payload = 'form';
                 // NOTE: old JSON method
                 // tgBody.caption = `${msgPrefix}#b站相册动态${photoCountText}：${cardJson?.item?.description}`;
                 // tgBody.photo = cardJson.item.pictures[0].img_src;
-                tgForm.append('photo', await readProcessedImage(`${cardJson.item.pictures[0].img_src}`));
+                tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${cardJson.item.pictures[0].img_src}`));
                 tgForm.append('caption', `${msgPrefix}#b站相册动态${photoCountText}：${cardJson?.item?.description}${extendedMeta}`);
                 qgBody.message = `${msgPrefix}#b站相册动态${photoCountText}：${cardJson?.item?.description}${extendedMeta}\n动态链接：https://t.bilibili.com/${dynamicId}\n${cardJson.item.pictures.map(item => generateCqCode(item.img_src))}`;
 
@@ -1298,14 +1300,16 @@ async function main(config) {
                       if (idx === 0) return;
                       const photoCount = cardJson.item.pictures.length;
                       const photoCountText = photoCount > 1 ? `（${idx + 1}/${photoCount}）` : ``;
+                      const photoExt = cardJson.item.pictures[idx].img_src.split('.').pop();
+
                       const tgForm = new FormData();
                       tgForm.append('chat_id', account.tgChannelId);
                       tgForm.append('reply_markup', JSON.stringify(tgMarkup));
-                      tgForm.append('photo', await readProcessedImage(`${cardJson.item.pictures[idx].img_src}`));
+                      tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${cardJson.item.pictures[idx].img_src}`));
                       tgForm.append('caption', `${msgPrefix}#b站相册动态${photoCountText}：${cardJson?.item?.description}${extendedMeta}`);
 
                       await sendTelegram({
-                        method: 'sendPhoto',
+                        method: photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto',
                         payload: 'form',
                       }, tgForm).then(resp => {
                         log(`telegram post bilibili-mblog (batch #${idx + 1}) success`)
@@ -1737,10 +1741,11 @@ async function main(config) {
               if (status.pic_ids?.length > 0) {
                 const photoCount = status.pic_ids.length;
                 const photoCountText = photoCount > 1 ? `（共 ${photoCount} 张）` : ``;
-                tgOptions.method = 'sendPhoto';
+                const photoExt = status.pics[0].large.url.split('.').pop();
+                tgOptions.method = photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto';
                 tgOptions.payload = 'form';
                 // tgForm.append('photo', await readProcessedImage(`https://ww1.sinaimg.cn/large/${status.pic_ids[0]}.jpg`));
-                tgForm.append('photo', await readProcessedImage(`${status.pics[0].large.url}`));
+                tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${status.pics[0].large.url}`));
                 tgForm.append('caption', `${msgPrefix}#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}`);
                 qgBody.message = `${msgPrefix}#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}\n地址：https://weibo.com/${user.id}/${id}\n${status.pics.map(item => generateCqCode(item.large.url))}`;
 
@@ -1809,14 +1814,16 @@ async function main(config) {
                       if (idx === 0) return;
                       const photoCount = status.pic_ids.length;
                       const photoCountText = photoCount > 1 ? `（${idx + 1}/${photoCount}）` : ``;
+                      const photoExt = status.pics[idx].large.url.split('.').pop();
+
                       const tgForm = new FormData();
                       tgForm.append('chat_id', account.tgChannelId);
                       tgForm.append('reply_markup', JSON.stringify(tgMarkup));
-                      tgForm.append('photo', await readProcessedImage(`${status.pics[idx].large.url}`));
+                      tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${status.pics[idx].large.url}`));
                       tgForm.append('caption', `${msgPrefix}#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}`);
 
                       await sendTelegram({
-                        method: 'sendPhoto',
+                        method: photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto',
                         payload: 'form',
                       }, tgForm).then(resp => {
                         log(`telegram post weibo (batch #${idx + 1}) success`)

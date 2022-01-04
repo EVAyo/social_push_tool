@@ -1,3 +1,4 @@
+import fs from 'fs';
 import path from 'path';
 import { fileFromPath } from 'formdata-node/file-from-path';
 import getStream from 'get-stream';
@@ -24,6 +25,7 @@ async function processImage(inputImage) {
   const {
     width,
     height,
+    format,
     size,
   } = metadata;
   let imageBuffer = await image.toBuffer({ resolveWithObject: true });
@@ -37,38 +39,45 @@ async function processImage(inputImage) {
   // Width and height ratio must be at most 20.
   // Ref: https://core.telegram.org/bots/api#sendphoto
 
-  if (width / height > 20) {
-    console.log('image too wide');
-    const ratio = width / height;
-    imageBuffer = await image.extract({
-      left: 0, top: 0, width: Math.floor(width / (ratio / 20)), height: height
-    }).toBuffer({ resolveWithObject: true });
+  if (format == 'gif') {
+    // sharp need additional dependencies to support output gif.
+    // Use Node native way to output raw gif for simpler setup.
+    // await image.toFile(`${cacheDir}/${name}.gif`);
+    fs.writeFileSync(`${cacheDir}/${name}.gif`, source, (err) => { if (err) { console.log(err); }});
+  } else {
+    if (width / height > 20) {
+      console.log('image too wide');
+      const ratio = width / height;
+      imageBuffer = await image.extract({
+        left: 0, top: 0, width: Math.floor(width / (ratio / 20)), height: height
+      }).toBuffer({ resolveWithObject: true });
+    }
+
+    if (height / width > 20) {
+      console.log('image too high');
+      const ratio = height / width;
+      imageBuffer = await image.extract({
+        left: 0, top: 0, width: width, height: Math.floor(height / ( ratio / 20))
+      }).toBuffer({ resolveWithObject: true });
+    }
+
+    // Check if image need to be resized from latest buffer
+    if (imageBuffer.info.width + imageBuffer.info.height > 10000) {
+      console.log('image pixel too large');
+      const scaleFactor = (imageBuffer.info.width + imageBuffer.info.height) / 10000;
+      const resizeTo = Math.floor(imageBuffer.info.width / scaleFactor);
+      console.log('resizeTo', resizeTo);
+
+      imageBuffer = await image.resize(resizeTo).toBuffer({ resolveWithObject: true });
+    }
+
+    // console.log('output metadata', imageBuffer);
+
+    await image.jpeg({
+      quality: 90,
+      progressive: true,
+    }).toFile(`${cacheDir}/${name}.jpg`);
   }
-
-  if (height / width > 20) {
-    console.log('image too high');
-    const ratio = height / width;
-    imageBuffer = await image.extract({
-      left: 0, top: 0, width: width, height: Math.floor(height / ( ratio / 20))
-    }).toBuffer({ resolveWithObject: true });
-  }
-
-  // Check if image need to be resized from latest buffer
-  if (imageBuffer.info.width + imageBuffer.info.height > 10000) {
-    console.log('image pixel too large');
-    const scaleFactor = (imageBuffer.info.width + imageBuffer.info.height) / 10000;
-    const resizeTo = Math.floor(imageBuffer.info.width / scaleFactor);
-    console.log('resizeTo', resizeTo);
-
-    imageBuffer = await image.resize(resizeTo).toBuffer({ resolveWithObject: true });
-  }
-
-  // console.log('output metadata', imageBuffer);
-
-  await image.jpeg({
-    quality: 90,
-    progressive: true,
-  }).toFile(`${cacheDir}/${name}.jpg`);
 }
 
 export async function readProcessedImage(inputImage) {
@@ -77,6 +86,8 @@ export async function readProcessedImage(inputImage) {
     ext
   } = path.parse(inputImage);
 
+  const fileExt = ext === '.gif' ? '.gif' : '.jpg';
+
   await processImage(inputImage);
-  return await fileFromPath(`${cacheDir}/${name}.jpg`)
+  return await fileFromPath(`${cacheDir}/${name}${fileExt}`)
 }
