@@ -711,7 +711,7 @@ async function main(config) {
               await sendQGuild({method: 'send_guild_channel_msg'}, {
                 guild_id: account.qGuildId,
                 channel_id: account.qGuildChannelId,
-                message: `${msgPrefix}#b站头像更新\n新头像：[CQ:image,file=${avatar}]\n老头像：[CQ:image,file=${dbScope?.bilibili_live?.avatar}]`,
+                message: `${msgPrefix}#b站头像更新\n新头像：[CQ:image,file=${avatar}]\n旧头像：[CQ:image,file=${dbScope?.bilibili_live?.avatar}]`,
               }).then(resp => {
                 // log(`go-qchttp post weibo success: ${resp}`);
               })
@@ -725,7 +725,7 @@ async function main(config) {
               await sendTelegram({ method: 'sendPhoto' }, {
                 chat_id: account.tgChannelId,
                 photo: avatar,
-                caption: `${msgPrefix}#b站头像更新，老头像：${dbScope?.bilibili_live?.avatar}`,
+                caption: `${msgPrefix}#b站头像更新，旧头像：${dbScope?.bilibili_live?.avatar}`,
                 reply_markup: {
                   inline_keyboard: [
                     [
@@ -1623,7 +1623,7 @@ async function main(config) {
                 await sendTelegram({ method: 'sendPhoto' }, {
                   chat_id: account.tgChannelId,
                   photo: user.avatar_hd,
-                  caption: `${msgPrefix}#微博头像更新，老头像：${dbScope?.weibo?.user?.avatar_hd}`,
+                  caption: `${msgPrefix}#微博头像更新，旧头像：${dbScope?.weibo?.user?.avatar_hd}`,
                   reply_markup: {
                     inline_keyboard: [
                       [
@@ -1644,7 +1644,7 @@ async function main(config) {
                 await sendQGuild({method: 'send_guild_channel_msg'}, {
                   guild_id: account.qGuildId,
                   channel_id: account.qGuildChannelId,
-                  message: `${msgPrefix}#微博头像更新\n新头像：[CQ:image,file=${user.avatar_hd}]\n老头像：[CQ:image,file=${dbScope?.weibo?.user?.avatar_hd}]`,
+                  message: `${msgPrefix}#微博头像更新\n新头像：[CQ:image,file=${user.avatar_hd}]\n旧头像：[CQ:image,file=${dbScope?.weibo?.user?.avatar_hd}]`,
                 }).then(resp => {
                   // log(`go-qchttp post weibo success: ${resp}`);
                 })
@@ -1684,7 +1684,7 @@ async function main(config) {
                 await sendQGuild({method: 'send_guild_channel_msg'}, {
                   guild_id: account.qGuildId,
                   channel_id: account.qGuildChannelId,
-                  message: `${msgPrefix}#微博封面更新\n新头像：[CQ:image,file=${convertWeiboUrl(user.cover_image_phone)}]\n老头像：[CQ:image,file=${convertWeiboUrl(dbScope?.weibo?.user?.cover_image_phone)}]`,
+                  message: `${msgPrefix}#微博封面更新\n新头像：[CQ:image,file=${convertWeiboUrl(user.cover_image_phone)}]\n旧头像：[CQ:image,file=${convertWeiboUrl(dbScope?.weibo?.user?.cover_image_phone)}]`,
                 }).then(resp => {
                   // log(`go-qchttp post weibo success: ${resp}`);
                 })
