@@ -58,7 +58,7 @@ async function generateConfig() {
         }
       }
     },
-    douyinBotThrottle: 24 * 3600 * 1000, // 24 hours, if latest post older than this value, do not send notifications
+    douyinBotThrottle: 36 * 3600 * 1000, // 36 hours, if latest post older than this value, do not send notifications
     douyinLiveBotThrottle: 1200 * 1000, // 20 mins
     bilibiliBotThrottle: 65 * 60 * 1000, // 65 mins, bilibili sometimes got limit rate for 60 mins.
     bilibiliLiveBotThrottle: 65 * 60 * 1000,
