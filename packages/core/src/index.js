@@ -580,7 +580,7 @@ async function main(config) {
             },
           };
 
-          // If live room title update
+          // If live room title updates
           if (
             // Ignore when roundStatus is true. This can help avoid xxxxx的投稿视频 spam
             !roundStatus
@@ -611,6 +611,7 @@ async function main(config) {
                 reply_markup: {
                   inline_keyboard: [
                     [
+                      {text: 'Watch', url: liveRoom},
                       {text: `${nickname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
                     ],
                   ]
