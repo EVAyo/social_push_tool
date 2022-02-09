@@ -65,7 +65,7 @@ docker run \
 Minimal `config.js`:
 
 ```js
-{
+export default {
   accounts: [
     {
       enabled: true,
