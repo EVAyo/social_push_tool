@@ -1125,7 +1125,14 @@ async function main(config) {
 
               // If the status has additional meta (ie. reserved events)
               if (cardAddon) {
-                extendedMeta += `\n\n预约：${cardAddon.reserve_attach_card.title}（${cardAddon.reserve_attach_card?.desc_first?.text || '无详情'}）`;
+                if (cardAddon?.add_on_card_show_type === 3 && cardAddon?.vote_card) {
+                  const voteJson = JSON.parse(cardAddon?.vote_card);
+                  extendedMeta += `\n\n投票（id：${voteJson?.vote_id}）：\n${voteJson?.options.map(option => ` - ${option?.desc} ${option?.title}`)?.join('\n')}`;
+                }
+
+                if (cardAddon?.reserve_attach_card?.title) {
+                  extendedMeta += `\n\n预约：${cardAddon.reserve_attach_card.title}（${cardAddon.reserve_attach_card?.desc_first?.text || '无详情'}）`;
+                }
               }
 
               // If the status has additional geolocation info
