@@ -54,7 +54,7 @@ Run with Docker:
 
 ```bash
 docker run \
-  -v $(pwd)/config.js:/app/config.js \
+  -v $(pwd)/config.js:/app/config.js:ro \
   -v $(pwd)/db:/app/db \
   -v $(pwd)/cache:/app/cache \
   sparanoid/a-soul -c config.js --color
