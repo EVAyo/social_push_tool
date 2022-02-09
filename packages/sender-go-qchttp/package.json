@@ -1,6 +1,6 @@
 {
   "name": "@a-soul/sender-go-qchttp",
-  "version": "1.2.11",
+  "version": "1.2.12",
   "description": "Send processed data to go-qchttp",
   "main": "src/index.js",
   "repository": "https://github.com/sparanoid/a-soul",

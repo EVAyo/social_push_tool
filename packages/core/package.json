@@ -1,6 +1,6 @@
 {
   "name": "@a-soul/core",
-  "version": "1.2.11",
+  "version": "1.2.12",
   "description": "Extract rendered data from Douyin web version",
   "main": "src/index.js",
   "bin": "src/index.js",
@@ -19,8 +19,8 @@
     "node": ">=15"
   },
   "dependencies": {
-    "@a-soul/extractor-douyin": "^1.2.11",
-    "@a-soul/sender-telegram": "^1.2.11",
+    "@a-soul/extractor-douyin": "^1.2.12",
+    "@a-soul/sender-telegram": "^1.2.12",
     "chalk": "^5.0.0",
     "date-fns": "^2.27.0",
     "deepmerge": "^4.2.2",
