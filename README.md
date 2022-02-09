@@ -53,7 +53,11 @@ npx @a-soul/core run -c config.js
 Run with Docker:
 
 ```bash
-docker run -v $(pwd)/config.js:/app/config.js -v $(pwd)/db:/app/db sparanoid/a-soul -c config.js --color
+docker run \
+  -v $(pwd)/config.js:/app/config.js \
+  -v $(pwd)/db:/app/db \
+  -v $(pwd)/cache:/app/cache \
+  sparanoid/a-soul -c config.js --color
 ```
 
 ## Configurations
