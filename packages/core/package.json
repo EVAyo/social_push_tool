@@ -1,6 +1,6 @@
 {
   "name": "@a-soul/core",
-  "version": "1.2.12",
+  "version": "1.2.13",
   "description": "Extract rendered data from Douyin web version",
   "main": "src/index.js",
   "bin": "src/index.js",
