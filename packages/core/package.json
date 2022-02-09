@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@a-soul/extractor-douyin": "^1.2.12",
+    "@a-soul/sender-go-qchttp": "^1.2.12",
     "@a-soul/sender-telegram": "^1.2.12",
     "chalk": "^5.0.0",
     "date-fns": "^2.27.0",
