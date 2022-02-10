@@ -1386,7 +1386,7 @@ async function main(config) {
       });
 
       // Fetch Weibo
-      const weiboRequestOptions = {...config.pluginOptions?.requestOptions, ...headerOnDemand(config.pluginOptions.customCookies.weibo), ...proxyOptions};
+      const weiboRequestOptions = {...config.pluginOptions?.requestOptions, ...headerOnDemand(config.pluginOptions.customCookies.weibo)};
 
       account.weiboId && await got(`https://m.weibo.cn/profile/info?uid=${account.weiboId}`, weiboRequestOptions).then(async resp => {
         const json = JSON.parse(resp.body);
