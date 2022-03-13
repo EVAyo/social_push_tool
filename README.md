@@ -10,7 +10,7 @@ Extract data from services and push updates to Telegram or other platforms
 - Monitor several services at the same time
 - Support retry on failed connections
 - Proxy support to avoid API rate limit
-- Low memory footprint (~ 50 MB)
+- Low memory footprint (About 50 MB for a single account, 120 MB for 20 accounts with multiple services)
 - ESM by default with minimal dependencies
 
 ## Supported Services (and plans)
@@ -32,7 +32,7 @@ Extract data from services and push updates to Telegram or other platforms
 ## Supported Senders
 
 - [x] telegram
-- [x] go-cqhttp (QQ)
+- [x] go-cqhttp (QQ Guild)
 
 ## System Requirements
 
@@ -95,7 +95,7 @@ export default {
     },
     customCookies: {
       // Nov 11, 2021
-      // Douyin main site now require `__ac_nonce` and `__ac_signature` to work
+      // Douyin main site now requires `__ac_nonce` and `__ac_signature` to work
       douyin: `__ac_nonce=XXX; __ac_signature=XXX;`,
       // get `SESSDATA` cookie from https://www.bilibili.com/
       bilibili: `SESSDATA=XXX`,
@@ -111,7 +111,7 @@ export default {
   qGuild: {
     enabled: true,
     // go-cqhttp endpoint
-    // See https://github.com/Mrs4s/go-cqhttp for documentation
+    // See https://github.com/Mrs4s/go-cqhttp to learn how to deploy qo-cqhttp and send updates to QQ Guild
     apiBase: 'http://10.2.1.2:5700',
   },
   accounts: [
@@ -119,7 +119,7 @@ export default {
       // Use `false` to disable checking this profile
       enabled: false,
       slug: '嘉然',
-      // Set to `true` to add `slug` at the beginning of the notification
+      // Set to `true` to add `slug` at the beginning of the notification. ie: #嘉然
       // Useful for pushing notifications with multiple accounts in one channel
       showSlug: true,
       biliId: '672328094',
@@ -151,7 +151,7 @@ export default {
 
 ## Development
 
-You need to have [Yarn](https://yarnpkg.com/) installed first
+You need to have [Yarn](https://yarnpkg.com/) installed first:
 
 ```bash
 # Install dependencies
@@ -170,7 +170,7 @@ yarn run start --once --verbose
 
 The original intention of this project was to monitor updates of a Chinese VTuber group [A-SOUL](https://virtualyoutuber.fandom.com/wiki/A-soul).
 
-### Why not executing checks in parallel
+### Why not executing checks in parallel?
 
 Most services have API limits or rate limits. Executing checks in parallel only make sense with small amount of accounts.
 
