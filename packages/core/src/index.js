@@ -1590,48 +1590,48 @@ async function main(config) {
             }
 
             // If user follow_count update
-            if (user?.follow_count !== dbScope?.weibo?.user?.follow_count && dbScope?.weibo?.user) {
-              log(`weibo user follow_count updated: ${user.follow_count}`);
+            // if (user?.follow_count !== dbScope?.weibo?.user?.follow_count && dbScope?.weibo?.user) {
+            //   log(`weibo user follow_count updated: ${user.follow_count}`);
 
-              // Avoid false positive from Weibo API
-              const followBefore = dbScope?.weibo?.user?.follow_count || 0;
-              const followAfter = user?.follow_count || 0;
+            //   // Avoid false positive from Weibo API
+            //   const followBefore = dbScope?.weibo?.user?.follow_count || 0;
+            //   const followAfter = user?.follow_count || 0;
 
-              if (account.tgChannelId && config.telegram.enabled && Math.abs(followAfter - followBefore) < 5) {
+            //   if (account.tgChannelId && config.telegram.enabled && Math.abs(followAfter - followBefore) < 5) {
 
-                await sendTelegram({ method: 'sendMessage' }, {
-                  chat_id: account.tgChannelId,
-                  text: `${msgPrefix}#微博关注数变更 （可能存在网络原因误报）\n新：${user?.follow_count || '未知'}\n旧：${dbScope?.weibo?.user?.follow_count || '未知'}`,
-                  reply_markup: {
-                    inline_keyboard: [
-                      [
-                        {text: `View Following`, url: `https://weibo.com/u/page/follow/${user.id}`},
-                        {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
-                      ],
-                    ]
-                  },
-                }).then(resp => {
-                  // log(`telegram post weibo::follow_count success: message_id ${resp.result.message_id}`)
-                })
-                .catch(err => {
-                  log(`telegram post weibo::follow_count error: ${err}`);
-                });
-              }
+            //     await sendTelegram({ method: 'sendMessage' }, {
+            //       chat_id: account.tgChannelId,
+            //       text: `${msgPrefix}#微博关注数变更 （可能存在网络原因误报）\n新：${user?.follow_count || '未知'}\n旧：${dbScope?.weibo?.user?.follow_count || '未知'}`,
+            //       reply_markup: {
+            //         inline_keyboard: [
+            //           [
+            //             {text: `View Following`, url: `https://weibo.com/u/page/follow/${user.id}`},
+            //             {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
+            //           ],
+            //         ]
+            //       },
+            //     }).then(resp => {
+            //       // log(`telegram post weibo::follow_count success: message_id ${resp.result.message_id}`)
+            //     })
+            //     .catch(err => {
+            //       log(`telegram post weibo::follow_count error: ${err}`);
+            //     });
+            //   }
 
-              // if (account.qGuildId && config.qGuild.enabled) {
+            //   // if (account.qGuildId && config.qGuild.enabled) {
 
-              //   await sendQGuild({method: 'send_guild_channel_msg'}, {
-              //     guild_id: account.qGuildId,
-              //     channel_id: account.qGuildChannelId,
-              //     message: `${msgPrefix}#微博关注数变更 （可能存在网络原因误报）\n新：${user?.follow_count || '未知'}\n旧：${dbScope?.weibo?.user?.follow_count || '未知'}`,
-              //   }).then(resp => {
-              //     // log(`go-qchttp post weibo success: ${resp}`);
-              //   })
-              //   .catch(err => {
-              //     log(`go-qchttp post weibo::follow_count error: ${err?.response?.body || err}`);
-              //   });
-              // }
-            }
+            //   //   await sendQGuild({method: 'send_guild_channel_msg'}, {
+            //   //     guild_id: account.qGuildId,
+            //   //     channel_id: account.qGuildChannelId,
+            //   //     message: `${msgPrefix}#微博关注数变更 （可能存在网络原因误报）\n新：${user?.follow_count || '未知'}\n旧：${dbScope?.weibo?.user?.follow_count || '未知'}`,
+            //   //   }).then(resp => {
+            //   //     // log(`go-qchttp post weibo success: ${resp}`);
+            //   //   })
+            //   //   .catch(err => {
+            //   //     log(`go-qchttp post weibo::follow_count error: ${err?.response?.body || err}`);
+            //   //   });
+            //   // }
+            // }
 
             // If user avatar update
             if (user.avatar_hd !== dbScope?.weibo?.user?.avatar_hd && dbScope?.weibo?.user?.avatar_hd) {
