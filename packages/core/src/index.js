@@ -1410,7 +1410,6 @@ async function main(config) {
             // This reduces one API request and can be helpful with rate limit
             // at better scale
             const user = statuses[0].mblog.user;
-            console.log(user);
 
             const status = (
               // This is the last resort to get the latest status witht sticky status
