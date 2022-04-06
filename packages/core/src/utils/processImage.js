@@ -1,4 +1,3 @@
-import fs from 'fs';
 import path from 'path';
 import { fileFromPath } from 'formdata-node/file-from-path';
 import getStream from 'get-stream';
@@ -20,7 +19,7 @@ async function processImage(inputImage) {
     ? await getStream.buffer(got(inputImage, {isStream: true}))
     : inputImage;
 
-  const image = sharp(source);
+  const image = sharp(source, { animated: true });
   const metadata = await image.metadata();
   const {
     width,
@@ -40,10 +39,7 @@ async function processImage(inputImage) {
   // Ref: https://core.telegram.org/bots/api#sendphoto
 
   if (format == 'gif') {
-    // sharp need additional dependencies to support output gif.
-    // Use Node native way to output raw gif for simpler setup.
-    // await image.toFile(`${cacheDir}/${name}.gif`);
-    fs.writeFileSync(`${cacheDir}/${name}.gif`, source, (err) => { if (err) { console.log(err); }});
+    await image.toFile(`${cacheDir}/${name}.gif`);
   } else {
     if (width / height > 20) {
       console.log('image too wide');
