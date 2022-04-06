@@ -1412,7 +1412,7 @@ async function main(config) {
             const user = statuses[0].mblog.user;
 
             const status = (
-              // This is the last resort to get the latest status witht sticky status
+              // This is the last resort to get the latest status without sticky status
               (statuses[0]?.mblog?.created_at && statuses[1]?.mblog?.created_at &&
               +new Date(statuses[0].mblog.created_at) < +new Date(statuses[1].mblog.created_at))
             ) ? statuses[1].mblog : statuses[0].mblog;
