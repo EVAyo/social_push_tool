@@ -583,8 +583,8 @@ async function main(config) {
 
           // If live room title updates
           if (
-            liveTitle !== dbScope?.bilibili_live?.latestStream?.liveTitle
-            && dbScope?.bilibili_live?.latestStream
+            liveTitle !== dbScope?.bilibili_live?.latestStream?.liveTitle &&
+            liveStatus === dbScope?.bilibili_live?.latestStream?.liveStatus
           ) {
             log(`bilibili-live title updated: ${liveTitle}`);
 
