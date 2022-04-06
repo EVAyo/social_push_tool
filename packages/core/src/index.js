@@ -1389,522 +1389,504 @@ async function main(config) {
 
       // Weibo container ID magic words:
       // 230283 + uid: home
-      // 100505 + uid: weibo
+      // 100505 + uid: profile
+      // 107603 + uid: weibo
       // 231567 + uid: videos
       // 107803 + uid: photos
-      account.weiboId && await got(`https://m.weibo.cn/api/container/getIndex?type=uid&value=${account.weiboId}&containerid=100505${account.weiboId}`, weiboRequestOptions).then(async resp => {
+      account.weiboId && await got(`https://m.weibo.cn/api/container/getIndex?type=uid&value=${account.weiboId}&containerid=107603${account.weiboId}`, weiboRequestOptions).then(async resp => {
         const json = JSON.parse(resp.body);
 
         if (json?.ok === 1) {
           const currentTime = Date.now();
           const data = json.data;
-          const user = data?.userInfo;
-          const tabs = data?.tabsInfo?.tabs;
+          const cards = data?.cards;
 
-          // NOTE: From Apr 2, 2022, you can not get statuses (now Weibo brands it cards) directly from the old API.
-          // All cards are now wrapped inside a "contaienr". Which can be get from the main user profile API request.
-          // const statuses = data?.statuses;
-          if (tabs.length > 0) {
-            const statusTab = tabs.find(tab => tab.tab_type === 'weibo')
+          // Filter out unrelated cards to only keep statuses
+          // card_type: 9 - normal Weibo statuses
+          const statuses = cards.filter(card => { return card.card_type === 9 });
 
-            if (statusTab) {
-              // In case Weibo update their magic words. fetch it from API result
-              const statusContaierId = statusTab.containerid;
+          if (statuses.length !== 0) {
+            // At this point, we can get Weibo profile data from the statuses
+            // This reduces one API request and can be helpful with rate limit
+            // at better scale
+            const user = statuses[0].mblog.user;
+            console.log(user);
 
-              // Retrieve the real cards (statuses)
-              await got(`https://m.weibo.cn/api/container/getIndex?type=uid&value=${account.weiboId}&containerid=${statusContaierId}`, weiboRequestOptions).then(async resp => {
+            const status = (
+              // This is the last resort to get the latest status witht sticky status
+              (statuses[0]?.mblog?.created_at && statuses[1]?.mblog?.created_at &&
+              +new Date(statuses[0].mblog.created_at) < +new Date(statuses[1].mblog.created_at))
+            ) ? statuses[1].mblog : statuses[0].mblog;
+            const retweeted_status = status?.retweeted_status;
+
+            const timestamp = +new Date(status.created_at);
+            const id = status.bid;
+            const visibility = status?.visible?.type;
+            const editCount = status?.edit_count || 0;
+            let text = status?.raw_text || stripHtml(status.text);
+
+            if (status?.isLongText) {
+              log('weibo got post too long, trying extended text...')
+              await got(`https://m.weibo.cn/statuses/extend?id=${id}`, weiboRequestOptions).then(async resp => {
                 const json = JSON.parse(resp.body);
 
-                if (json?.ok === 1) {
-                  const data = json.data;
-                  const cards = data?.cards;
+                if (json?.ok === 1 && json?.data?.longTextContent) {
+                  text = stripHtml(json.data.longTextContent);
+                } else {
+                  log('weibo extended info corrupted, using original text...');
+                }
+              });
+            }
 
-                  // Filter out unrelated cards to only keep statuses
-                  // card_type: 9 - normal Weibo statuses
-                  const statuses = cards.filter(card => { return card.card_type === 9 });
+            // If the status has additional geolocation info
+            if (status?.page_info?.type === 'place') {
+              text += `\n\n坐标：${status.page_info.page_title}（${status.page_info.content1}）`;
+            }
 
-                  if (statuses.length !== 0) {
-                    // Exclude first status in the array when:
-                    // - It's sticky
-                    // - It's not the latest status
-                    const status = (
-                      statuses[0].mblog?.isTop === 1 &&
-                      !('lastWeiboCard' in statuses[0])
-                    ) ? statuses[1].mblog : statuses[0].mblog;
-                    const retweeted_status = status?.retweeted_status;
+            // If the status has custom sending source
+            if (status?.source) {
+              text += `\n\n发送自：${status.source}`;
+            }
 
-                    const timestamp = +new Date(status.created_at);
-                    const id = status.bid;
-                    const visibility = status?.visible?.type;
-                    const editCount = status?.edit_count || 0;
-                    let text = status?.raw_text || stripHtml(status.text);
+            argv.json && fs.writeFile(`db/${account.slug}-weibo.json`, JSON.stringify(json, null, 2), err => {
+              if (err) return console.log(err);
+            });
 
-                    if (status?.isLongText) {
-                      log('weibo got post too long, trying extended text...')
-                      await got(`https://m.weibo.cn/statuses/extend?id=${id}`, weiboRequestOptions).then(async resp => {
-                        const json = JSON.parse(resp.body);
+            const visibilityMap = {
+              1: `自己可见`,
+              6: `好友圈可见`,
+              10: `粉丝可见`
+            }
 
-                        if (json?.ok === 1 && json?.data?.longTextContent) {
-                          text = stripHtml(json.data.longTextContent);
-                        } else {
-                          log('weibo extended info corrupted, using original text...');
-                        }
-                      });
-                    }
+            const dbStore = {
+              scrapedTime: new Date(currentTime),
+              scrapedTimeUnix: +new Date(currentTime),
+              user: user,
+              latestStatus: {
+                id: id,
+                text: text,
+                visibility: visibility,
+                editCount: editCount,
+                timestamp: new Date(timestamp),
+                timestampUnix: timestamp,
+                timeAgo: timeAgo(timestamp),
+              }
+            };
 
-                    // If the status has additional geolocation info
-                    if (status?.page_info?.type === 'place') {
-                      text += `\n\n坐标：${status.page_info.page_title}（${status.page_info.content1}）`;
-                    }
+            // If user nickname update
+            if (user.screen_name !== dbScope?.weibo?.user?.screen_name && dbScope?.weibo?.user?.screen_name) {
+              log(`weibo user nickname updated: ${user.screen_name}`);
 
-                    // If the status has custom sending source
-                    if (status?.source) {
-                      text += `\n\n发送自：${status.source}`;
-                    }
+              if (account.tgChannelId && config.telegram.enabled) {
 
-                    argv.json && fs.writeFile(`db/${account.slug}-weibo.json`, JSON.stringify(json, null, 2), err => {
-                      if (err) return console.log(err);
-                    });
+                await sendTelegram({ method: 'sendMessage' }, {
+                  chat_id: account.tgChannelId,
+                  text: `${msgPrefix}#微博昵称更新\n新：${user.screen_name}\n旧：${dbScope?.weibo?.user?.screen_name}`,
+                  reply_markup: {
+                    inline_keyboard: [
+                      [
+                        {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
+                      ],
+                    ]
+                  },
+                }).then(resp => {
+                  // log(`telegram post weibo::nickname success: message_id ${resp.result.message_id}`)
+                })
+                .catch(err => {
+                  log(`telegram post weibo::nickname error: ${err}`);
+                });
+              }
 
-                    const visibilityMap = {
-                      1: `自己可见`,
-                      6: `好友圈可见`,
-                      10: `粉丝可见`
-                    }
+              if (account.qGuildId && config.qGuild.enabled) {
 
-                    const dbStore = {
-                      scrapedTime: new Date(currentTime),
-                      scrapedTimeUnix: +new Date(currentTime),
-                      user: user,
-                      latestStatus: {
-                        id: id,
-                        text: text,
-                        visibility: visibility,
-                        editCount: editCount,
-                        timestamp: new Date(timestamp),
-                        timestampUnix: timestamp,
-                        timeAgo: timeAgo(timestamp),
-                      }
-                    };
+                await sendQGuild({method: 'send_guild_channel_msg'}, {
+                  guild_id: account.qGuildId,
+                  channel_id: account.qGuildChannelId,
+                  message: `${msgPrefix}#微博昵称更新\n新：${user.screen_name}\n旧：${dbScope?.weibo?.user?.screen_name}`,
+                }).then(resp => {
+                  // log(`go-qchttp post weibo success: ${resp}`);
+                })
+                .catch(err => {
+                  log(`go-qchttp post weibo::nickname error: ${err?.response?.body || err}`);
+                });
+              }
+            }
 
-                    // If user nickname update
-                    if (user.screen_name !== dbScope?.weibo?.user?.screen_name && dbScope?.weibo?.user?.screen_name) {
-                      log(`weibo user nickname updated: ${user.screen_name}`);
+            // If user description update
+            if (user.description !== dbScope?.weibo?.user?.description && dbScope?.weibo?.user?.description) {
+              log(`weibo user sign updated: ${user.description}`);
 
-                      if (account.tgChannelId && config.telegram.enabled) {
+              if (account.tgChannelId && config.telegram.enabled) {
 
-                        await sendTelegram({ method: 'sendMessage' }, {
-                          chat_id: account.tgChannelId,
-                          text: `${msgPrefix}#微博昵称更新\n新：${user.screen_name}\n旧：${dbScope?.weibo?.user?.screen_name}`,
-                          reply_markup: {
-                            inline_keyboard: [
-                              [
-                                {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
-                              ],
-                            ]
-                          },
-                        }).then(resp => {
-                          // log(`telegram post weibo::nickname success: message_id ${resp.result.message_id}`)
-                        })
-                        .catch(err => {
-                          log(`telegram post weibo::nickname error: ${err}`);
-                        });
-                      }
+                await sendTelegram({ method: 'sendMessage' }, {
+                  chat_id: account.tgChannelId,
+                  text: `${msgPrefix}#微博签名更新\n新：${user.description}\n旧：${dbScope?.weibo?.user?.description}`,
+                  reply_markup: {
+                    inline_keyboard: [
+                      [
+                        {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
+                      ],
+                    ]
+                  },
+                }).then(resp => {
+                  // log(`telegram post weibo::sign success: message_id ${resp.result.message_id}`)
+                })
+                .catch(err => {
+                  log(`telegram post weibo::sign error: ${err}`);
+                });
+              }
 
-                      if (account.qGuildId && config.qGuild.enabled) {
+              if (account.qGuildId && config.qGuild.enabled) {
 
-                        await sendQGuild({method: 'send_guild_channel_msg'}, {
-                          guild_id: account.qGuildId,
-                          channel_id: account.qGuildChannelId,
-                          message: `${msgPrefix}#微博昵称更新\n新：${user.screen_name}\n旧：${dbScope?.weibo?.user?.screen_name}`,
-                        }).then(resp => {
-                          // log(`go-qchttp post weibo success: ${resp}`);
-                        })
-                        .catch(err => {
-                          log(`go-qchttp post weibo::nickname error: ${err?.response?.body || err}`);
-                        });
-                      }
-                    }
+                await sendQGuild({method: 'send_guild_channel_msg'}, {
+                  guild_id: account.qGuildId,
+                  channel_id: account.qGuildChannelId,
+                  message: `${msgPrefix}#微博签名更新\n新：${user.description}\n旧：${dbScope?.weibo?.user?.description}`,
+                }).then(resp => {
+                  // log(`go-qchttp post weibo success: ${resp}`);
+                })
+                .catch(err => {
+                  log(`go-qchttp post weibo::sign error: ${err?.response?.body || err}`);
+                });
+              }
+            }
 
-                    // If user description update
-                    if (user.description !== dbScope?.weibo?.user?.description && dbScope?.weibo?.user?.description) {
-                      log(`weibo user sign updated: ${user.description}`);
+            // If user verified_reason update
+            if (user?.verified_reason !== dbScope?.weibo?.user?.verified_reason && dbScope?.weibo?.user) {
+              log(`weibo user verified_reason updated: ${user.verified_reason}`);
 
-                      if (account.tgChannelId && config.telegram.enabled) {
+              if (account.tgChannelId && config.telegram.enabled) {
 
-                        await sendTelegram({ method: 'sendMessage' }, {
-                          chat_id: account.tgChannelId,
-                          text: `${msgPrefix}#微博签名更新\n新：${user.description}\n旧：${dbScope?.weibo?.user?.description}`,
-                          reply_markup: {
-                            inline_keyboard: [
-                              [
-                                {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
-                              ],
-                            ]
-                          },
-                        }).then(resp => {
-                          // log(`telegram post weibo::sign success: message_id ${resp.result.message_id}`)
-                        })
-                        .catch(err => {
-                          log(`telegram post weibo::sign error: ${err}`);
-                        });
-                      }
+                await sendTelegram({ method: 'sendMessage' }, {
+                  chat_id: account.tgChannelId,
+                  text: `${msgPrefix}#微博认证更新\n新：${user?.verified_reason || '无认证'}\n旧：${dbScope?.weibo?.user?.verified_reason || '无认证'}`,
+                  reply_markup: {
+                    inline_keyboard: [
+                      [
+                        {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
+                      ],
+                    ]
+                  },
+                }).then(resp => {
+                  // log(`telegram post weibo::verified_reason success: message_id ${resp.result.message_id}`)
+                })
+                .catch(err => {
+                  log(`telegram post weibo::verified_reason error: ${err}`);
+                });
+              }
 
-                      if (account.qGuildId && config.qGuild.enabled) {
+              if (account.qGuildId && config.qGuild.enabled) {
 
-                        await sendQGuild({method: 'send_guild_channel_msg'}, {
-                          guild_id: account.qGuildId,
-                          channel_id: account.qGuildChannelId,
-                          message: `${msgPrefix}#微博签名更新\n新：${user.description}\n旧：${dbScope?.weibo?.user?.description}`,
-                        }).then(resp => {
-                          // log(`go-qchttp post weibo success: ${resp}`);
-                        })
-                        .catch(err => {
-                          log(`go-qchttp post weibo::sign error: ${err?.response?.body || err}`);
-                        });
-                      }
-                    }
+                await sendQGuild({method: 'send_guild_channel_msg'}, {
+                  guild_id: account.qGuildId,
+                  channel_id: account.qGuildChannelId,
+                  message: `${msgPrefix}#微博认证更新\n新：${user?.verified_reason || '无认证'}\n旧：${dbScope?.weibo?.user?.verified_reason || '无认证'}`,
+                }).then(resp => {
+                  // log(`go-qchttp post weibo success: ${resp}`);
+                })
+                .catch(err => {
+                  log(`go-qchttp post weibo::verified_reason error: ${err?.response?.body || err}`);
+                });
+              }
+            }
 
-                    // If user verified_reason update
-                    if (user?.verified_reason !== dbScope?.weibo?.user?.verified_reason && dbScope?.weibo?.user) {
-                      log(`weibo user verified_reason updated: ${user.verified_reason}`);
+            // If user follow_count update
+            if (user?.follow_count !== dbScope?.weibo?.user?.follow_count && dbScope?.weibo?.user) {
+              log(`weibo user follow_count updated: ${user.follow_count}`);
 
-                      if (account.tgChannelId && config.telegram.enabled) {
+              // Avoid false positive from Weibo API
+              const followBefore = dbScope?.weibo?.user?.follow_count || 0;
+              const followAfter = user?.follow_count || 0;
 
-                        await sendTelegram({ method: 'sendMessage' }, {
-                          chat_id: account.tgChannelId,
-                          text: `${msgPrefix}#微博认证更新\n新：${user?.verified_reason || '无认证'}\n旧：${dbScope?.weibo?.user?.verified_reason || '无认证'}`,
-                          reply_markup: {
-                            inline_keyboard: [
-                              [
-                                {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
-                              ],
-                            ]
-                          },
-                        }).then(resp => {
-                          // log(`telegram post weibo::verified_reason success: message_id ${resp.result.message_id}`)
-                        })
-                        .catch(err => {
-                          log(`telegram post weibo::verified_reason error: ${err}`);
-                        });
-                      }
+              if (account.tgChannelId && config.telegram.enabled && Math.abs(followAfter - followBefore) < 5) {
 
-                      if (account.qGuildId && config.qGuild.enabled) {
+                await sendTelegram({ method: 'sendMessage' }, {
+                  chat_id: account.tgChannelId,
+                  text: `${msgPrefix}#微博关注数变更 （可能存在网络原因误报）\n新：${user?.follow_count || '未知'}\n旧：${dbScope?.weibo?.user?.follow_count || '未知'}`,
+                  reply_markup: {
+                    inline_keyboard: [
+                      [
+                        {text: `View Following`, url: `https://weibo.com/u/page/follow/${user.id}`},
+                        {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
+                      ],
+                    ]
+                  },
+                }).then(resp => {
+                  // log(`telegram post weibo::follow_count success: message_id ${resp.result.message_id}`)
+                })
+                .catch(err => {
+                  log(`telegram post weibo::follow_count error: ${err}`);
+                });
+              }
 
-                        await sendQGuild({method: 'send_guild_channel_msg'}, {
-                          guild_id: account.qGuildId,
-                          channel_id: account.qGuildChannelId,
-                          message: `${msgPrefix}#微博认证更新\n新：${user?.verified_reason || '无认证'}\n旧：${dbScope?.weibo?.user?.verified_reason || '无认证'}`,
-                        }).then(resp => {
-                          // log(`go-qchttp post weibo success: ${resp}`);
-                        })
-                        .catch(err => {
-                          log(`go-qchttp post weibo::verified_reason error: ${err?.response?.body || err}`);
-                        });
-                      }
-                    }
+              // if (account.qGuildId && config.qGuild.enabled) {
 
-                    // If user follow_count update
-                    if (user?.follow_count !== dbScope?.weibo?.user?.follow_count && dbScope?.weibo?.user) {
-                      log(`weibo user follow_count updated: ${user.follow_count}`);
+              //   await sendQGuild({method: 'send_guild_channel_msg'}, {
+              //     guild_id: account.qGuildId,
+              //     channel_id: account.qGuildChannelId,
+              //     message: `${msgPrefix}#微博关注数变更 （可能存在网络原因误报）\n新：${user?.follow_count || '未知'}\n旧：${dbScope?.weibo?.user?.follow_count || '未知'}`,
+              //   }).then(resp => {
+              //     // log(`go-qchttp post weibo success: ${resp}`);
+              //   })
+              //   .catch(err => {
+              //     log(`go-qchttp post weibo::follow_count error: ${err?.response?.body || err}`);
+              //   });
+              // }
+            }
 
-                      // Avoid false positive from Weibo API
-                      const followBefore = dbScope?.weibo?.user?.follow_count || 0;
-                      const followAfter = user?.follow_count || 0;
+            // If user avatar update
+            if (user.avatar_hd !== dbScope?.weibo?.user?.avatar_hd && dbScope?.weibo?.user?.avatar_hd) {
+              log(`weibo user avatar updated: ${user.avatar_hd}`);
 
-                      if (account.tgChannelId && config.telegram.enabled && Math.abs(followAfter - followBefore) < 5) {
+              if (account.tgChannelId && config.telegram.enabled) {
 
-                        await sendTelegram({ method: 'sendMessage' }, {
-                          chat_id: account.tgChannelId,
-                          text: `${msgPrefix}#微博关注数变更 （可能存在网络原因误报）\n新：${user?.follow_count || '未知'}\n旧：${dbScope?.weibo?.user?.follow_count || '未知'}`,
-                          reply_markup: {
-                            inline_keyboard: [
-                              [
-                                {text: `View Following`, url: `https://weibo.com/u/page/follow/${user.id}`},
-                                {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
-                              ],
-                            ]
-                          },
-                        }).then(resp => {
-                          // log(`telegram post weibo::follow_count success: message_id ${resp.result.message_id}`)
-                        })
-                        .catch(err => {
-                          log(`telegram post weibo::follow_count error: ${err}`);
-                        });
-                      }
+                await sendTelegram({ method: 'sendPhoto' }, {
+                  chat_id: account.tgChannelId,
+                  photo: user.avatar_hd,
+                  caption: `${msgPrefix}#微博头像更新，旧头像：${dbScope?.weibo?.user?.avatar_hd}`,
+                  reply_markup: {
+                    inline_keyboard: [
+                      [
+                        {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
+                      ],
+                    ]
+                  },
+                }).then(resp => {
+                  // log(`telegram post weibo::avatar success: message_id ${resp.result.message_id}`)
+                })
+                .catch(err => {
+                  log(`telegram post weibo::avatar error: ${err}`);
+                });
+              }
 
-                      // if (account.qGuildId && config.qGuild.enabled) {
+              if (account.qGuildId && config.qGuild.enabled) {
 
-                      //   await sendQGuild({method: 'send_guild_channel_msg'}, {
-                      //     guild_id: account.qGuildId,
-                      //     channel_id: account.qGuildChannelId,
-                      //     message: `${msgPrefix}#微博关注数变更 （可能存在网络原因误报）\n新：${user?.follow_count || '未知'}\n旧：${dbScope?.weibo?.user?.follow_count || '未知'}`,
-                      //   }).then(resp => {
-                      //     // log(`go-qchttp post weibo success: ${resp}`);
-                      //   })
-                      //   .catch(err => {
-                      //     log(`go-qchttp post weibo::follow_count error: ${err?.response?.body || err}`);
-                      //   });
-                      // }
-                    }
+                await sendQGuild({method: 'send_guild_channel_msg'}, {
+                  guild_id: account.qGuildId,
+                  channel_id: account.qGuildChannelId,
+                  message: `${msgPrefix}#微博头像更新\n新头像：[CQ:image,file=${user.avatar_hd}]\n旧头像：[CQ:image,file=${dbScope?.weibo?.user?.avatar_hd}]`,
+                }).then(resp => {
+                  // log(`go-qchttp post weibo success: ${resp}`);
+                })
+                .catch(err => {
+                  log(`go-qchttp post weibo::avatar error: ${err?.response?.body || err}`);
+                });
+              }
+            }
 
-                    // If user avatar update
-                    if (user.avatar_hd !== dbScope?.weibo?.user?.avatar_hd && dbScope?.weibo?.user?.avatar_hd) {
-                      log(`weibo user avatar updated: ${user.avatar_hd}`);
+            // If user cover background update
+            if (user.cover_image_phone !== dbScope?.weibo?.user?.cover_image_phone && dbScope?.weibo?.user?.cover_image_phone) {
+              log(`weibo user cover updated: ${user.cover_image_phone}`);
 
-                      if (account.tgChannelId && config.telegram.enabled) {
+              if (account.tgChannelId && config.telegram.enabled) {
 
-                        await sendTelegram({ method: 'sendPhoto' }, {
-                          chat_id: account.tgChannelId,
-                          photo: user.avatar_hd,
-                          caption: `${msgPrefix}#微博头像更新，旧头像：${dbScope?.weibo?.user?.avatar_hd}`,
-                          reply_markup: {
-                            inline_keyboard: [
-                              [
-                                {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
-                              ],
-                            ]
-                          },
-                        }).then(resp => {
-                          // log(`telegram post weibo::avatar success: message_id ${resp.result.message_id}`)
-                        })
-                        .catch(err => {
-                          log(`telegram post weibo::avatar error: ${err}`);
-                        });
-                      }
+                await sendTelegram({ method: 'sendPhoto' }, {
+                  chat_id: account.tgChannelId,
+                  photo: convertWeiboUrl(user.cover_image_phone),
+                  caption: `${msgPrefix}#微博封面更新，旧封面：${convertWeiboUrl(dbScope?.weibo?.user?.cover_image_phone)}`,
+                  reply_markup: {
+                    inline_keyboard: [
+                      [
+                        {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
+                      ],
+                    ]
+                  },
+                }).then(resp => {
+                  // log(`telegram post weibo::avatar success: message_id ${resp.result.message_id}`)
+                })
+                .catch(err => {
+                  log(`telegram post weibo::avatar error: ${err}`);
+                });
+              }
 
-                      if (account.qGuildId && config.qGuild.enabled) {
+              if (account.qGuildId && config.qGuild.enabled) {
 
-                        await sendQGuild({method: 'send_guild_channel_msg'}, {
-                          guild_id: account.qGuildId,
-                          channel_id: account.qGuildChannelId,
-                          message: `${msgPrefix}#微博头像更新\n新头像：[CQ:image,file=${user.avatar_hd}]\n旧头像：[CQ:image,file=${dbScope?.weibo?.user?.avatar_hd}]`,
-                        }).then(resp => {
-                          // log(`go-qchttp post weibo success: ${resp}`);
-                        })
-                        .catch(err => {
-                          log(`go-qchttp post weibo::avatar error: ${err?.response?.body || err}`);
-                        });
-                      }
-                    }
+                await sendQGuild({method: 'send_guild_channel_msg'}, {
+                  guild_id: account.qGuildId,
+                  channel_id: account.qGuildChannelId,
+                  message: `${msgPrefix}#微博封面更新\n新头像：[CQ:image,file=${convertWeiboUrl(user.cover_image_phone)}]\n旧头像：[CQ:image,file=${convertWeiboUrl(dbScope?.weibo?.user?.cover_image_phone)}]`,
+                }).then(resp => {
+                  // log(`go-qchttp post weibo success: ${resp}`);
+                })
+                .catch(err => {
+                  log(`go-qchttp post weibo::avatar error: ${err?.response?.body || err}`);
+                });
+              }
+            }
 
-                    // If user cover background update
-                    if (user.cover_image_phone !== dbScope?.weibo?.user?.cover_image_phone && dbScope?.weibo?.user?.cover_image_phone) {
-                      log(`weibo user cover updated: ${user.cover_image_phone}`);
+            // If latest post is newer than the one in database
+            if (id !== dbScope?.weibo?.latestStatus?.id && timestamp > dbScope?.weibo?.latestStatus?.timestampUnix) {
+              const tgOptions = {
+                method: 'sendMessage',
+              };
 
-                      if (account.tgChannelId && config.telegram.enabled) {
+              const tgOptionsAlt = {
+                method: 'sendMessage',
+              };
 
-                        await sendTelegram({ method: 'sendPhoto' }, {
-                          chat_id: account.tgChannelId,
-                          photo: convertWeiboUrl(user.cover_image_phone),
-                          caption: `${msgPrefix}#微博封面更新，旧封面：${convertWeiboUrl(dbScope?.weibo?.user?.cover_image_phone)}`,
-                          reply_markup: {
-                            inline_keyboard: [
-                              [
-                                {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
-                              ],
-                            ]
-                          },
-                        }).then(resp => {
-                          // log(`telegram post weibo::avatar success: message_id ${resp.result.message_id}`)
-                        })
-                        .catch(err => {
-                          log(`telegram post weibo::avatar error: ${err}`);
-                        });
-                      }
+              const tgMarkup = {
+                inline_keyboard: [
+                  retweeted_status ? [
+                    {text: 'View', url: `https://weibo.com/${user.id}/${id}`},
+                    {text: 'View Retweeted', url: `https://weibo.com/${retweeted_status.user.id}/${retweeted_status.bid}`},
+                    {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
+                  ] : [
+                    {text: 'View', url: `https://weibo.com/${user.id}/${id}`},
+                    {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
+                  ],
+                ]
+              };
 
-                      if (account.qGuildId && config.qGuild.enabled) {
+              const tgBody = {
+                chat_id: account.tgChannelId,
+                text: `${msgPrefix}#微博${visibilityMap[visibility] || ''}${retweeted_status ? `转发` : `动态`}：${text}${retweeted_status ? `\n\n被转作者：@${retweeted_status.user.screen_name}\n被转内容：${stripHtml(retweeted_status.text)}` : ''}`,
+                reply_markup: tgMarkup,
+              };
 
-                        await sendQGuild({method: 'send_guild_channel_msg'}, {
-                          guild_id: account.qGuildId,
-                          channel_id: account.qGuildChannelId,
-                          message: `${msgPrefix}#微博封面更新\n新头像：[CQ:image,file=${convertWeiboUrl(user.cover_image_phone)}]\n旧头像：[CQ:image,file=${convertWeiboUrl(dbScope?.weibo?.user?.cover_image_phone)}]`,
-                        }).then(resp => {
-                          // log(`go-qchttp post weibo success: ${resp}`);
-                        })
-                        .catch(err => {
-                          log(`go-qchttp post weibo::avatar error: ${err?.response?.body || err}`);
-                        });
-                      }
-                    }
+              const qgBody = {
+                guild_id: account.qGuildId,
+                channel_id: account.qGuildChannelId,
+                message: `${msgPrefix}#微博${visibilityMap[visibility] || ''}${retweeted_status ? `转发` : `动态`}：${text}${retweeted_status ? `\n\n被转作者：@${retweeted_status.user.screen_name}\n被转内容：${stripHtml(retweeted_status.text)}` : ''}`,
+              };
 
-                    // If latest post is newer than the one in database
-                    if (id !== dbScope?.weibo?.latestStatus?.id && timestamp > dbScope?.weibo?.latestStatus?.timestampUnix) {
-                      const tgOptions = {
-                        method: 'sendMessage',
-                      };
+              const tgBodyAlt = {
+                chat_id: account.tgChannelId,
+              };
 
-                      const tgOptionsAlt = {
-                        method: 'sendMessage',
-                      };
+              const tgForm = new FormData();
+              tgForm.append('chat_id', account.tgChannelId);
+              tgForm.append('reply_markup', JSON.stringify(tgMarkup));
 
-                      const tgMarkup = {
-                        inline_keyboard: [
-                          retweeted_status ? [
-                            {text: 'View', url: `https://weibo.com/${user.id}/${id}`},
-                            {text: 'View Retweeted', url: `https://weibo.com/${retweeted_status.user.id}/${retweeted_status.bid}`},
-                            {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
-                          ] : [
-                            {text: 'View', url: `https://weibo.com/${user.id}/${id}`},
-                            {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
-                          ],
-                        ]
-                      };
+              // If post has photo
+              if (status.pic_ids?.length > 0) {
+                const photoCount = status.pic_ids.length;
+                const photoCountText = photoCount > 1 ? `（共 ${photoCount} 张）` : ``;
+                const photoExt = status.pics[0].large.url.split('.').pop();
+                tgOptions.method = photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto';
+                tgOptions.payload = 'form';
+                // tgForm.append('photo', await readProcessedImage(`https://ww1.sinaimg.cn/large/${status.pic_ids[0]}.jpg`));
+                tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${status.pics[0].large.url}`));
+                tgForm.append('caption', `${msgPrefix}#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}`);
+                qgBody.message = `${msgPrefix}#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}\n地址：https://weibo.com/${user.id}/${id}\n${status.pics.map(item => generateCqCode(item.large.url))}`;
 
-                      const tgBody = {
-                        chat_id: account.tgChannelId,
-                        text: `${msgPrefix}#微博${visibilityMap[visibility] || ''}${retweeted_status ? `转发` : `动态`}：${text}${retweeted_status ? `\n\n被转作者：@${retweeted_status.user.screen_name}\n被转内容：${stripHtml(retweeted_status.text)}` : ''}`,
-                        reply_markup: tgMarkup,
-                      };
+                // NOTE: Method to send multiple photos in one sendMediaGroup
+                // Pros: efficient, no need to download each photo
+                // Cons: message send will fail if any photo fails to fetch fron Telegram servers
+                // if (status.pic_ids?.length > 1) {
+                //   tgOptionsAlt.method = 'sendMediaGroup';
+                //   const acceptedPhotos = status.pic_ids.slice(0, 9);
+                //   tgBodyAlt.media = acceptedPhotos.map((pic, idx) => ({
+                //     type: 'photo',
+                //     // Limit image size with original server and webp: failed (Bad Request: group send failed)
+                //     // media: pic.img_width > 1036 || pic.img_height > 1036 ? `${pic.img_src}@1036w.webp` : `${pic.img_src}`,
 
-                      const qgBody = {
-                        guild_id: account.qGuildId,
-                        channel_id: account.qGuildChannelId,
-                        message: `${msgPrefix}#微博${visibilityMap[visibility] || ''}${retweeted_status ? `转发` : `动态`}：${text}${retweeted_status ? `\n\n被转作者：@${retweeted_status.user.screen_name}\n被转内容：${stripHtml(retweeted_status.text)}` : ''}`,
-                      };
+                //     // Use wp.com proxy to serve image: failed (Bad Request: group send failed)
+                //     // media: `https://i0.wp.com/${pic.img_src.replace('https://').replace('http://')}?w=200`,
 
-                      const tgBodyAlt = {
-                        chat_id: account.tgChannelId,
-                      };
+                //     // Use my own proxy and webp prefix from bilibili: sucess
+                //     media: `https://experiments.sparanoid.net/imageproxy/1000x1000,fit,jpeg/${status.pics[idx].large.url}`,
+                //   }));
+
+                //   // Only apply caption to the first image to make it auto shown on message list
+                //   tgBodyAlt.media[0].caption = `${msgPrefix}#微博${visibilityMap[visibility] || ''}照片${photoCountText} #多图相册：${text}`;
+                // }
+              }
+
+              // If post has video
+              if (status?.page_info?.type === 'video') {
+                tgOptions.method = 'sendVideo';
+                tgBody.video = status?.page_info?.media_info?.stream_url_hd || status?.page_info?.media_info?.stream_url;
+                tgBody.caption = `${msgPrefix}#微博${visibilityMap[visibility] || ''}视频：${text}`;
+                qgBody.message = `${msgPrefix}#微博${visibilityMap[visibility] || ''}视频：${text}\n地址：https://weibo.com/${user.id}/${id}`;
+              }
+
+              // TODO: parse 4k
+              // https://f.video.weibocdn.com/qpH0Ozj9lx07NO9oXw4E0104120qrc250E0a0.mp4?label=mp4_2160p60&template=4096x1890.20.0&trans_finger=aaa6a0a6b46c000323ae75fc96245471&media_id=4653054126129212&tp=8x8A3El:YTkl0eM8&us=0&ori=1&bf=3&ot=h&ps=3lckmu&uid=7vYqTU&ab=3915-g1,5178-g1,966-g1,1493-g0,1192-g0,1191-g0,1258-g0&Expires=1627682219&ssig=I7RDiLeNCQ&KID=unistore,video
+
+              log(`weibo got update: ${id} (${timeAgo(timestamp)})`);
+
+              if ((currentTime - timestamp) >= config.weiboBotThrottle) {
+                log(`weibo too old, notifications skipped`);
+              } else {
+
+                if (account.qGuildId && config.qGuild.enabled) {
+
+                  await sendQGuild({method: 'send_guild_channel_msg'}, qgBody).then(resp => {
+                    // log(`go-qchttp post weibo success: ${resp}`);
+                  })
+                  .catch(err => {
+                    log(`go-qchttp post weibo error: ${err?.response?.body || err}`);
+                  });
+                }
+
+                if (account.tgChannelId && config.telegram.enabled) {
+
+                  await sendTelegram(tgOptions, tgOptions?.payload === 'form' ? tgForm : tgBody).then(resp => {
+                    // log(`telegram post weibo success: message_id ${resp.result.message_id}`)
+                  })
+                  .catch(err => {
+                    log(`telegram post weibo error: ${err?.response?.body || err}`);
+                  });
+
+                  // Send an additional message if original post has more than one photo
+                  if (status.pic_ids?.length > 1) {
+                    await Promise.all(status.pic_ids.map(async (pic, idx) => {
+                      if (idx === 0) return;
+                      const photoCount = status.pic_ids.length;
+                      const photoCountText = photoCount > 1 ? `（${idx + 1}/${photoCount}）` : ``;
+                      const photoExt = status.pics[idx].large.url.split('.').pop();
 
                       const tgForm = new FormData();
                       tgForm.append('chat_id', account.tgChannelId);
                       tgForm.append('reply_markup', JSON.stringify(tgMarkup));
+                      tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${status.pics[idx].large.url}`));
+                      tgForm.append('caption', `${msgPrefix}#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}`);
 
-                      // If post has photo
-                      if (status.pic_ids?.length > 0) {
-                        const photoCount = status.pic_ids.length;
-                        const photoCountText = photoCount > 1 ? `（共 ${photoCount} 张）` : ``;
-                        const photoExt = status.pics[0].large.url.split('.').pop();
-                        tgOptions.method = photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto';
-                        tgOptions.payload = 'form';
-                        // tgForm.append('photo', await readProcessedImage(`https://ww1.sinaimg.cn/large/${status.pic_ids[0]}.jpg`));
-                        tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${status.pics[0].large.url}`));
-                        tgForm.append('caption', `${msgPrefix}#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}`);
-                        qgBody.message = `${msgPrefix}#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}\n地址：https://weibo.com/${user.id}/${id}\n${status.pics.map(item => generateCqCode(item.large.url))}`;
-
-                        // NOTE: Method to send multiple photos in one sendMediaGroup
-                        // Pros: efficient, no need to download each photo
-                        // Cons: message send will fail if any photo fails to fetch fron Telegram servers
-                        // if (status.pic_ids?.length > 1) {
-                        //   tgOptionsAlt.method = 'sendMediaGroup';
-                        //   const acceptedPhotos = status.pic_ids.slice(0, 9);
-                        //   tgBodyAlt.media = acceptedPhotos.map((pic, idx) => ({
-                        //     type: 'photo',
-                        //     // Limit image size with original server and webp: failed (Bad Request: group send failed)
-                        //     // media: pic.img_width > 1036 || pic.img_height > 1036 ? `${pic.img_src}@1036w.webp` : `${pic.img_src}`,
-
-                        //     // Use wp.com proxy to serve image: failed (Bad Request: group send failed)
-                        //     // media: `https://i0.wp.com/${pic.img_src.replace('https://').replace('http://')}?w=200`,
-
-                        //     // Use my own proxy and webp prefix from bilibili: sucess
-                        //     media: `https://experiments.sparanoid.net/imageproxy/1000x1000,fit,jpeg/${status.pics[idx].large.url}`,
-                        //   }));
-
-                        //   // Only apply caption to the first image to make it auto shown on message list
-                        //   tgBodyAlt.media[0].caption = `${msgPrefix}#微博${visibilityMap[visibility] || ''}照片${photoCountText} #多图相册：${text}`;
-                        // }
-                      }
-
-                      // If post has video
-                      if (status?.page_info?.type === 'video') {
-                        tgOptions.method = 'sendVideo';
-                        tgBody.video = status?.page_info?.media_info?.stream_url_hd || status?.page_info?.media_info?.stream_url;
-                        tgBody.caption = `${msgPrefix}#微博${visibilityMap[visibility] || ''}视频：${text}`;
-                        qgBody.message = `${msgPrefix}#微博${visibilityMap[visibility] || ''}视频：${text}\n地址：https://weibo.com/${user.id}/${id}`;
-                      }
-
-                      // TODO: parse 4k
-                      // https://f.video.weibocdn.com/qpH0Ozj9lx07NO9oXw4E0104120qrc250E0a0.mp4?label=mp4_2160p60&template=4096x1890.20.0&trans_finger=aaa6a0a6b46c000323ae75fc96245471&media_id=4653054126129212&tp=8x8A3El:YTkl0eM8&us=0&ori=1&bf=3&ot=h&ps=3lckmu&uid=7vYqTU&ab=3915-g1,5178-g1,966-g1,1493-g0,1192-g0,1191-g0,1258-g0&Expires=1627682219&ssig=I7RDiLeNCQ&KID=unistore,video
-
-                      log(`weibo got update: ${id} (${timeAgo(timestamp)})`);
-
-                      if ((currentTime - timestamp) >= config.weiboBotThrottle) {
-                        log(`weibo too old, notifications skipped`);
-                      } else {
-
-                        if (account.qGuildId && config.qGuild.enabled) {
-
-                          await sendQGuild({method: 'send_guild_channel_msg'}, qgBody).then(resp => {
-                            // log(`go-qchttp post weibo success: ${resp}`);
-                          })
-                          .catch(err => {
-                            log(`go-qchttp post weibo error: ${err?.response?.body || err}`);
-                          });
-                        }
-
-                        if (account.tgChannelId && config.telegram.enabled) {
-
-                          await sendTelegram(tgOptions, tgOptions?.payload === 'form' ? tgForm : tgBody).then(resp => {
-                            // log(`telegram post weibo success: message_id ${resp.result.message_id}`)
-                          })
-                          .catch(err => {
-                            log(`telegram post weibo error: ${err?.response?.body || err}`);
-                          });
-
-                          // Send an additional message if original post has more than one photo
-                          if (status.pic_ids?.length > 1) {
-                            await Promise.all(status.pic_ids.map(async (pic, idx) => {
-                              if (idx === 0) return;
-                              const photoCount = status.pic_ids.length;
-                              const photoCountText = photoCount > 1 ? `（${idx + 1}/${photoCount}）` : ``;
-                              const photoExt = status.pics[idx].large.url.split('.').pop();
-
-                              const tgForm = new FormData();
-                              tgForm.append('chat_id', account.tgChannelId);
-                              tgForm.append('reply_markup', JSON.stringify(tgMarkup));
-                              tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${status.pics[idx].large.url}`));
-                              tgForm.append('caption', `${msgPrefix}#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}`);
-
-                              await sendTelegram({
-                                method: photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto',
-                                payload: 'form',
-                              }, tgForm).then(resp => {
-                                log(`telegram post weibo (batch #${idx + 1}) success`)
-                              })
-                              .catch(err => {
-                                log(`telegram post weibo (batch #${idx + 1}) error: ${err?.response?.body || err}`);
-                              });
-                            }));
-                          }
-                        }
-                      }
-                    } else if (id !== dbScope?.weibo?.latestStatus?.id && timestamp < dbScope?.weibo?.latestStatus?.timestampUnix) {
-                      log(`weibo new post older than database. latest: ${id} (${timeAgo(timestamp)})`);
-
-                      // NOTE: Disable deleted weibo detection. Buggy
-                      // if (account.tgChannelId && config.telegram.enabled) {
-
-                      //   await sendTelegram({ method: 'sendMessage' }, {
-                      //     text: `监测到最新微博旧于数据库中的微博，可能有微博被删除`,
-                      //     reply_markup: {
-                      //       inline_keyboard: [
-                      //         [
-                      //           {text: 'View', url: `https://weibo.com/${user.id}/${id}`},
-                      //           {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
-                      //         ],
-                      //       ]
-                      //     },
-                      //   }).then(resp => {
-                      //     // log(`telegram post weibo success: message_id ${resp.result.message_id}`)
-                      //   })
-                      //   .catch(err => {
-                      //     log(`telegram post weibo error: ${err?.response?.body || err}`);
-                      //   });
-                      // }
-
-                    } else {
-                      log(`weibo no update. latest: ${id} (${timeAgo(timestamp)})`);
-                    }
-
-                    // Set new data to database
-                    dbScope['weibo'] = dbStore;
-                  } else {
-                    log('weibo empty result, skipping...');
+                      await sendTelegram({
+                        method: photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto',
+                        payload: 'form',
+                      }, tgForm).then(resp => {
+                        log(`telegram post weibo (batch #${idx + 1}) success`)
+                      })
+                      .catch(err => {
+                        log(`telegram post weibo (batch #${idx + 1}) error: ${err?.response?.body || err}`);
+                      });
+                    }));
                   }
                 }
-              });
+              }
+            } else if (id !== dbScope?.weibo?.latestStatus?.id && timestamp < dbScope?.weibo?.latestStatus?.timestampUnix) {
+              log(`weibo new post older than database. latest: ${id} (${timeAgo(timestamp)})`);
+
+              // NOTE: Disable deleted weibo detection. Buggy
+              // if (account.tgChannelId && config.telegram.enabled) {
+
+              //   await sendTelegram({ method: 'sendMessage' }, {
+              //     text: `监测到最新微博旧于数据库中的微博，可能有微博被删除`,
+              //     reply_markup: {
+              //       inline_keyboard: [
+              //         [
+              //           {text: 'View', url: `https://weibo.com/${user.id}/${id}`},
+              //           {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
+              //         ],
+              //       ]
+              //     },
+              //   }).then(resp => {
+              //     // log(`telegram post weibo success: message_id ${resp.result.message_id}`)
+              //   })
+              //   .catch(err => {
+              //     log(`telegram post weibo error: ${err?.response?.body || err}`);
+              //   });
+              // }
+
+            } else {
+              log(`weibo no update. latest: ${id} (${timeAgo(timestamp)})`);
             }
+
+            // Set new data to database
+            dbScope['weibo'] = dbStore;
+          } else {
+            log('weibo empty result, skipping...');
           }
         } else {
           log('weibo info corrupted, skipping...');
