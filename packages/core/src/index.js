@@ -507,6 +507,12 @@ async function main(config) {
         if (json?.code === 0) {
           const currentTime = Date.now();
           const data = json.data;
+
+          if (typeof data.live_room === 'undefined' || data.live_room === null) {
+            log(`live room not available for this user, skipping...`);
+            return;
+          }
+
           const {
             live_room: room,
             fans_medal, // 直播间粉丝牌
