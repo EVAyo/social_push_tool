@@ -1014,7 +1014,7 @@ async function main(config) {
             const cardMeta = card.desc;
             const cardJson = JSON.parse(card.card);
             const cardExtendedJson = card?.extension?.lbs && JSON.parse(card.extension.lbs) || null;
-            const cardAddon = card?.display?.add_on_card_info?.[0] || null;
+            const cardAddon = card?.display?.add_on_card_info?.[0] || cardJson?.sketch || null;
             let extendedMeta = '';
 
             const {
@@ -1138,6 +1138,10 @@ async function main(config) {
 
                 if (cardAddon?.reserve_attach_card?.title) {
                   extendedMeta += `\n\n预约：${cardAddon.reserve_attach_card.title}（${cardAddon.reserve_attach_card?.desc_first?.text || '无详情'}）`;
+                }
+
+                if (cardJson?.sketch?.title) {
+                  extendedMeta += `\n\n${cardJson?.sketch?.title}：${cardJson?.sketch?.desc_text || ''} ${cardJson?.sketch?.target_url || ''}`;
                 }
               }
 
