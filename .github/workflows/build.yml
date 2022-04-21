@@ -6,6 +6,9 @@ on:
       - 'master'
     tags:
       - 'v*'
+  pull_request:
+    branches:
+      - 'master'
 
 env:
   DOCKERHUB_SLUG: sparanoid/a-soul
@@ -65,7 +68,7 @@ jobs:
             ./docker-bake.hcl
             ${{ steps.meta.outputs.bake-file }}
           targets: build-all
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
           set: |
             *.cache-from=type=registry,ref=${{ env.GHCR_SLUG }}:buildcache
             *.cache-to=type=registry,ref=${{ env.GHCR_SLUG }}:buildcache,mode=max
