@@ -70,5 +70,5 @@ jobs:
           targets: build-all
           push: ${{ github.event_name != 'pull_request' }}
           set: |
-            *.cache-from=type=registry,ref=${{ env.GHCR_SLUG }}:buildcache
-            *.cache-to=type=registry,ref=${{ env.GHCR_SLUG }}:buildcache,mode=max
+            *.cache-from=type=gha
+            *.cache-to=type=gha,mode=max
