@@ -59,6 +59,8 @@ docker run \
   -v $(pwd)/db:/app/db \
   -v $(pwd)/cache:/app/cache \
   sparanoid/a-soul -c config.js --color
+  # ...or use ghcr.io registry
+  ghcr.io/sparanoid/a-soul -c config.js --color
 ```
 
 ## Configurations
