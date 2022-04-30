@@ -167,6 +167,23 @@ async function send(account, messageType, userOptions) {
   return resp?.body && JSON.parse(resp.body);
 }
 
+function parseDdstatsString(string) {
+  // 艾白_千鸟Official 在 杜松子_Gin 的直播间发送了一则消息: 那我等你下播了！我们聊！
+  // 艾白_千鸟Official 进入了 金克茜Jinxy 的直播间
+
+  // https://regex101.com/r/RQ2WsA/1
+  //
+  // schema:
+  //
+  // action: "在"
+  // content: "的直播间发送了一则消息: 那我等你下播了！我们聊！"
+  // target: "杜松子_Gin"
+  // user: "艾白_千鸟Official"
+  const parseRegex = /(?<user>\S+) (?<action>\S+) (?<target>\S+) (?<content>.+)/;
+  const { groups } = parseRegex.exec(string);
+  return groups;
+}
+
 async function main(config) {
   // Initial database
   const db = new Low(new JSONFile(path.join(path.resolve(), 'db/db.json')));
@@ -1919,7 +1936,8 @@ async function main(config) {
 
             const timestamp = +new Date(activity.created_at);
             const id = activity.id;
-            let content = activity.display;
+            const content = activity.display;
+            const parsedContent = parseDdstatsString(content);
 
             argv.json && fs.writeFile(`db/${account.slug}-ddstats.json`, JSON.stringify(json, null, 2), err => {
               if (err) return console.log(err);
@@ -1947,8 +1965,8 @@ async function main(config) {
                 inline_keyboard: [
                   [
                     {text: 'View DDStats', url: `https://ddstats.com/user/${account.biliId}`},
-                    {text: 'View Retweeted', url: `https://space.bilibili.com/${account.biliId}`},
-                    {text: `Target User`, url: `https://space.bilibili.com/${activity?.target_uid}`},
+                    {text: `${parsedContent?.user || 'View User'}`, url: `https://space.bilibili.com/${account.biliId}`},
+                    {text: `${parsedContent?.target || 'View Target'}`, url: `https://space.bilibili.com/${activity?.target_uid}`},
                   ],
                 ]
               };
