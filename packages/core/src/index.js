@@ -1964,7 +1964,7 @@ async function main(config) {
               const tgMarkup = {
                 inline_keyboard: [
                   [
-                    {text: 'View DDStats', url: `https://ddstats.com/user/${account.biliId}`},
+                    {text: 'View DDStats', url: `https://ddstats.ericlamm.xyz/user/${account.biliId}`},
                     {text: `${parsedContent?.user || 'View User'}`, url: `https://space.bilibili.com/${account.biliId}`},
                     {text: `${parsedContent?.target || 'View Target'}`, url: `https://space.bilibili.com/${activity?.target_uid}`},
                   ],
