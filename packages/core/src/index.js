@@ -1905,6 +1905,160 @@ async function main(config) {
         log(`weibo request error: ${err}`);
       });
 
+      // Fetch DDStats
+      !account.disableDdstats && await got(`https://ddstats-api.ericlamm.xyz/records/${account.biliId}?limit=15&type=dd`).then(async resp => {
+        const json = JSON.parse(resp.body);
+
+        if (json?.code === 200) {
+          const currentTime = Date.now();
+          const data = json.data;
+
+          if (data.length !== 0) {
+
+            const activity = data[0];
+
+            const timestamp = +new Date(activity.created_at);
+            const id = activity.id;
+            let content = activity.display;
+
+            argv.json && fs.writeFile(`db/${account.slug}-ddstats.json`, JSON.stringify(json, null, 2), err => {
+              if (err) return console.log(err);
+            });
+
+            const dbStore = {
+              scrapedTime: new Date(currentTime),
+              scrapedTimeUnix: +new Date(currentTime),
+              latestActivity: {
+                id: id,
+                content: content,
+                timestamp: new Date(timestamp),
+                timestampUnix: timestamp,
+                timeAgo: timeAgo(timestamp),
+              }
+            };
+
+            // If latest post is newer than the one in database
+            if (id !== dbScope?.ddstats?.latestActivity?.id && timestamp > dbScope?.ddstats?.latestActivity?.timestampUnix) {
+              const tgOptions = {
+                method: 'sendMessage',
+              };
+
+              const tgMarkup = {
+                inline_keyboard: [
+                  [
+                    {text: 'View DDStats', url: `https://ddstats.com/user/${account.biliId}`},
+                    {text: 'View Retweeted', url: `https://space.bilibili.com/${account.biliId}`},
+                    {text: `Target User`, url: `https://space.bilibili.com/${activity?.target_uid}`},
+                  ],
+                ]
+              };
+
+              const tgBody = {
+                chat_id: account.tgChannelId,
+                text: `${content}`,
+                // text: `${retweeted_status ? `转发` : `动态`}：${text}${retweeted_status ? `\n\n被转作者：@${retweeted_status.user.screen_name}\n被转内容：${stripHtml(retweeted_status.text)}` : ''}`,
+                reply_markup: tgMarkup,
+              };
+
+              const qgBody = {
+                guild_id: account.qGuildId,
+                channel_id: account.qGuildChannelId,
+                message: `${content}`,
+              };
+
+              log(`ddstats got update: ${id}: ${content} (${timeAgo(timestamp)})`);
+
+              if ((currentTime - timestamp) >= config.ddstatsBotThrottle) {
+                log(`ddstats too old, notifications skipped`);
+              } else {
+
+                if (account.qGuildId && config.qGuild.enabled) {
+
+                  await sendQGuild({method: 'send_guild_channel_msg'}, qgBody).then(resp => {
+                    // log(`go-qchttp post ddstats success: ${resp}`);
+                  })
+                  .catch(err => {
+                    log(`go-qchttp post ddstats error: ${err?.response?.body || err}`);
+                  });
+                }
+
+                if (account.tgChannelId && config.telegram.enabled) {
+
+                  await sendTelegram(tgOptions, tgBody).then(resp => {
+                    // log(`telegram post ddstats success: message_id ${resp.result.message_id}`)
+                  })
+                  .catch(err => {
+                    log(`telegram post ddstats error: ${err?.response?.body || err}`);
+                  });
+
+                  // Send an additional message if original post has more than one photo
+                  // if (status.pic_ids?.length > 1) {
+                  //   await Promise.all(status.pic_ids.map(async (pic, idx) => {
+                  //     if (idx === 0) return;
+                  //     const photoCount = status.pic_ids.length;
+                  //     const photoCountText = photoCount > 1 ? `（${idx + 1}/${photoCount}）` : ``;
+                  //     const photoExt = status.pics[idx].large.url.split('.').pop();
+
+                  //     const tgForm = new FormData();
+                  //     tgForm.append('chat_id', account.tgChannelId);
+                  //     tgForm.append('reply_markup', JSON.stringify(tgMarkup));
+                  //     tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${status.pics[idx].large.url}`));
+                  //     tgForm.append('caption', `${msgPrefix}#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}`);
+
+                  //     await sendTelegram({
+                  //       method: photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto',
+                  //       payload: 'form',
+                  //     }, tgForm).then(resp => {
+                  //       log(`telegram post ddstats (batch #${idx + 1}) success`)
+                  //     })
+                  //     .catch(err => {
+                  //       log(`telegram post ddstats (batch #${idx + 1}) error: ${err?.response?.body || err}`);
+                  //     });
+                  //   }));
+                  // }
+                }
+              }
+            } else if (id !== dbScope?.ddstats?.latestActivity?.id && timestamp < dbScope?.ddstats?.latestActivity?.timestampUnix) {
+              log(`ddstats new post older than database. latest: ${id} (${timeAgo(timestamp)})`);
+
+              // NOTE: Disable deleted ddstats detection. Buggy
+              // if (account.tgChannelId && config.telegram.enabled) {
+
+              //   await sendTelegram({ method: 'sendMessage' }, {
+              //     text: `监测到最新微博旧于数据库中的微博，可能有微博被删除`,
+              //     reply_markup: {
+              //       inline_keyboard: [
+              //         [
+              //           {text: 'View', url: `https://ddstats.com/${user.id}/${id}`},
+              //           {text: `${user.screen_name}`, url: `https://ddstats.com/${user.id}`},
+              //         ],
+              //       ]
+              //     },
+              //   }).then(resp => {
+              //     // log(`telegram post ddstats success: message_id ${resp.result.message_id}`)
+              //   })
+              //   .catch(err => {
+              //     log(`telegram post ddstats error: ${err?.response?.body || err}`);
+              //   });
+              // }
+
+            } else {
+              log(`ddstats no update. latest: ${id} (${timeAgo(timestamp)})`);
+            }
+
+            // Set new data to database
+            dbScope['ddstats'] = dbStore;
+          } else {
+            log('ddstats empty result, skipping...');
+          }
+        } else {
+          log('ddstats info corrupted, skipping...');
+        }
+      })
+      .catch(err => {
+        log(`ddstats request error: ${err}`);
+      });
+
       // Write new data to database
       await db.write();
       argv.verbose && log(`global db saved`);

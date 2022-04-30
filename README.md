@@ -28,6 +28,7 @@ Extract data from services and push updates to Telegram or other platforms
 - [ ] youtube-live
 - [ ] general-rss
 - [ ] github
+- [x] ddstats
 
 ## Supported Senders
 
