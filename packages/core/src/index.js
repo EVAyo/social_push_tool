@@ -1923,7 +1923,7 @@ async function main(config) {
       });
 
       // Fetch DDStats
-      !account.disableDdstats && await got(`https://ddstats-api.ericlamm.xyz/records/${account.biliId}?limit=15&type=dd`).then(async resp => {
+      !account.disableDdstats && account.biliId && await got(`https://ddstats-api.ericlamm.xyz/records/${account.biliId}?limit=15&type=dd`).then(async resp => {
         const json = JSON.parse(resp.body);
 
         if (json?.code === 200) {
