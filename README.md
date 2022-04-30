@@ -133,6 +133,9 @@ export default {
       qGuildChannelId: 1234567,
       // Show custom color output in console. Nothing useful
       color: '#e799b0',
+      disableBilibiliLive: false,
+      disableDouyinLive: false,
+      disableDdstats: false,
     },
     {
       enabled: true,
