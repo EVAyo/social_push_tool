@@ -126,8 +126,8 @@ export default {
       // Useful for pushing notifications with multiple accounts in one channel
       showSlug: true,
       biliId: '672328094',
-      biliLiveId: '22637261',
       douyinId: 'MS4wLjABAAAA5ZrIrbgva_HMeHuNn64goOD2XYnk4ItSypgRHlbSh1c',
+      // Douyin live ID is separated and need to be calculated from `douyinId`
       douyinLiveId: '',
       weiboId: '7595006312',
       tgChannelId: 41205411,
@@ -135,8 +135,11 @@ export default {
       qGuildChannelId: 1234567,
       // Show custom color output in console. Nothing useful
       color: '#e799b0',
+      // Avoid chekcing bilibili live stream. Some accounts may not have live stream ability
       disableBilibiliLive: false,
+      // Avoid checking douyin live stream
       disableDouyinLive: false,
+      // Disable checking DDStats. Some bilibili accounts may not have DDStats enabled
       disableDdstats: false,
     },
     {
@@ -144,7 +147,6 @@ export default {
       slug: '贝拉',
       showSlug: true,
       biliId: '672353429',
-      biliLiveId: '22632424',
       douyinId: 'MS4wLjABAAAAlpnJ0bXVDV6BNgbHUYVWnnIagRqeeZyNyXB84JXTqAS5tgGjAtw0ZZkv0KSHYyhP',
       douyinLiveId: '820648166099',
       weiboId: '7594710405',
