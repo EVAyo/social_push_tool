@@ -1469,9 +1469,15 @@ async function main(config) {
               text += `\n\n坐标：${status.page_info.page_title}（${status.page_info.content1}）`;
             }
 
+            // If the status has forced geo region string
+            // input: 发布于 上海
+            if (status?.region_name) {
+              text += `\n\n${status.region_name}`;
+            }
+
             // If the status has custom sending source
             if (status?.source) {
-              text += `\n\n发送自：${status.source}`;
+              text += status?.region_name ? `，来自 ${status.source}` : `\n\n来自 ${status.source}`;
             }
 
             argv.json && fs.writeFile(`db/${account.slug}-weibo.json`, JSON.stringify(json, null, 2), err => {
