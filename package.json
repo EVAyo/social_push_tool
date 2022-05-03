@@ -1,6 +1,6 @@
 {
   "name": "a-soul",
-  "description": "Extract data from services and push updates to Telegram or other platforms",
+  "description": "Full-featured social media monitor that extracts data from variety of services and pushes updates to Telegram or other platforms",
   "main": "index.js",
   "author": "Tunghsiao Liu",
   "license": "AGPL-3.0-or-later",

@@ -1,6 +1,6 @@
 # A-SOUL
 
-Extract data from services and push updates to Telegram or other platforms
+Full-featured social media monitor that extracts data from variety of services and pushes updates to Telegram or other platforms
 
 - [Docker Hub](https://hub.docker.com/r/sparanoid/a-soul)
 - [ghcr.io](https://github.com/users/sparanoid/packages/container/package/a-soul)
