@@ -1936,33 +1936,53 @@ async function main(config) {
           const currentTime = Date.now();
           const data = json.data;
 
-          if (data.length !== 0) {
+          if (data.length > 0) {
+            const dbStore = {
+              scrapedTime: new Date(currentTime),
+              scrapedTimeUnix: +new Date(currentTime),
+            };
 
-            const activity = data[0];
+            // Morph data for database schema
+            const activities = data.map(obj => {
+              return {
+                ...obj,
+                created_at_unix: +new Date(obj.created_at)
+              }
+            });
 
-            const timestamp = +new Date(activity.created_at);
-            const id = activity.id;
-            const content = activity.display;
-            const parsedContent = parseDdstatsString(content);
+            const dbScopeTimestampUnix = dbScope?.ddstats?.latestActivity?.timestampUnix;
+
+            // When initial run (has db scope timestamp) ...or when the first activity returned from the API is older
+            // than what we got from the last scrap: returns the first activity;
+            // When not initial run: returns the whole activities newer than the last time we scraped
+            const activitiesFiltered = (!dbScopeTimestampUnix || activities[0].created_at_unix <= dbScopeTimestampUnix)
+              ? [activities[0]] : activities.filter(activity => {
+              return activity.created_at_unix > dbScopeTimestampUnix;
+            });
 
             argv.json && fs.writeFile(`db/${account.slug}-ddstats.json`, JSON.stringify(json, null, 2), err => {
               if (err) return console.log(err);
             });
 
-            const dbStore = {
-              scrapedTime: new Date(currentTime),
-              scrapedTimeUnix: +new Date(currentTime),
-              latestActivity: {
-                id: id,
-                content: content,
-                timestamp: new Date(timestamp),
-                timestampUnix: timestamp,
-                timeAgo: timeAgo(timestamp),
-              }
-            };
+            // Loop array reversed to send the latest activity last
+            for (let [idx, activity] of activitiesFiltered.reverse().entries()) {
+              const timestamp = +new Date(activity.created_at);
+              const id = activity.id;
+              const content = activity.display;
+              const parsedContent = parseDdstatsString(content);
+              const idxLatest = activitiesFiltered.length - 1;
 
-            // If latest post is newer than the one in database
-            if (id !== dbScope?.ddstats?.latestActivity?.id && timestamp > dbScope?.ddstats?.latestActivity?.timestampUnix) {
+              // If last (the last one in the array is the latest now) item
+              if (idx === idxLatest) {
+                dbStore.latestActivity = {
+                  id: id,
+                  content: content,
+                  timestamp: new Date(timestamp),
+                  timestampUnix: timestamp,
+                  timeAgo: timeAgo(timestamp),
+                }
+              };
+
               const tgOptions = {
                 method: 'sendMessage',
               };
@@ -1992,8 +2012,12 @@ async function main(config) {
 
               log(`ddstats got update: ${id}: ${content} (${timeAgo(timestamp)})`);
 
-              if ((currentTime - timestamp) >= config.ddstatsBotThrottle) {
-                log(`ddstats too old, notifications skipped`);
+              if (!dbScopeTimestampUnix) {
+                log(`ddstats initial run, notifications skipped`);
+              } else if (timestamp === dbScopeTimestampUnix) {
+                log(`ddstats no update. latest: ${dbScope?.ddstats?.latestActivity?.id} (${timeAgo(dbScope?.ddstats?.latestActivity?.timestamp)})`);
+              } else if (idx === idxLatest && timestamp <= dbScopeTimestampUnix) {
+                log(`ddstats posible activity deleted.`);
               } else {
 
                 if (account.qGuildId && config.qGuild.enabled) {
@@ -2014,61 +2038,9 @@ async function main(config) {
                   .catch(err => {
                     log(`telegram post ddstats error: ${err?.response?.body || err}`);
                   });
-
-                  // Send an additional message if original post has more than one photo
-                  // if (status.pic_ids?.length > 1) {
-                  //   await Promise.all(status.pic_ids.map(async (pic, idx) => {
-                  //     if (idx === 0) return;
-                  //     const photoCount = status.pic_ids.length;
-                  //     const photoCountText = photoCount > 1 ? `（${idx + 1}/${photoCount}）` : ``;
-                  //     const photoExt = status.pics[idx].large.url.split('.').pop();
-
-                  //     const tgForm = new FormData();
-                  //     tgForm.append('chat_id', account.tgChannelId);
-                  //     tgForm.append('reply_markup', JSON.stringify(tgMarkup));
-                  //     tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${status.pics[idx].large.url}`));
-                  //     tgForm.append('caption', `${msgPrefix}#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}`);
-
-                  //     await sendTelegram({
-                  //       method: photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto',
-                  //       payload: 'form',
-                  //     }, tgForm).then(resp => {
-                  //       log(`telegram post ddstats (batch #${idx + 1}) success`)
-                  //     })
-                  //     .catch(err => {
-                  //       log(`telegram post ddstats (batch #${idx + 1}) error: ${err?.response?.body || err}`);
-                  //     });
-                  //   }));
-                  // }
                 }
               }
-            } else if (id !== dbScope?.ddstats?.latestActivity?.id && timestamp < dbScope?.ddstats?.latestActivity?.timestampUnix) {
-              log(`ddstats new post older than database. latest: ${id} (${timeAgo(timestamp)})`);
-
-              // NOTE: Disable deleted ddstats detection. Buggy
-              // if (account.tgChannelId && config.telegram.enabled) {
-
-              //   await sendTelegram({ method: 'sendMessage' }, {
-              //     text: `监测到最新微博旧于数据库中的微博，可能有微博被删除`,
-              //     reply_markup: {
-              //       inline_keyboard: [
-              //         [
-              //           {text: 'View', url: `https://ddstats.com/${user.id}/${id}`},
-              //           {text: `${user.screen_name}`, url: `https://ddstats.com/${user.id}`},
-              //         ],
-              //       ]
-              //     },
-              //   }).then(resp => {
-              //     // log(`telegram post ddstats success: message_id ${resp.result.message_id}`)
-              //   })
-              //   .catch(err => {
-              //     log(`telegram post ddstats error: ${err?.response?.body || err}`);
-              //   });
-              // }
-
-            } else {
-              log(`ddstats no update. latest: ${id} (${timeAgo(timestamp)})`);
-            }
+            };
 
             // Set new data to database
             dbScope['ddstats'] = dbStore;
