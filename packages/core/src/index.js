@@ -1415,12 +1415,13 @@ async function main(config) {
       const weiboRequestOptions = {...config.pluginOptions?.requestOptions, ...headerOnDemand(config.pluginOptions.customCookies.weibo)};
 
       // Weibo container ID magic words:
+      // 230413 + uid: new home with sticky post in a separate card
       // 230283 + uid: home
       // 100505 + uid: profile
       // 107603 + uid: weibo
       // 231567 + uid: videos
       // 107803 + uid: photos
-      account.weiboId && await got(`https://m.weibo.cn/api/container/getIndex?type=uid&value=${account.weiboId}&containerid=107603${account.weiboId}`, weiboRequestOptions).then(async resp => {
+      account.weiboId && await got(`https://m.weibo.cn/api/container/getIndex?containerid=230413${account.weiboId}_-_WEIBO_SECOND_PROFILE_WEIBO`, weiboRequestOptions).then(async resp => {
         const json = JSON.parse(resp.body);
 
         if (json?.ok === 1) {
@@ -1432,7 +1433,7 @@ async function main(config) {
           // card_type: 9 - normal Weibo statuses
           const statuses = cards.filter(card => { return card.card_type === 9 });
 
-          if (statuses.length !== 0) {
+          if (statuses.length > 0) {
             // At this point, we can get Weibo profile data from the statuses
             // This reduces one API request and can be helpful with rate limit
             // at better scale
