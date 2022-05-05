@@ -2010,8 +2010,6 @@ async function main(config) {
                 message: `${content}`,
               };
 
-              log(`ddstats got update: ${id}: ${content} (${timeAgo(timestamp)})`);
-
               if (!dbScopeTimestampUnix) {
                 log(`ddstats initial run, notifications skipped`);
               } else if (timestamp === dbScopeTimestampUnix) {
@@ -2019,6 +2017,7 @@ async function main(config) {
               } else if (idx === idxLatest && timestamp <= dbScopeTimestampUnix) {
                 log(`ddstats posible activity deleted.`);
               } else {
+                log(`ddstats got update: ${id}: ${content} (${timeAgo(timestamp)})`);
 
                 if (account.qGuildId && config.qGuild.enabled) {
 
