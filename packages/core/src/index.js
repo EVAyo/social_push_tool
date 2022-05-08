@@ -1850,7 +1850,7 @@ async function main(config) {
 
                 const tgBody = {
                   chat_id: account.tgChannelId,
-                  text: `${msgPrefix}#微博${visibilityMap[visibility] || ''}${retweetedStatus ? `转发` : `动态`}：${text}${retweetedStatus ? `<a href="http://www.example.com/">inline URL</a> \n\n被转作者：${retweetedStatus?.user ? '@' + retweetedStatus.user.screen_name : '未知'}\n被转内容：${stripHtml(retweetedStatus.text)}` : ''}`,
+                  text: `${msgPrefix}#微博${visibilityMap[visibility] || ''}${retweetedStatus ? `转发` : `动态`}：${text}${retweetedStatus ? `\n\n被转作者：${retweetedStatus?.user ? '@' + retweetedStatus.user.screen_name : '未知'}\n被转内容：${stripHtml(retweetedStatus.text)}` : ''}`,
                   parse_mode: 'HTML',
                   reply_markup: tgMarkup,
                 };
