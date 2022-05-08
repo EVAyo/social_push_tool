@@ -1427,84 +1427,34 @@ async function main(config) {
         if (json?.ok === 1) {
           const currentTime = Date.now();
           const data = json.data;
+          // Weibo now should always returns a single card with card_type: 58 if there's no any public activity
           const cards = data?.cards;
 
-          // Filter out unrelated cards to only keep statuses
-          // card_type: 9 - normal Weibo statuses
-          const statuses = cards.filter(card => { return card.card_type === 9 });
+          // Normalize statues from API. The first activity is wrapped inside `card_group`, we should pop it out
+          const statuses = cards.map(obj => {
+            if (obj.hasOwnProperty('card_group')) {
+              return obj.card_group[0];
+            } else {
+              return obj;
+            }
+          }).filter(card => {
+            // Filter out unrelated cards to only keep statuses
+            // card_type: 9 - normal Weibo statuses
+            // card_type: 11 with title: "全部微博*" - the first Weibo status
+            if (card?.card_type === 9) {
+              return true;
+            } else if (card?.card_type === 11 && card?.title && card?.title.includes('全部微博')) {
+              return true;
+            } else {
+              return false;
+            }
+          });
 
           if (statuses.length > 0) {
             // At this point, we can get Weibo profile data from the statuses
             // This reduces one API request and can be helpful with rate limit
             // at better scale
             const user = statuses[0].mblog.user;
-
-            const status = (
-              // This is the last resort to get the latest status without sticky status
-              (statuses[0]?.mblog?.created_at && statuses[1]?.mblog?.created_at &&
-              +new Date(statuses[0].mblog.created_at) < +new Date(statuses[1].mblog.created_at))
-            ) ? statuses[1].mblog : statuses[0].mblog;
-            const retweeted_status = status?.retweeted_status;
-
-            const timestamp = +new Date(status.created_at);
-            const id = status.bid;
-            const visibility = status?.visible?.type;
-            const editCount = status?.edit_count || 0;
-            let text = status?.raw_text || stripHtml(status.text);
-
-            if (status?.isLongText) {
-              log('weibo got post too long, trying extended text...')
-              await got(`https://m.weibo.cn/statuses/extend?id=${id}`, weiboRequestOptions).then(async resp => {
-                const json = JSON.parse(resp.body);
-
-                if (json?.ok === 1 && json?.data?.longTextContent) {
-                  text = stripHtml(json.data.longTextContent);
-                } else {
-                  log('weibo extended info corrupted, using original text...');
-                }
-              });
-            }
-
-            // If the status has additional geolocation info
-            if (status?.page_info?.type === 'place') {
-              text += `\n\n坐标：${status.page_info.page_title}（${status.page_info.content1}）`;
-            }
-
-            // If the status has forced geo region string
-            // input: 发布于 上海
-            if (status?.region_name) {
-              text += `\n\n${status.region_name}`;
-            }
-
-            // If the status has custom sending source
-            if (status?.source) {
-              text += status?.region_name ? `，来自 ${status.source}` : `\n\n来自 ${status.source}`;
-            }
-
-            argv.json && fs.writeFile(`db/${account.slug}-weibo.json`, JSON.stringify(json, null, 2), err => {
-              if (err) return console.log(err);
-            });
-
-            const visibilityMap = {
-              1: `自己可见`,
-              6: `好友圈可见`,
-              10: `粉丝可见`
-            }
-
-            const dbStore = {
-              scrapedTime: new Date(currentTime),
-              scrapedTimeUnix: +new Date(currentTime),
-              user: user,
-              latestStatus: {
-                id: id,
-                text: text,
-                visibility: visibility,
-                editCount: editCount,
-                timestamp: new Date(timestamp),
-                timestampUnix: timestamp,
-                timeAgo: timeAgo(timestamp),
-              }
-            };
 
             // If user nickname update
             if (user.screen_name !== dbScope?.weibo?.user?.screen_name && dbScope?.weibo?.user?.screen_name) {
@@ -1747,100 +1697,210 @@ async function main(config) {
               }
             }
 
-            // If latest post is newer than the one in database
-            if (id !== dbScope?.weibo?.latestStatus?.id && timestamp > dbScope?.weibo?.latestStatus?.timestampUnix) {
-              const tgOptions = {
-                method: 'sendMessage',
-              };
+            // Start storing time-sensitive data after checking user info changes
+            const dbStore = {
+              scrapedTime: new Date(currentTime),
+              scrapedTimeUnix: +new Date(currentTime),
+              user: user,
+            };
 
-              const tgOptionsAlt = {
-                method: 'sendMessage',
-              };
-
-              const tgMarkup = {
-                inline_keyboard: [
-                  retweeted_status ? [
-                    {text: 'View', url: `https://weibo.com/${user.id}/${id}`},
-                    {text: 'View Retweeted', url: `https://weibo.com/${retweeted_status.user.id}/${retweeted_status.bid}`},
-                    {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
-                  ] : [
-                    {text: 'View', url: `https://weibo.com/${user.id}/${id}`},
-                    {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
-                  ],
-                ]
-              };
-
-              const tgBody = {
-                chat_id: account.tgChannelId,
-                text: `${msgPrefix}#微博${visibilityMap[visibility] || ''}${retweeted_status ? `转发` : `动态`}：${text}${retweeted_status ? `\n\n被转作者：@${retweeted_status.user.screen_name}\n被转内容：${stripHtml(retweeted_status.text)}` : ''}`,
-                reply_markup: tgMarkup,
-              };
-
-              const qgBody = {
-                guild_id: account.qGuildId,
-                channel_id: account.qGuildChannelId,
-                message: `${msgPrefix}#微博${visibilityMap[visibility] || ''}${retweeted_status ? `转发` : `动态`}：${text}${retweeted_status ? `\n\n被转作者：@${retweeted_status.user.screen_name}\n被转内容：${stripHtml(retweeted_status.text)}` : ''}`,
-              };
-
-              const tgBodyAlt = {
-                chat_id: account.tgChannelId,
-              };
-
-              const tgForm = new FormData();
-              tgForm.append('chat_id', account.tgChannelId);
-              tgForm.append('reply_markup', JSON.stringify(tgMarkup));
-
-              // If post has photo
-              if (status.pic_ids?.length > 0) {
-                const photoCount = status.pic_ids.length;
-                const photoCountText = photoCount > 1 ? `（共 ${photoCount} 张）` : ``;
-                const photoExt = status.pics[0].large.url.split('.').pop();
-                tgOptions.method = photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto';
-                tgOptions.payload = 'form';
-                // tgForm.append('photo', await readProcessedImage(`https://ww1.sinaimg.cn/large/${status.pic_ids[0]}.jpg`));
-                tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${status.pics[0].large.url}`));
-                tgForm.append('caption', `${msgPrefix}#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}`);
-                qgBody.message = `${msgPrefix}#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}\n地址：https://weibo.com/${user.id}/${id}\n${status.pics.map(item => generateCqCode(item.large.url))}`;
-
-                // NOTE: Method to send multiple photos in one sendMediaGroup
-                // Pros: efficient, no need to download each photo
-                // Cons: message send will fail if any photo fails to fetch fron Telegram servers
-                // if (status.pic_ids?.length > 1) {
-                //   tgOptionsAlt.method = 'sendMediaGroup';
-                //   const acceptedPhotos = status.pic_ids.slice(0, 9);
-                //   tgBodyAlt.media = acceptedPhotos.map((pic, idx) => ({
-                //     type: 'photo',
-                //     // Limit image size with original server and webp: failed (Bad Request: group send failed)
-                //     // media: pic.img_width > 1036 || pic.img_height > 1036 ? `${pic.img_src}@1036w.webp` : `${pic.img_src}`,
-
-                //     // Use wp.com proxy to serve image: failed (Bad Request: group send failed)
-                //     // media: `https://i0.wp.com/${pic.img_src.replace('https://').replace('http://')}?w=200`,
-
-                //     // Use my own proxy and webp prefix from bilibili: sucess
-                //     media: `https://experiments.sparanoid.net/imageproxy/1000x1000,fit,jpeg/${status.pics[idx].large.url}`,
-                //   }));
-
-                //   // Only apply caption to the first image to make it auto shown on message list
-                //   tgBodyAlt.media[0].caption = `${msgPrefix}#微博${visibilityMap[visibility] || ''}照片${photoCountText} #多图相册：${text}`;
-                // }
+            // Morph data for database schema
+            const activities = statuses.map(obj => {
+              return {
+                ...obj.mblog,
+                created_at_unix: +new Date(obj.mblog.created_at)
               }
+              // Sort arry by date in ascending order (reversed). This will make the sticky status in its right order
+            }).sort((a, b) => a.created_at_unix - b.created_at_unix);
 
-              // If post has video
-              if (status?.page_info?.type === 'video') {
-                tgOptions.method = 'sendVideo';
-                tgBody.video = status?.page_info?.media_info?.stream_url_hd || status?.page_info?.media_info?.stream_url;
-                tgBody.caption = `${msgPrefix}#微博${visibilityMap[visibility] || ''}视频：${text}`;
-                qgBody.message = `${msgPrefix}#微博${visibilityMap[visibility] || ''}视频：${text}\n地址：https://weibo.com/${user.id}/${id}`;
-              }
+            // console.log(`activities`, activities);
 
-              // TODO: parse 4k
-              // https://f.video.weibocdn.com/qpH0Ozj9lx07NO9oXw4E0104120qrc250E0a0.mp4?label=mp4_2160p60&template=4096x1890.20.0&trans_finger=aaa6a0a6b46c000323ae75fc96245471&media_id=4653054126129212&tp=8x8A3El:YTkl0eM8&us=0&ori=1&bf=3&ot=h&ps=3lckmu&uid=7vYqTU&ab=3915-g1,5178-g1,966-g1,1493-g0,1192-g0,1191-g0,1258-g0&Expires=1627682219&ssig=I7RDiLeNCQ&KID=unistore,video
+            const dbScopeTimestampUnix = dbScope?.weibo?.latestStatus?.timestampUnix;
 
-              log(`weibo got update: ${id} (${timeAgo(timestamp)})`);
+            argv.json && fs.writeFile(`db/${account.slug}-weibo.json`, JSON.stringify(json, null, 2), err => {
+              if (err) return console.log(err);
+            });
 
-              if ((currentTime - timestamp) >= config.weiboBotThrottle) {
-                log(`weibo too old, notifications skipped`);
+            // Loop array
+            for (let [idx, activity] of activities.entries()) {
+              const retweetedStatus = activity?.retweeted_status;
+
+              const timestamp = +new Date(activity.created_at);
+              const id = activity.bid;
+              const visibility = activity?.visible?.type;
+              const editCount = activity?.edit_count || 0;
+              const idxLatest = activities.length - 1;
+              let text = activity?.raw_text || stripHtml(activity.text);
+
+              // If last (the last one in the array is the latest now) item
+              if (idx === idxLatest) {
+                dbStore.latestStatus = {
+                  id: id,
+                  text: text,
+                  visibility: visibility,
+                  editCount: editCount,
+                  timestamp: new Date(timestamp),
+                  timestampUnix: timestamp,
+                  timeAgo: timeAgo(timestamp),
+                }
+              };
+
+              if (!dbScopeTimestampUnix) {
+                log(`weibo initial run, notifications skipped`);
+              } else if (timestamp === dbScopeTimestampUnix) {
+                log(`weibo no update. latest: ${dbScope?.weibo?.latestStatus?.id} (${timeAgo(dbScope?.weibo?.latestStatus?.timestamp)})`);
+              } else if (idx === idxLatest && timestamp <= dbScopeTimestampUnix) {
+                log(`weibo new post older than database. latest: ${id} (${timeAgo(timestamp)})`);
+                // NOTE: Disable deleted weibo detection when API is unstable
+                if (account.tgChannelId && config.telegram.enabled) {
+
+                  await sendTelegram({ method: 'sendMessage' }, {
+                    chat_id: account.tgChannelId,
+                    text: `监测到最新微博旧于数据库中的微博，可能有微博被删除`,
+                    reply_markup: {
+                      inline_keyboard: [
+                        [
+                          {text: 'View', url: `https://weibo.com/${user.id}/${id}`},
+                          {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
+                        ],
+                      ]
+                    },
+                  }).then(resp => {
+                    argv.verbose && log(`telegram post weibo success: message_id ${JSON.parse(resp.body)?.result?.message_id}`);
+                  })
+                  .catch(err => {
+                    log(`telegram post weibo error: ${err?.response?.body || err}`);
+                  });
+                }
+              } else if (timestamp < dbScopeTimestampUnix) {
+                argv.verbose && log(`weibo got old activity: ${id} (${timeAgo(timestamp)}) Discarding...`);
               } else {
+                log(`weibo got update: ${id} (${timeAgo(timestamp)})`);
+
+                if (activity?.isLongText) {
+                  log('weibo got post too long, trying extended text...')
+                  await got(`https://m.weibo.cn/statuses/extend?id=${id}`, weiboRequestOptions).then(async resp => {
+                    const json = JSON.parse(resp.body);
+
+                    if (json?.ok === 1 && json?.data?.longTextContent) {
+                      text = stripHtml(json.data.longTextContent);
+                    } else {
+                      log('weibo extended info corrupted, using original text...');
+                    }
+                  });
+                }
+
+                // If the status has additional geolocation info
+                if (activity?.page_info?.type === 'place') {
+                  text += `\n\n坐标：${activity.page_info.page_title}（${activity.page_info.content1}）`;
+                }
+
+                // If the status has forced geo region string
+                // input: 发布于 上海
+                if (activity?.region_name) {
+                  text += `\n\n${activity.region_name}`;
+                }
+
+                // If the status has custom sending source
+                if (activity?.source) {
+                  text += activity?.region_name ? `，来自 ${activity.source}` : `\n\n来自 ${activity.source}`;
+                }
+
+                const visibilityMap = {
+                  1: `自己可见`,
+                  6: `好友圈可见`,
+                  10: `粉丝可见`
+                }
+
+                const tgOptions = {
+                  method: 'sendMessage',
+                };
+
+                const tgOptionsAlt = {
+                  method: 'sendMessage',
+                };
+
+                const tgMarkup = {
+                  inline_keyboard: [
+                    // Check if retweeted user is visible
+                    // `user: null` will be returned if text: "抱歉，作者已设置仅展示半年内微博，此微博已不可见。 "
+                    retweetedStatus && retweetedStatus?.user ? [
+                      {text: 'View', url: `https://weibo.com/${user.id}/${id}`},
+                      {text: 'View Retweeted', url: `https://weibo.com/${retweetedStatus.user.id}/${retweetedStatus.bid}`},
+                      {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
+                    ] : [
+                      {text: 'View', url: `https://weibo.com/${user.id}/${id}`},
+                      {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
+                    ],
+                  ]
+                };
+
+                const tgBody = {
+                  chat_id: account.tgChannelId,
+                  text: `${msgPrefix}#微博${visibilityMap[visibility] || ''}${retweetedStatus ? `转发` : `动态`}：${text}${retweetedStatus ? `<a href="http://www.example.com/">inline URL</a> \n\n被转作者：${retweetedStatus?.user ? '@' + retweetedStatus.user.screen_name : '未知'}\n被转内容：${stripHtml(retweetedStatus.text)}` : ''}`,
+                  parse_mode: 'HTML',
+                  reply_markup: tgMarkup,
+                };
+
+                const qgBody = {
+                  guild_id: account.qGuildId,
+                  channel_id: account.qGuildChannelId,
+                  message: `${msgPrefix}#微博${visibilityMap[visibility] || ''}${retweetedStatus ? `转发` : `动态`}：${text}${retweetedStatus ? `\n\n被转作者：${retweetedStatus?.user ? '@' + retweetedStatus.user.screen_name : '未知'}\n被转内容：${stripHtml(retweetedStatus.text)}` : ''}`,
+                };
+
+                const tgBodyAlt = {
+                  chat_id: account.tgChannelId,
+                };
+
+                const tgForm = new FormData();
+                tgForm.append('chat_id', account.tgChannelId);
+                tgForm.append('reply_markup', JSON.stringify(tgMarkup));
+
+                // If post has photo
+                if (activity.pic_ids?.length > 0) {
+                  const photoCount = activity.pic_ids.length;
+                  const photoCountText = photoCount > 1 ? `（共 ${photoCount} 张）` : ``;
+                  const photoExt = activity.pics[0].large.url.split('.').pop();
+                  tgOptions.method = photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto';
+                  tgOptions.payload = 'form';
+                  // tgForm.append('photo', await readProcessedImage(`https://ww1.sinaimg.cn/large/${activity.pic_ids[0]}.jpg`));
+                  tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${activity.pics[0].large.url}`));
+                  tgForm.append('caption', `${msgPrefix}#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}`);
+                  qgBody.message = `${msgPrefix}#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}\n地址：https://weibo.com/${user.id}/${id}\n${activity.pics.map(item => generateCqCode(item.large.url))}`;
+
+                  // NOTE: Method to send multiple photos in one sendMediaGroup
+                  // Pros: efficient, no need to download each photo
+                  // Cons: message send will fail if any photo fails to fetch fron Telegram servers
+                  // if (activity.pic_ids?.length > 1) {
+                  //   tgOptionsAlt.method = 'sendMediaGroup';
+                  //   const acceptedPhotos = activity.pic_ids.slice(0, 9);
+                  //   tgBodyAlt.media = acceptedPhotos.map((pic, idx) => ({
+                  //     type: 'photo',
+                  //     // Limit image size with original server and webp: failed (Bad Request: group send failed)
+                  //     // media: pic.img_width > 1036 || pic.img_height > 1036 ? `${pic.img_src}@1036w.webp` : `${pic.img_src}`,
+
+                  //     // Use wp.com proxy to serve image: failed (Bad Request: group send failed)
+                  //     // media: `https://i0.wp.com/${pic.img_src.replace('https://').replace('http://')}?w=200`,
+
+                  //     // Use my own proxy and webp prefix from bilibili: sucess
+                  //     media: `https://experiments.sparanoid.net/imageproxy/1000x1000,fit,jpeg/${activity.pics[idx].large.url}`,
+                  //   }));
+
+                  //   // Only apply caption to the first image to make it auto shown on message list
+                  //   tgBodyAlt.media[0].caption = `${msgPrefix}#微博${visibilityMap[visibility] || ''}照片${photoCountText} #多图相册：${text}`;
+                  // }
+                }
+
+                // If post has video
+                if (activity?.page_info?.type === 'video') {
+                  tgOptions.method = 'sendVideo';
+                  tgBody.video = activity?.page_info?.media_info?.stream_url_hd || activity?.page_info?.media_info?.stream_url;
+                  tgBody.caption = `${msgPrefix}#微博${visibilityMap[visibility] || ''}视频：${text}`;
+                  qgBody.message = `${msgPrefix}#微博${visibilityMap[visibility] || ''}视频：${text}\n地址：https://weibo.com/${user.id}/${id}`;
+                }
+
+                // TODO: parse 4k
+                // https://f.video.weibocdn.com/qpH0Ozj9lx07NO9oXw4E0104120qrc250E0a0.mp4?label=mp4_2160p60&template=4096x1890.20.0&trans_finger=aaa6a0a6b46c000323ae75fc96245471&media_id=4653054126129212&tp=8x8A3El:YTkl0eM8&us=0&ori=1&bf=3&ot=h&ps=3lckmu&uid=7vYqTU&ab=3915-g1,5178-g1,966-g1,1493-g0,1192-g0,1191-g0,1258-g0&Expires=1627682219&ssig=I7RDiLeNCQ&KID=unistore,video
 
                 if (account.qGuildId && config.qGuild.enabled) {
 
@@ -1855,24 +1915,24 @@ async function main(config) {
                 if (account.tgChannelId && config.telegram.enabled) {
 
                   await sendTelegram(tgOptions, tgOptions?.payload === 'form' ? tgForm : tgBody).then(resp => {
-                    // log(`telegram post weibo success: message_id ${resp.result.message_id}`)
+                    argv.verbose && log(`telegram post weibo success: message_id ${JSON.parse(resp.body)?.result?.message_id}`);
                   })
                   .catch(err => {
                     log(`telegram post weibo error: ${err?.response?.body || err}`);
                   });
 
                   // Send an additional message if original post has more than one photo
-                  if (status.pic_ids?.length > 1) {
-                    await Promise.all(status.pic_ids.map(async (pic, idx) => {
+                  if (activity.pic_ids?.length > 1) {
+                    await Promise.all(activity.pic_ids.map(async (pic, idx) => {
                       if (idx === 0) return;
-                      const photoCount = status.pic_ids.length;
+                      const photoCount = activity.pic_ids.length;
                       const photoCountText = photoCount > 1 ? `（${idx + 1}/${photoCount}）` : ``;
-                      const photoExt = status.pics[idx].large.url.split('.').pop();
+                      const photoExt = activity.pics[idx].large.url.split('.').pop();
 
                       const tgForm = new FormData();
                       tgForm.append('chat_id', account.tgChannelId);
                       tgForm.append('reply_markup', JSON.stringify(tgMarkup));
-                      tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${status.pics[idx].large.url}`));
+                      tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${activity.pics[idx].large.url}`));
                       tgForm.append('caption', `${msgPrefix}#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}`);
 
                       await sendTelegram({
@@ -1888,33 +1948,7 @@ async function main(config) {
                   }
                 }
               }
-            } else if (id !== dbScope?.weibo?.latestStatus?.id && timestamp < dbScope?.weibo?.latestStatus?.timestampUnix) {
-              log(`weibo new post older than database. latest: ${id} (${timeAgo(timestamp)})`);
-
-              // NOTE: Disable deleted weibo detection. Buggy
-              // if (account.tgChannelId && config.telegram.enabled) {
-
-              //   await sendTelegram({ method: 'sendMessage' }, {
-              //     text: `监测到最新微博旧于数据库中的微博，可能有微博被删除`,
-              //     reply_markup: {
-              //       inline_keyboard: [
-              //         [
-              //           {text: 'View', url: `https://weibo.com/${user.id}/${id}`},
-              //           {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
-              //         ],
-              //       ]
-              //     },
-              //   }).then(resp => {
-              //     // log(`telegram post weibo success: message_id ${resp.result.message_id}`)
-              //   })
-              //   .catch(err => {
-              //     log(`telegram post weibo error: ${err?.response?.body || err}`);
-              //   });
-              // }
-
-            } else {
-              log(`weibo no update. latest: ${id} (${timeAgo(timestamp)})`);
-            }
+            };
 
             // Set new data to database
             dbScope['weibo'] = dbStore;
@@ -1927,6 +1961,10 @@ async function main(config) {
       })
       .catch(err => {
         log(`weibo request error: ${err}`);
+
+        if (err.stack) {
+          console.log(err.stack);
+        }
       });
 
       // Fetch DDStats
@@ -2001,7 +2039,7 @@ async function main(config) {
               const tgBody = {
                 chat_id: account.tgChannelId,
                 text: `${content}`,
-                // text: `${retweeted_status ? `转发` : `动态`}：${text}${retweeted_status ? `\n\n被转作者：@${retweeted_status.user.screen_name}\n被转内容：${stripHtml(retweeted_status.text)}` : ''}`,
+                // text: `${retweetedStatus ? `转发` : `动态`}：${text}${retweetedStatus ? `\n\n被转作者：@${retweetedStatus.user.screen_name}\n被转内容：${stripHtml(retweetedStatus.text)}` : ''}`,
                 reply_markup: tgMarkup,
               };
 
