@@ -63,6 +63,7 @@ async function generateConfig() {
     bilibiliBotThrottle: 65 * 60 * 1000, // 65 mins, bilibili sometimes got limit rate for 60 mins.
     bilibiliLiveBotThrottle: 65 * 60 * 1000,
     weiboBotThrottle: 3600 * 1000,
+    ddstatsBotThrottle: 3600 * 1000,
     rateLimitProxy: '',
     telegram: {
       enabled: true,
@@ -1722,7 +1723,7 @@ async function main(config) {
                 ...obj.mblog,
                 created_at_unix: +new Date(obj.mblog.created_at)
               }
-              // Sort arry by date in ascending order (reversed). This will make the sticky status in its right order
+              // Sort array by date in ascending order (reversed). This will make the sticky status in its right order
             }).sort((a, b) => a.created_at_unix - b.created_at_unix);
 
             // console.log(`activities`, activities);
@@ -2000,7 +2001,8 @@ async function main(config) {
                 ...obj,
                 created_at_unix: +new Date(obj.created_at)
               }
-            });
+              // Sort array by date in ascending order (reversed).
+            }).sort((a, b) => a.created_at_unix - b.created_at_unix);
 
             const dbScopeTimestampUnix = dbScope?.ddstats?.latestActivity?.timestampUnix;
 
@@ -2017,12 +2019,12 @@ async function main(config) {
             });
 
             // Loop array reversed to send the latest activity last
-            for (let [idx, activity] of activitiesFiltered.reverse().entries()) {
+            for (let [idx, activity] of activities.entries()) {
               const timestamp = +new Date(activity.created_at);
               const id = activity.id;
               const content = activity.display;
               const parsedContent = parseDdstatsString(content);
-              const idxLatest = activitiesFiltered.length - 1;
+              const idxLatest = activities.length - 1;
 
               // If last (the last one in the array is the latest now) item
               if (idx === idxLatest) {
@@ -2067,7 +2069,11 @@ async function main(config) {
               } else if (timestamp === dbScopeTimestampUnix) {
                 log(`ddstats no update. latest: ${dbScope?.ddstats?.latestActivity?.id} (${timeAgo(dbScope?.ddstats?.latestActivity?.timestamp)})`);
               } else if (idx === idxLatest && timestamp <= dbScopeTimestampUnix) {
-                log(`ddstats posible activity deleted.`);
+                log(`ddstats new activity older than database. latest: ${id} (${timeAgo(timestamp)})`);
+              } else if (idx === idxLatest && (currentTime - timestamp) >= config.ddstatsBotThrottle) {
+                log(`ddstats latest status ${id} (${timeAgo(timestamp)}) older than 'ddstatsBotThrottle', skipping...`);
+              } else if (timestamp < dbScopeTimestampUnix) {
+                argv.verbose && log(`ddstats got old activity: ${id} (${timeAgo(timestamp)}), discarding...`);
               } else {
                 log(`ddstats got update: ${id}: ${content} (${timeAgo(timestamp)})`);
 

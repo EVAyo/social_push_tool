@@ -89,6 +89,7 @@ export default {
   bilibiliBotThrottle: 65 * 60 * 1000, // 65 mins, bilibili sometimes got limit rate for 60 mins.
   bilibiliLiveBotThrottle: 65 * 60 * 1000,
   weiboBotThrottle: 3600 * 1000,
+  ddstatsBotThrottle: 3600 * 1000,
   rateLimitProxy: 'http://10.2.1.2:7890', // Custom proxy to bypass bilibili API rate limit
   pluginOptions: {
     requestOptions: {
