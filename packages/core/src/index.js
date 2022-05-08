@@ -1000,6 +1000,10 @@ async function main(config) {
             })
             .catch(err => {
               log(`bilibili-live stream info request error: ${err?.response?.body || err}`);
+
+              if (err.stack) {
+                console.log(err.stack);
+              }
             });
           } else {
             log(`bilibili-live not started yet`);
@@ -1014,6 +1018,10 @@ async function main(config) {
       })
       .catch(err => {
         log(`bilibili-live user info request error: ${err?.response?.body || err}`);
+
+        if (err.stack) {
+          console.log(err.stack);
+        }
       });
 
       // Fetch bilibili microblog (dynamics)
@@ -1409,6 +1417,10 @@ async function main(config) {
       })
       .catch(err => {
         log(`bilibili-mblog request error: ${err?.response?.body || err}`);
+
+        if (err.stack) {
+          console.log(err.stack);
+        }
       });
 
       // Fetch Weibo
@@ -2092,6 +2104,10 @@ async function main(config) {
       })
       .catch(err => {
         log(`ddstats request error: ${err}`);
+
+        if (err.stack) {
+          console.log(err.stack);
+        }
       });
 
       // Write new data to database
