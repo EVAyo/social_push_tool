@@ -527,7 +527,7 @@ async function main(config) {
           const data = json.data;
 
           if (typeof data.live_room === 'undefined' || data.live_room === null) {
-            log(`live room not available for this user, skipping...`);
+            log(`bilibili-live live room not available for this user, skipping...`);
             return;
           }
 
@@ -935,6 +935,49 @@ async function main(config) {
               })
               .catch(err => {
                 log(`telegram post bilibili-live::official verification error: ${err?.response?.body || err}`);
+              });
+            }
+          }
+
+          // If user vip status update
+          if (vip?.due_date !== dbScope?.bilibili_live?.vip?.due_date && dbScope?.bilibili_live) {
+            const vipOld = dbScope?.bilibili_live?.vip;
+
+            log(`bilibili-live vip status updated: ${vip?.due_date ? formatDate(vip?.due_date) + ' 过期' : '已过期'}`);
+
+            if (account.qGuildId && config.qGuild.enabled) {
+
+              await sendQGuild({method: 'send_guild_channel_msg'}, {
+                guild_id: account.qGuildId,
+                channel_id: account.qGuildChannelId,
+                message: `${msgPrefix}#b站大会员变更\n新：${vip?.label?.text || '无会员'}（${vip?.due_date ? formatDate(vip?.due_date) + ' 过期' : '已过期'}）` +
+                  `\n旧：${vipOld?.label?.text || '无会员'}（${vipOld?.due_date ? formatDate(vipOld?.due_date) + ' 过期' : '已过期'}）`,
+              }).then(resp => {
+                // log(`go-qchttp post weibo success: ${resp}`);
+              })
+              .catch(err => {
+                log(`go-qchttp post bilibili-live::vip status error: ${err?.response?.body || err}`);
+              });
+            }
+
+            if (account.tgChannelId && config.telegram.enabled) {
+
+              await sendTelegram({ method: 'sendMessage' }, {
+                chat_id: account.tgChannelId,
+                text: `${msgPrefix}#b站大会员变更\n新：${vip?.label?.text || '无会员'}（${vip?.due_date ? formatDate(vip?.due_date) + ' 过期' : '已过期'}）` +
+                  `\n旧：${vipOld?.label?.text || '无会员'}（${vipOld?.due_date ? formatDate(vipOld?.due_date) + ' 过期' : '已过期'}）`,
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      {text: `${nickname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
+                    ],
+                  ]
+                },
+              }).then(resp => {
+                // log(`telegram post bilibili-live::vip status success: message_id ${resp.result.message_id}`)
+              })
+              .catch(err => {
+                log(`telegram post bilibili-live::vip status error: ${err?.response?.body || err}`);
               });
             }
           }
