@@ -1752,28 +1752,29 @@ async function main(config) {
               } else if (idx === idxLatest && timestamp <= dbScopeTimestampUnix) {
                 log(`weibo new post older than database. latest: ${id} (${timeAgo(timestamp)})`);
                 // NOTE: Disable deleted weibo detection when API is unstable
-                if (account.tgChannelId && config.telegram.enabled) {
-
-                  await sendTelegram({ method: 'sendMessage' }, {
-                    chat_id: account.tgChannelId,
-                    text: `监测到最新微博旧于数据库中的微博，可能有微博被删除`,
-                    reply_markup: {
-                      inline_keyboard: [
-                        [
-                          {text: 'View', url: `https://weibo.com/${user.id}/${id}`},
-                          {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
-                        ],
-                      ]
-                    },
-                  }).then(resp => {
-                    argv.verbose && log(`telegram post weibo success: message_id ${JSON.parse(resp.body)?.result?.message_id}`);
-                  })
-                  .catch(err => {
-                    log(`telegram post weibo error: ${err?.response?.body || err}`);
-                  });
-                }
+                // if (account.tgChannelId && config.telegram.enabled) {
+                //   await sendTelegram({ method: 'sendMessage' }, {
+                //     chat_id: account.tgChannelId,
+                //     text: `监测到最新微博旧于数据库中的微博，可能有微博被删除`,
+                //     reply_markup: {
+                //       inline_keyboard: [
+                //         [
+                //           {text: 'View', url: `https://weibo.com/${user.id}/${id}`},
+                //           {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
+                //         ],
+                //       ]
+                //     },
+                //   }).then(resp => {
+                //     argv.verbose && log(`telegram post weibo success: message_id ${JSON.parse(resp.body)?.result?.message_id}`);
+                //   })
+                //   .catch(err => {
+                //     log(`telegram post weibo error: ${err?.response?.body || err}`);
+                //   });
+                // }
+              } else if (idx === idxLatest && (currentTime - timestamp) >= config.weiboBotThrottle) {
+                log(`weibo latest status ${id} (${timeAgo(timestamp)}) older than 'weiboBotThrottle', skipping...`);
               } else if (timestamp < dbScopeTimestampUnix) {
-                argv.verbose && log(`weibo got old activity: ${id} (${timeAgo(timestamp)}) Discarding...`);
+                argv.verbose && log(`weibo got old activity: ${id} (${timeAgo(timestamp)}), discarding...`);
               } else {
                 log(`weibo got update: ${id} (${timeAgo(timestamp)})`);
 
