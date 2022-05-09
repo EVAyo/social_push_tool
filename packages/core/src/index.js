@@ -321,19 +321,12 @@ async function main(config) {
                   const tgBody = {
                     chat_id: account.tgChannelId,
                     photo: liveCover,
-                    caption: `${msgPrefix}#抖音开播：${title}`,
-                    reply_markup: {
-                      inline_keyboard: [
-                        [
-                          {text: 'Watch', url: `https://webcast.amemv.com/webcast/reflow/${id_str}`},
-                          {text: `M3U8`, url: `${streamUrl}`},
-                        ],
-                        [
-                          {text: 'Artwork', url: liveCover},
-                          {text: `${nickname}`, url: `https://live.douyin.com/${account.douyinLiveId}`},
-                        ],
-                      ]
-                    },
+                    parse_mode: 'HTML',
+                    caption: `${msgPrefix}#抖音开播：${title}`
+                      + `\n\n<a href="https://webcast.amemv.com/webcast/reflow/${id_str}">Watch</a>`
+                      + `| <a href="${streamUrl}">M3U8</a>`
+                      + `| <a href="${liveCover}">Artwork</a>`
+                      + `| <a href="https://live.douyin.com/${account.douyinLiveId}">${nickname}</a>`
                   }
 
                   if (dbScope?.douyin_live?.latestStream?.isTgSent) {
@@ -475,16 +468,11 @@ async function main(config) {
             const tgBody = {
               chat_id: account.tgChannelId,
               video: videoUrl,
-              caption: `${msgPrefix}#抖音视频：${title} #${id}`,
-              reply_markup: {
-                inline_keyboard: [
-                  [
-                    {text: 'Watch', url: shareUrl},
-                    {text: 'Artwork', url: cover},
-                    {text: `${nickname}`, url: `https://www.douyin.com/user/${secUid}`},
-                  ],
-                ]
-              },
+              parse_mode: 'HTML',
+              caption: `${msgPrefix}#抖音视频：${title} #${id}`
+                + `\n\n<a href="${shareUrl}">Watch</a>`
+                + ` | <a href="${cover}">Artwork</a>`
+                + ` | <a href="https://www.douyin.com/user/${secUid}">${nickname}</a>`
             }
             // Check if this is a new post compared to last scrap
             if (id !== dbScope?.douyin?.latestPost?.id && timestamp > dbScope?.douyin?.latestPost?.timestampUnix) {
@@ -607,16 +595,11 @@ async function main(config) {
           const tgBody = {
             chat_id: account.tgChannelId,
             photo: liveCover,
-            caption: `${msgPrefix}#b站开播：${liveTitle}`,
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  {text: 'Watch', url: liveRoom},
-                  {text: 'Artwork', url: liveCover},
-                  {text: `${nickname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
-                ],
-              ]
-            },
+            parse_mode: 'HTML',
+            caption: `${msgPrefix}#b站开播：${liveTitle}`
+              + `\n\n<a href="${liveRoom}">Watch</a>`
+              + ` | <a href="${liveCover}">Artwork</a>`
+              + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${nickname}</a>`
           };
 
           // If live room title updates
@@ -644,15 +627,11 @@ async function main(config) {
 
               await sendTelegram({ method: 'sendMessage' }, {
                 chat_id: account.tgChannelId,
-                text: `${msgPrefix}#b站直播间标题更新\n新：${liveTitle}\n旧：${dbScope?.bilibili_live?.latestStream?.liveTitle}`,
-                reply_markup: {
-                  inline_keyboard: [
-                    [
-                      {text: 'Watch', url: liveRoom},
-                      {text: `${nickname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
-                    ],
-                  ]
-                },
+                parse_mode: 'HTML',
+                disable_web_page_preview: true,
+                text: `${msgPrefix}#b站直播间标题更新\n新：${liveTitle}\n旧：${dbScope?.bilibili_live?.latestStream?.liveTitle}`
+                  + `\n\n<a href="${liveRoom}">Watch</a>`
+                  + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${nickname}</a>`
               }).then(resp => {
                 // log(`telegram post bilibili-live title success: message_id ${resp.result.message_id}`)
               })
@@ -684,14 +663,10 @@ async function main(config) {
 
               await sendTelegram({ method: 'sendMessage' }, {
                 chat_id: account.tgChannelId,
-                text: `${msgPrefix}#b站昵称更新\n新：${nickname}\n旧：${dbScope?.bilibili_live?.nickname}`,
-                reply_markup: {
-                  inline_keyboard: [
-                    [
-                      {text: `${nickname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
-                    ],
-                  ]
-                },
+                parse_mode: 'HTML',
+                disable_web_page_preview: true,
+                text: `${msgPrefix}#b站昵称更新\n新：${nickname}\n旧：${dbScope?.bilibili_live?.nickname}`
+                  + `\n\n<a href="https://space.bilibili.com/${uid}">${nickname}</a>`
               }).then(resp => {
                 // log(`telegram post bilibili-live::nickname success: message_id ${resp.result.message_id}`)
               })
@@ -723,14 +698,10 @@ async function main(config) {
 
               await sendTelegram({ method: 'sendMessage' }, {
                 chat_id: account.tgChannelId,
-                text: `${msgPrefix}#b站签名更新\n新：${sign}\n旧：${dbScope?.bilibili_live?.sign}`,
-                reply_markup: {
-                  inline_keyboard: [
-                    [
-                      {text: `${nickname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
-                    ],
-                  ]
-                },
+                parse_mode: 'HTML',
+                disable_web_page_preview: true,
+                text: `${msgPrefix}#b站签名更新\n新：${sign}\n旧：${dbScope?.bilibili_live?.sign}`
+                  + `\n\n<a href="https://space.bilibili.com/${uid}">${nickname}</a>`
               }).then(resp => {
                 // log(`telegram post bilibili-live::sign success: message_id ${resp.result.message_id}`)
               })
@@ -763,14 +734,9 @@ async function main(config) {
               await sendTelegram({ method: 'sendPhoto' }, {
                 chat_id: account.tgChannelId,
                 photo: avatar,
-                caption: `${msgPrefix}#b站头像更新，旧头像：${dbScope?.bilibili_live?.avatar}`,
-                reply_markup: {
-                  inline_keyboard: [
-                    [
-                      {text: `${nickname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
-                    ],
-                  ]
-                },
+                parse_mode: 'HTML',
+                caption: `${msgPrefix}#b站头像更新，旧头像：${dbScope?.bilibili_live?.avatar}`
+                  + `\n\n<a href="https://space.bilibili.com/${uid}">${nickname}</a>`
               }).then(resp => {
                 // log(`telegram post bilibili-live::avatar success: message_id ${resp.result.message_id}`)
               })
@@ -806,15 +772,11 @@ async function main(config) {
 
               await sendTelegram({ method: 'sendMessage' }, {
                 chat_id: account.tgChannelId,
-                text: `${msgPrefix}#b站佩戴粉丝牌变更\n新：${medalNew?.medal_name || '无佩戴'}${medalNew?.level ? ' / lv' + medalNew?.level : ''}${medalNew?.target_id ? ' / uid:' + medalNew?.target_id : ''}` +
-                  `\n旧：${medalOld?.medal_name || '无佩戴'}${medalOld?.level ? ' / lv' + medalOld?.level : ''}${medalOld?.target_id ? ' / uid:' + medalOld?.target_id : ''}`,
-                reply_markup: {
-                  inline_keyboard: [
-                    [
-                      {text: `${nickname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
-                    ],
-                  ]
-                },
+                parse_mode: 'HTML',
+                disable_web_page_preview: true,
+                text: `${msgPrefix}#b站佩戴粉丝牌变更\n新：${medalNew?.medal_name || '无佩戴'}${medalNew?.level ? ' / lv' + medalNew?.level : ''}${medalNew?.target_id ? ' / uid:' + medalNew?.target_id : ''}`
+                  + `\n旧：${medalOld?.medal_name || '无佩戴'}${medalOld?.level ? ' / lv' + medalOld?.level : ''}${medalOld?.target_id ? ' / uid:' + medalOld?.target_id : ''}`
+                  + `\n\n<a href="https://space.bilibili.com/${uid}">${nickname}</a>`
               }).then(resp => {
                 // log(`telegram post bilibili-live::fans_medal success: message_id ${resp.result.message_id}`)
               })
@@ -849,15 +811,11 @@ async function main(config) {
 
               await sendTelegram({ method: 'sendMessage' }, {
                 chat_id: account.tgChannelId,
-                text: `${msgPrefix}#b站头像挂件变更\n新：${pendant?.name || '无佩戴'}` +
-                  `\n旧：${pendantOld?.name || '无佩戴'}`,
-                reply_markup: {
-                  inline_keyboard: [
-                    [
-                      {text: `${nickname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
-                    ],
-                  ]
-                },
+                parse_mode: 'HTML',
+                disable_web_page_preview: true,
+                text: `${msgPrefix}#b站头像挂件变更\n新：${pendant?.name || '无佩戴'}`
+                  + `\n旧：${pendantOld?.name || '无佩戴'}`
+                  + `\n\n<a href="https://space.bilibili.com/${uid}">${nickname}</a>`
               }).then(resp => {
                 // log(`telegram post bilibili-live::pendant success: message_id ${resp.result.message_id}`)
               })
@@ -892,15 +850,11 @@ async function main(config) {
 
               await sendTelegram({ method: 'sendMessage' }, {
                 chat_id: account.tgChannelId,
-                text: `${msgPrefix}#b站勋章变更\n新：${nameplate?.name || '无勋章'}${nameplate?.condition ? '（' + nameplate?.condition + '）' : ''}` +
-                  `\n旧：${nameplateOld?.name || '无勋章'}${nameplateOld?.condition ? '（' + nameplateOld?.condition + '）' : ''}`,
-                reply_markup: {
-                  inline_keyboard: [
-                    [
-                      {text: `${nickname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
-                    ],
-                  ]
-                },
+                parse_mode: 'HTML',
+                disable_web_page_preview: true,
+                text: `${msgPrefix}#b站勋章变更\n新：${nameplate?.name || '无勋章'}${nameplate?.condition ? '（' + nameplate?.condition + '）' : ''}`
+                  + `\n旧：${nameplateOld?.name || '无勋章'}${nameplateOld?.condition ? '（' + nameplateOld?.condition + '）' : ''}`
+                  + `\n\n<a href="https://space.bilibili.com/${uid}">${nickname}</a>`
               }).then(resp => {
                 // log(`telegram post bilibili-live::nameplate success: message_id ${resp.result.message_id}`)
               })
@@ -935,15 +889,11 @@ async function main(config) {
 
               await sendTelegram({ method: 'sendMessage' }, {
                 chat_id: account.tgChannelId,
-                text: `${msgPrefix}#b站认证变更\n新：${official?.title || '无认证'}` +
-                  `\n旧：${officialOld?.title || '无认证'}`,
-                reply_markup: {
-                  inline_keyboard: [
-                    [
-                      {text: `${nickname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
-                    ],
-                  ]
-                },
+                parse_mode: 'HTML',
+                disable_web_page_preview: true,
+                text: `${msgPrefix}#b站认证变更\n新：${official?.title || '无认证'}`
+                  + `\n旧：${officialOld?.title || '无认证'}`
+                  + `\n\n<a href="https://space.bilibili.com/${uid}">${nickname}</a>`
               }).then(resp => {
                 // log(`telegram post bilibili-live::official verification success: message_id ${resp.result.message_id}`)
               })
@@ -978,15 +928,11 @@ async function main(config) {
 
               await sendTelegram({ method: 'sendMessage' }, {
                 chat_id: account.tgChannelId,
-                text: `${msgPrefix}#b站大会员变更\n新：${vip?.label?.text || '无会员'}（${vip?.due_date ? formatDate(vip?.due_date) + ' 过期' : '已过期'}）` +
-                  `\n旧：${vipOld?.label?.text || '无会员'}（${vipOld?.due_date ? formatDate(vipOld?.due_date) + ' 过期' : '已过期'}）`,
-                reply_markup: {
-                  inline_keyboard: [
-                    [
-                      {text: `${nickname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
-                    ],
-                  ]
-                },
+                parse_mode: 'HTML',
+                disable_web_page_preview: true,
+                text: `${msgPrefix}#b站大会员变更\n新：${vip?.label?.text || '无会员'}（${vip?.due_date ? formatDate(vip?.due_date) + ' 过期' : '已过期'}）`
+                  + `\n旧：${vipOld?.label?.text || '无会员'}（${vipOld?.due_date ? formatDate(vipOld?.due_date) + ' 过期' : '已过期'}）`
+                  + `\n\n<a href="https://space.bilibili.com/${uid}">${nickname}</a>`
               }).then(resp => {
                 // log(`telegram post bilibili-live::vip status success: message_id ${resp.result.message_id}`)
               })
@@ -1151,20 +1097,12 @@ async function main(config) {
 
                 await sendTelegram({ method: 'sendMessage' }, {
                   chat_id: account.tgChannelId,
-                  text: `${msgPrefix}#b站粉丝装扮变更\n新：${decoNew?.name || '无装扮'}${decoNew?.fan?.number ? '#' + decoNew?.fan?.number : '（无编号）'}` +
-                    `\n旧：${decoOld?.name || '无装扮'}${decoOld?.fan?.number ? '#' + decoOld?.fan?.number : '（无编号）'}`,
-                  reply_markup: {
-                    inline_keyboard: decoNew?.id ? [
-                      [
-                        {text: `Decoration Link`, url: `${decoNew?.jump_url || '未知'}`},
-                        {text: `${user.info.uname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
-                      ],
-                    ] : [
-                      [
-                        {text: `${user.info.uname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
-                      ],
-                    ]
-                  },
+                  parse_mode: 'HTML',
+                  disable_web_page_preview: true,
+                  text: `${msgPrefix}#b站粉丝装扮变更\n新：${decoNew?.name || '无装扮'}${decoNew?.fan?.number ? '#' + decoNew?.fan?.number : '（无编号）'}`
+                    + `\n旧：${decoOld?.name || '无装扮'}${decoOld?.fan?.number ? '#' + decoOld?.fan?.number : '（无编号）'}`
+                    + decoNew?.id ? `\n\n<a href="${decoNew?.jump_url || '未知'}">Decoration Link</a>` : ``
+                    + `<a href="https://space.bilibili.com/${uid}">${user.info.uname}</a>`
                 }).then(resp => {
                   // log(`telegram post bilibili-mblog::decorate_card success: message_id ${resp.result.message_id}`)
                 })
@@ -1187,30 +1125,24 @@ async function main(config) {
                 method: 'sendMessage',
               };
 
-              const tgMarkup = {
-                inline_keyboard: [
-                  [
-                    {text: 'View', url: `https://t.bilibili.com/${dynamicId}`},
-                    {text: `${user.info.uname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
-                  ],
-                ]
-              };
+              const tgBodyFooter = `\n\n<a href="https://t.bilibili.com/${dynamicId}">View</a>`
+                + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.info.uname}</a>`;
 
               const tgBody = {
                 chat_id: account.tgChannelId,
-                text: `${user.info.uname} #b站动态`,
-                reply_markup: tgMarkup,
+                parse_mode: 'HTML',
+                text: `${msgPrefix}#b站动态`
               };
 
               const qgBody = {
                 guild_id: account.qGuildId,
                 channel_id: account.qGuildChannelId,
-                message: `${msgPrefix}#b站动态`,
+                message: `${msgPrefix}#b站动态`
               };
 
               const tgForm = new FormData();
               tgForm.append('chat_id', account.tgChannelId);
-              tgForm.append('reply_markup', JSON.stringify(tgMarkup));
+              tgForm.append('parse_mode', 'HTML');
 
               // If the status has additional meta (ie. reserved events)
               if (cardAddon) {
@@ -1246,7 +1178,7 @@ async function main(config) {
                 if (originJson?.origin_image_urls) {
                   tgOptions.method = 'sendPhoto';
                   tgBody.photo = `${originJson?.origin_image_urls}`;
-                  tgBody.caption = `${msgPrefix}#b站专栏转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.author.name}\n被转标题：${originJson.title}\n\n${originJson.summary}`;
+                  tgBody.caption = `${msgPrefix}#b站专栏转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.author.name}\n被转标题：${originJson.title}\n\n${originJson.summary}${tgBodyFooter}`;
                   qgBody.message = `${msgPrefix}#b站专栏转发：${cardJson?.item?.content.trim()}\n动态链接：https://t.bilibili.com/${dynamicId}\n\n被转作者：@${originJson.author.name}\n被转标题：${originJson.title}\n\n${originJson.summary}\n[CQ:image,file=${originJson?.origin_image_urls}]`;
                 }
 
@@ -1260,7 +1192,7 @@ async function main(config) {
                   tgOptions.method = photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto';
                   tgOptions.payload = 'form';
                   tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${originJson?.item?.pictures[0].img_src}`));
-                  tgForm.append('caption', `${msgPrefix}#b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.name}\n被转内容：${photoCountText}：${originJson?.item?.description}${extendedMeta}`);
+                  tgForm.append('caption', `${msgPrefix}#b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.name}\n被转内容：${photoCountText}：${originJson?.item?.description}${extendedMeta}${tgBodyFooter}`);
                   qgBody.message = `${msgPrefix}#b站转发：${cardJson?.item?.content.trim()}\n动态链接：https://t.bilibili.com/${dynamicId}\n\n被转作者：@${originJson.user.name}\n被转内容：${photoCountText}：${originJson?.item?.description}${extendedMeta}\n[CQ:image,file=${originJson?.item?.pictures[0].img_src}]`;
 
                   // if (originJson?.item?.pictures[0].img_width > 1200 || originJson?.item?.pictures[0].img_height > 1200) {
@@ -1275,13 +1207,13 @@ async function main(config) {
                 else if (originJson?.duration && originJson?.videos) {
                   tgOptions.method = 'sendPhoto';
                   tgBody.photo = `${originJson?.pic}`;
-                  tgBody.caption = `${msgPrefix}#b站视频转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.owner.name}\n被转视频：${originJson.title}\n\n${originJson.desc}\n${originJson.short_link}`;
+                  tgBody.caption = `${msgPrefix}#b站视频转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.owner.name}\n被转视频：${originJson.title}\n\n${originJson.desc}\n${originJson.short_link}${tgBodyFooter}`;
                   qgBody.message = `${msgPrefix}#b站视频转发：${cardJson?.item?.content.trim()}\n动态链接：https://t.bilibili.com/${dynamicId}\n\n被转作者：@${originJson.owner.name}\n被转视频：${originJson.title}\n\n${originJson.desc}\n${originJson.short_link}\n[CQ:image,file=${originJson?.pic}]`;
                 }
 
                 // Plain text
                 else {
-                  tgBody.text = `${msgPrefix}#b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.uname}\n被转动态：${originJson.item.content}`;
+                  tgBody.text = `${msgPrefix}#b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.uname}\n被转动态：${originJson.item.content}${tgBodyFooter}`;
                   qgBody.message = `${msgPrefix}#b站转发：${cardJson?.item?.content.trim()}\n动态链接：https://t.bilibili.com/${dynamicId}\n\n被转作者：@${originJson.user.uname}\n被转动态：${originJson.item.content}`;
                 }
 
@@ -1299,7 +1231,7 @@ async function main(config) {
                 // tgBody.caption = `${msgPrefix}#b站相册动态${photoCountText}：${cardJson?.item?.description}`;
                 // tgBody.photo = cardJson.item.pictures[0].img_src;
                 tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${cardJson.item.pictures[0].img_src}`));
-                tgForm.append('caption', `${msgPrefix}#b站相册动态${photoCountText}：${cardJson?.item?.description}${extendedMeta}`);
+                tgForm.append('caption', `${msgPrefix}#b站相册动态${photoCountText}：${cardJson?.item?.description}${extendedMeta}${tgBodyFooter}`);
                 qgBody.message = `${msgPrefix}#b站相册动态${photoCountText}：${cardJson?.item?.description}${extendedMeta}\n动态链接：https://t.bilibili.com/${dynamicId}\n${cardJson.item.pictures.map(item => generateCqCode(item.img_src))}`;
 
                 log(`bilibili-mblog got gallery post (${timeAgo(timestamp)})`);
@@ -1307,7 +1239,7 @@ async function main(config) {
 
               // Text post
               else if (type === 4) {
-                tgBody.text = `${msgPrefix}#b站动态：${cardJson?.item?.content.trim()}${extendedMeta}`;
+                tgBody.text = `${msgPrefix}#b站动态：${cardJson?.item?.content.trim()}${extendedMeta}${tgBodyFooter}`;
                 qgBody.message = `${msgPrefix}#b站动态：${cardJson?.item?.content.trim()}${extendedMeta}\n动态链接：https://t.bilibili.com/${dynamicId}`;
                 log(`bilibili-mblog got text post (${timeAgo(timestamp)})`);
               }
@@ -1318,16 +1250,10 @@ async function main(config) {
                 tgBody.photo = cardJson.pic;
                 // dynamic: microblog text
                 // desc: video description
-                tgBody.caption = `${msgPrefix}#b站视频：${cardJson.title}\n${cardJson.dynamic}\n${cardJson.desc}`,
-                tgBody.reply_markup = {
-                  inline_keyboard: [
-                    [
-                      {text: 'View', url: `https://t.bilibili.com/${dynamicId}`},
-                      {text: 'Watch Video', url: `${cardJson.short_link}`},
-                      {text: `${user.info.uname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
-                    ],
-                  ]
-                };
+                tgBody.caption = `${msgPrefix}#b站视频：${cardJson.title}\n${cardJson.dynamic}\n${cardJson.desc}`
+                  + `\n\n<a href="https://t.bilibili.com/${dynamicId}">View</a>`
+                  + ` | <a href="${cardJson.short_link}">Watch Video</a>`
+                  + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.info.uname}</a>`;
                 qgBody.message = `${msgPrefix}#b站视频：${cardJson.title}\n${cardJson.dynamic}\n${cardJson.desc}\n动态链接：https://t.bilibili.com/${dynamicId}\n视频链接：${cardJson.short_link}\n[CQ:image,file=${cardJson.pic}]`;
 
                 log(`bilibili-mblog got video post (${timeAgo(timestamp)})`);
@@ -1342,7 +1268,7 @@ async function main(config) {
               else if (type === 64) {
                 tgOptions.method = 'sendPhoto';
                 tgBody.photo = cardJson.origin_image_urls[0];
-                tgBody.caption = `${msgPrefix}#b站专栏：${cardJson.title}\n\n${cardJson.summary}`;
+                tgBody.caption = `${msgPrefix}#b站专栏：${cardJson.title}\n\n${cardJson.summary}${tgBodyFooter}`;
                 qgBody.message = `${msgPrefix}#b站专栏：${cardJson.title}\n\n${cardJson.summary}\n动态链接：https://t.bilibili.com/${dynamicId}\n${cardJson.origin_image_urls.map(item => generateCqCode(item))}`;
 
                 log(`bilibili-mblog got column post (${timeAgo(timestamp)})`);
@@ -1356,7 +1282,7 @@ async function main(config) {
               // General card link (calendar, etc.)
               // Share audio bookmark
               else if (type === 2048) {
-                tgBody.text = `${msgPrefix}#b站动态：${cardJson?.vest?.content.trim()}${extendedMeta}`;
+                tgBody.text = `${msgPrefix}#b站动态：${cardJson?.vest?.content.trim()}${extendedMeta}${tgBodyFooter}`;
                 qgBody.message = `${msgPrefix}#b站动态：${cardJson?.vest?.content.trim()}${extendedMeta}\n动态链接：https://t.bilibili.com/${dynamicId}`;
                 log(`bilibili-mblog got share audio bookmark (${timeAgo(timestamp)})`);
               }
@@ -1404,9 +1330,9 @@ async function main(config) {
 
                       const tgForm = new FormData();
                       tgForm.append('chat_id', account.tgChannelId);
-                      tgForm.append('reply_markup', JSON.stringify(tgMarkup));
+                      tgForm.append('parse_mode', 'HTML');
                       tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${cardJson.item.pictures[idx].img_src}`));
-                      tgForm.append('caption', `${msgPrefix}#b站相册动态${photoCountText}：${cardJson?.item?.description}${extendedMeta}`);
+                      tgForm.append('caption', `${msgPrefix}#b站相册动态${photoCountText}：${cardJson?.item?.description}${extendedMeta}${tgBodyFooter}`);
 
                       await sendTelegram({
                         method: photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto',
@@ -1442,16 +1368,12 @@ async function main(config) {
 
                 await sendTelegram({ method: 'sendMessage' }, {
                   chat_id: account.tgChannelId,
-                  text: `${msgPrefix}#b站动态删除：监测到最新动态旧于数据库中的动态，可能有动态被删除（也存在网络原因误报）`,
-                  reply_markup: {
-                    inline_keyboard: [
-                      [
-                        {text: 'Latest', url: `https://t.bilibili.com/${dynamicId}`},
-                        {text: 'Deleted', url: `https://t.bilibili.com/${dbScope?.bilibili_mblog?.latestDynamic?.id}`},
-                        {text: `${user.info.uname}`, url: `https://space.bilibili.com/${uid}/dynamic`},
-                      ],
-                    ]
-                  },
+                  parse_mode: 'HTML',
+                  disable_web_page_preview: true,
+                  text: `${msgPrefix}#b站动态删除：监测到最新动态旧于数据库中的动态，可能有动态被删除（也存在网络原因误报）`
+                    + `\n\n<a href="https://t.bilibili.com/${dynamicId}">Latest</a>`
+                    + `| <a href="https://t.bilibili.com/${dbScope?.bilibili_mblog?.latestDynamic?.id}">Deleted</a>`
+                    + `| <a href="https://space.bilibili.com/${uid}/dynamic">${user.info.uname}</a>`
                 }).then(resp => {
                   // log(`telegram post bilibili-mblog success: message_id ${resp.result.message_id}`)
                 })
@@ -1534,14 +1456,10 @@ async function main(config) {
 
                 await sendTelegram({ method: 'sendMessage' }, {
                   chat_id: account.tgChannelId,
-                  text: `${msgPrefix}#微博昵称更新\n新：${user.screen_name}\n旧：${dbScope?.weibo?.user?.screen_name}`,
-                  reply_markup: {
-                    inline_keyboard: [
-                      [
-                        {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
-                      ],
-                    ]
-                  },
+                  parse_mode: 'HTML',
+                  disable_web_page_preview: true,
+                  text: `${msgPrefix}#微博昵称更新\n新：${user.screen_name}\n旧：${dbScope?.weibo?.user?.screen_name}`
+                    + `\n\n<a href="https://weibo.com/${user.id}">${user.screen_name}</a>`
                 }).then(resp => {
                   // log(`telegram post weibo::nickname success: message_id ${resp.result.message_id}`)
                 })
@@ -1573,14 +1491,10 @@ async function main(config) {
 
                 await sendTelegram({ method: 'sendMessage' }, {
                   chat_id: account.tgChannelId,
-                  text: `${msgPrefix}#微博签名更新\n新：${user.description}\n旧：${dbScope?.weibo?.user?.description}`,
-                  reply_markup: {
-                    inline_keyboard: [
-                      [
-                        {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
-                      ],
-                    ]
-                  },
+                  parse_mode: 'HTML',
+                  disable_web_page_preview: true,
+                  text: `${msgPrefix}#微博签名更新\n新：${user.description}\n旧：${dbScope?.weibo?.user?.description}`
+                    + `\n\n<a href="https://weibo.com/${user.id}">${user.screen_name}</a>`
                 }).then(resp => {
                   // log(`telegram post weibo::sign success: message_id ${resp.result.message_id}`)
                 })
@@ -1612,14 +1526,11 @@ async function main(config) {
 
                 await sendTelegram({ method: 'sendMessage' }, {
                   chat_id: account.tgChannelId,
-                  text: `${msgPrefix}#微博认证更新\n新：${user?.verified_reason || '无认证'}\n旧：${dbScope?.weibo?.user?.verified_reason || '无认证'}`,
-                  reply_markup: {
-                    inline_keyboard: [
-                      [
-                        {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
-                      ],
-                    ]
-                  },
+                  parse_mode: 'HTML',
+                  disable_web_page_preview: true,
+                  text: `${msgPrefix}#微博认证更新\n新：${user?.verified_reason || '无认证'}`
+                    + `\n旧：${dbScope?.weibo?.user?.verified_reason || '无认证'}`
+                    + `\n\n<a href="https://weibo.com/${user.id}">${user.screen_name}</a>`
                 }).then(resp => {
                   // log(`telegram post weibo::verified_reason success: message_id ${resp.result.message_id}`)
                 })
@@ -1696,14 +1607,9 @@ async function main(config) {
                 await sendTelegram({ method: 'sendPhoto' }, {
                   chat_id: account.tgChannelId,
                   photo: user.avatar_hd,
-                  caption: `${msgPrefix}#微博头像更新，旧头像：${dbScope?.weibo?.user?.avatar_hd}`,
-                  reply_markup: {
-                    inline_keyboard: [
-                      [
-                        {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
-                      ],
-                    ]
-                  },
+                  parse_mode: 'HTML',
+                  caption: `${msgPrefix}#微博头像更新，旧头像：${dbScope?.weibo?.user?.avatar_hd}`
+                    + `\n\n<a href="https://weibo.com/${user.id}">${user.screen_name}</a>`
                 }).then(resp => {
                   // log(`telegram post weibo::avatar success: message_id ${resp.result.message_id}`)
                 })
@@ -1736,14 +1642,9 @@ async function main(config) {
                 await sendTelegram({ method: 'sendPhoto' }, {
                   chat_id: account.tgChannelId,
                   photo: convertWeiboUrl(user.cover_image_phone),
-                  caption: `${msgPrefix}#微博封面更新，旧封面：${convertWeiboUrl(dbScope?.weibo?.user?.cover_image_phone)}`,
-                  reply_markup: {
-                    inline_keyboard: [
-                      [
-                        {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
-                      ],
-                    ]
-                  },
+                  parse_mode: 'HTML',
+                  caption: `${msgPrefix}#微博封面更新，旧封面：${convertWeiboUrl(dbScope?.weibo?.user?.cover_image_phone)}`
+                    + `\n\n<a href="https://weibo.com/${user.id}">${user.screen_name}</a>`
                 }).then(resp => {
                   // log(`telegram post weibo::avatar success: message_id ${resp.result.message_id}`)
                 })
@@ -1891,26 +1792,19 @@ async function main(config) {
                   method: 'sendMessage',
                 };
 
-                const tgMarkup = {
-                  inline_keyboard: [
-                    // Check if retweeted user is visible
-                    // `user: null` will be returned if text: "抱歉，作者已设置仅展示半年内微博，此微博已不可见。 "
-                    retweetedStatus && retweetedStatus?.user ? [
-                      {text: 'View', url: `https://weibo.com/${user.id}/${id}`},
-                      {text: 'View Retweeted', url: `https://weibo.com/${retweetedStatus.user.id}/${retweetedStatus.bid}`},
-                      {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
-                    ] : [
-                      {text: 'View', url: `https://weibo.com/${user.id}/${id}`},
-                      {text: `${user.screen_name}`, url: `https://weibo.com/${user.id}`},
-                    ],
-                  ]
-                };
+                const tgBodyFooter = `\n\n<a href="https://weibo.com/${user.id}/${id}">View</a>`
+                // Check if retweeted user is visible
+                // `user: null` will be returned if text: "抱歉，作者已设置仅展示半年内微博，此微博已不可见。 "
+                + retweetedStatus && retweetedStatus?.user ? ` | <a href="https://weibo.com/${retweetedStatus.user.id}/${retweetedStatus.bid}">View Retweeted</a>` : ``
+                + ` | <a href="https://weibo.com/${user.id}">${user.screen_name}</a>`;
 
                 const tgBody = {
                   chat_id: account.tgChannelId,
-                  text: `${msgPrefix}#微博${visibilityMap[visibility] || ''}${retweetedStatus ? `转发` : `动态`}：${text}${retweetedStatus ? `\n\n被转作者：${retweetedStatus?.user ? '@' + retweetedStatus.user.screen_name : '未知'}\n被转内容：${stripHtml(retweetedStatus.text)}` : ''}`,
                   parse_mode: 'HTML',
-                  reply_markup: tgMarkup,
+                  text: `${msgPrefix}#微博${visibilityMap[visibility] || ''}${retweetedStatus ? `转发` : `动态`}：${text}`
+                    + `${retweetedStatus ? `\n\n被转作者：${retweetedStatus?.user ? '@' + retweetedStatus.user.screen_name : '未知'}`
+                    + `\n被转内容：${stripHtml(retweetedStatus.text)}` : ''}`
+                    + `${tgBodyFooter}`
                 };
 
                 const qgBody = {
@@ -1925,7 +1819,7 @@ async function main(config) {
 
                 const tgForm = new FormData();
                 tgForm.append('chat_id', account.tgChannelId);
-                tgForm.append('reply_markup', JSON.stringify(tgMarkup));
+                tgForm.append('parse_mode', 'HTML');
 
                 // If post has photo
                 if (activity.pic_ids?.length > 0) {
@@ -1936,7 +1830,7 @@ async function main(config) {
                   tgOptions.payload = 'form';
                   // tgForm.append('photo', await readProcessedImage(`https://ww1.sinaimg.cn/large/${activity.pic_ids[0]}.jpg`));
                   tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${activity.pics[0].large.url}`));
-                  tgForm.append('caption', `${msgPrefix}#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}`);
+                  tgForm.append('caption', `${msgPrefix}#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}${tgBodyFooter}`);
                   qgBody.message = `${msgPrefix}#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}\n地址：https://weibo.com/${user.id}/${id}\n${activity.pics.map(item => generateCqCode(item.large.url))}`;
 
                   // NOTE: Method to send multiple photos in one sendMediaGroup
@@ -1966,7 +1860,7 @@ async function main(config) {
                 if (activity?.page_info?.type === 'video') {
                   tgOptions.method = 'sendVideo';
                   tgBody.video = activity?.page_info?.media_info?.stream_url_hd || activity?.page_info?.media_info?.stream_url;
-                  tgBody.caption = `${msgPrefix}#微博${visibilityMap[visibility] || ''}视频：${text}`;
+                  tgBody.caption = `${msgPrefix}#微博${visibilityMap[visibility] || ''}视频：${text}${tgBodyFooter}`;
                   qgBody.message = `${msgPrefix}#微博${visibilityMap[visibility] || ''}视频：${text}\n地址：https://weibo.com/${user.id}/${id}`;
                 }
 
@@ -2002,9 +1896,9 @@ async function main(config) {
 
                       const tgForm = new FormData();
                       tgForm.append('chat_id', account.tgChannelId);
-                      tgForm.append('reply_markup', JSON.stringify(tgMarkup));
+                      tgForm.append('parse_mode', 'HTML');
                       tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${activity.pics[idx].large.url}`));
-                      tgForm.append('caption', `${msgPrefix}#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}`);
+                      tgForm.append('caption', `${msgPrefix}#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}${tgBodyFooter}`);
 
                       await sendTelegram({
                         method: photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto',
@@ -2100,27 +1994,21 @@ async function main(config) {
                 method: 'sendMessage',
               };
 
-              const tgMarkup = {
-                inline_keyboard: [
-                  [
-                    {text: 'View DDStats', url: `https://ddstats.ericlamm.xyz/user/${account.biliId}`},
-                    {text: `${parsedContent?.user || 'View User'}`, url: `https://space.bilibili.com/${account.biliId}`},
-                    {text: `${parsedContent?.target || 'View Target'}`, url: `https://space.bilibili.com/${activity?.target_uid}`},
-                  ],
-                ]
-              };
+              const tgBodyFooter = `\n\n<a href="https://ddstats.ericlamm.xyz/user/${account.biliId}">DDStats</a>`
+                + ` | <a href="https://space.bilibili.com/${account.biliId}">${parsedContent?.user || 'View User'}</a>`
+                + ` | <a href="https://space.bilibili.com/${activity?.target_uid}">${parsedContent?.target || 'View Target'}</a>`;
 
               const tgBody = {
                 chat_id: account.tgChannelId,
-                text: `${content}`,
-                // text: `${retweetedStatus ? `转发` : `动态`}：${text}${retweetedStatus ? `\n\n被转作者：@${retweetedStatus.user.screen_name}\n被转内容：${stripHtml(retweetedStatus.text)}` : ''}`,
-                reply_markup: tgMarkup,
+                parse_mode: 'HTML',
+                text: `${content}${tgBodyFooter}`,
+                disable_web_page_preview: true,
               };
 
               const qgBody = {
                 guild_id: account.qGuildId,
                 channel_id: account.qGuildChannelId,
-                message: `${content}`,
+                message: `${content}${tgBodyFooter}`,
               };
 
               if (!dbScopeTimestampUnix) {
