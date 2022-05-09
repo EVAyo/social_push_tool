@@ -168,19 +168,33 @@ async function send(account, messageType, userOptions) {
   return resp?.body && JSON.parse(resp.body);
 }
 
-function parseDdstatsString(string) {
+function parseDdstatsString(string, type) {
+  // Examples:
   // 艾白_千鸟Official 在 杜松子_Gin 的直播间发送了一则消息: 那我等你下播了！我们聊！
   // 艾白_千鸟Official 进入了 金克茜Jinxy 的直播间
+  // 七海Nana7mi 在 HiiroVTuber 的直播间发送了一则表情包:
+  // 在 HiiroVTuber 的直播间收到来自 七海Nana7mi 的 500 元醒目留言: gong xi！！！！
 
-  // https://regex101.com/r/RQ2WsA/1
-  //
-  // schema:
-  //
-  // action: "在"
-  // content: "的直播间发送了一则消息: 那我等你下播了！我们聊！"
-  // target: "杜松子_Gin"
-  // user: "艾白_千鸟Official"
-  const parseRegex = /(?<user>\S+) (?<action>\S+) (?<target>\S+) (?<content>.+)/;
+  let parseRegex = /.*/;
+
+  if (type === 'SUPER_CHAT_MESSAGE') {
+    // https://regex101.com/r/jhT8f4/1
+    // schema:
+    //   action: "在"
+    //   content: "的直播间发送了一则消息: 那我等你下播了！我们聊！"
+    //   target: "杜松子_Gin"
+    //   user: "艾白_千鸟Official"
+    parseRegex = /在 (?<target>\S+) (?<action>\S+) (?<user>\S+) 的 (?<content>.+)/;
+  } else {
+    // https://regex101.com/r/RQ2WsA/1
+    // schema:
+    //   action: "的直播间收到来自"
+    //   content: "500 元醒目留言: gong xi！！！！"
+    //   target: "HiiroVTuber"
+    //   user: "七海Nana7mi"
+    parseRegex = /(?<user>\S+) (?<action>\S+) (?<target>\S+) (?<content>.+)/;
+  }
+
   const { groups } = parseRegex.exec(string);
   return groups;
 }
@@ -2065,14 +2079,16 @@ async function main(config) {
             for (let [idx, activity] of activities.entries()) {
               const timestamp = +new Date(activity.created_at);
               const id = activity.id;
+              const type = activity.command || 'UNKNOWN';
               const content = activity.display;
-              const parsedContent = parseDdstatsString(content);
+              const parsedContent = parseDdstatsString(content, type);
               const idxLatest = activities.length - 1;
 
               // If last (the last one in the array is the latest now) item
               if (idx === idxLatest) {
                 dbStore.latestActivity = {
                   id: id,
+                  type: type,
                   content: content,
                   timestamp: new Date(timestamp),
                   timestampUnix: timestamp,
