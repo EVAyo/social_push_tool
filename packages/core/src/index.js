@@ -1101,7 +1101,7 @@ async function main(config) {
                   disable_web_page_preview: true,
                   text: `${msgPrefix}#b站粉丝装扮变更\n新：${decoNew?.name || '无装扮'}${decoNew?.fan?.number ? '#' + decoNew?.fan?.number : '（无编号）'}`
                     + `\n旧：${decoOld?.name || '无装扮'}${decoOld?.fan?.number ? '#' + decoOld?.fan?.number : '（无编号）'}`
-                    + decoNew?.id ? `\n\n<a href="${decoNew?.jump_url || '未知'}">Decoration Link</a>` : ``
+                    + `${decoNew?.id ? `\n\n<a href="${decoNew?.jump_url || '未知'}">Decoration Link</a>` : ''}`
                     + `<a href="https://space.bilibili.com/${uid}">${user.info.uname}</a>`
                 }).then(resp => {
                   // log(`telegram post bilibili-mblog::decorate_card success: message_id ${resp.result.message_id}`)
@@ -1131,6 +1131,7 @@ async function main(config) {
               const tgBody = {
                 chat_id: account.tgChannelId,
                 parse_mode: 'HTML',
+                disable_web_page_preview: true,
                 text: `${msgPrefix}#b站动态`
               };
 
@@ -1413,7 +1414,9 @@ async function main(config) {
       // 107603 + uid: weibo
       // 231567 + uid: videos
       // 107803 + uid: photos
-      account.weiboId && await got(`https://m.weibo.cn/api/container/getIndex?containerid=230413${account.weiboId}_-_WEIBO_SECOND_PROFILE_WEIBO`, weiboRequestOptions).then(async resp => {
+      const weiboRequestUrl = `https://m.weibo.cn/api/container/getIndex?containerid=230413${account.weiboId}_-_WEIBO_SECOND_PROFILE_WEIBO`;
+      argv.verbose && log(`weibo requesting ${weiboRequestUrl}`);
+      account.weiboId && await got(weiboRequestUrl, weiboRequestOptions).then(async resp => {
         const json = JSON.parse(resp.body);
 
         if (json?.ok === 1) {
@@ -1759,6 +1762,12 @@ async function main(config) {
                     } else {
                       log('weibo extended info corrupted, using original text...');
                     }
+                  }).catch(err => {
+                    log(`weibo extended text request error: ${err}`);
+
+                    if (err.stack) {
+                      console.log(err.stack);
+                    }
                   });
                 }
 
@@ -1793,17 +1802,17 @@ async function main(config) {
                 };
 
                 const tgBodyFooter = `\n\n<a href="https://weibo.com/${user.id}/${id}">View</a>`
-                // Check if retweeted user is visible
-                // `user: null` will be returned if text: "抱歉，作者已设置仅展示半年内微博，此微博已不可见。 "
-                + retweetedStatus && retweetedStatus?.user ? ` | <a href="https://weibo.com/${retweetedStatus.user.id}/${retweetedStatus.bid}">View Retweeted</a>` : ``
-                + ` | <a href="https://weibo.com/${user.id}">${user.screen_name}</a>`;
+                  // Check if retweeted user is visible
+                  // `user: null` will be returned if text: "抱歉，作者已设置仅展示半年内微博，此微博已不可见。 "
+                  + `${retweetedStatus && retweetedStatus?.user ? ` | <a href="https://weibo.com/${retweetedStatus.user.id}/${retweetedStatus.bid}">View Retweeted</a>` : ''}`
+                  + ` | <a href="https://weibo.com/${user.id}">${user.screen_name}</a>`;
 
                 const tgBody = {
                   chat_id: account.tgChannelId,
                   parse_mode: 'HTML',
+                  disable_web_page_preview: true,
                   text: `${msgPrefix}#微博${visibilityMap[visibility] || ''}${retweetedStatus ? `转发` : `动态`}：${text}`
-                    + `${retweetedStatus ? `\n\n被转作者：${retweetedStatus?.user ? '@' + retweetedStatus.user.screen_name : '未知'}`
-                    + `\n被转内容：${stripHtml(retweetedStatus.text)}` : ''}`
+                    + `${retweetedStatus ? `\n\n被转作者：${retweetedStatus?.user ? '@' + retweetedStatus.user.screen_name : '未知'}\n被转内容：${stripHtml(retweetedStatus.text)}` : ''}`
                     + `${tgBodyFooter}`
                 };
 
@@ -2001,8 +2010,8 @@ async function main(config) {
               const tgBody = {
                 chat_id: account.tgChannelId,
                 parse_mode: 'HTML',
-                text: `${content}${tgBodyFooter}`,
                 disable_web_page_preview: true,
+                text: `${content}${tgBodyFooter}`,
               };
 
               const qgBody = {
