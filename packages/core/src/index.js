@@ -252,7 +252,9 @@ async function main(config) {
       const msgPrefix = account.showSlug ? `#${account.slug} ` : ``;
 
       // Fetch Douyin live
-      account.douyinLiveId && await dyExtract(`https://live.douyin.com/${account.douyinLiveId}`, {...config.pluginOptions, ...cookieOnDemand(config.pluginOptions.customCookies.douyin)}).then(async resp => {
+      const douyinLiveRequestUrl = `https://live.douyin.com/${account.douyinLiveId}`;
+      argv.verbose && log(`douyin-live requesting ${douyinLiveRequestUrl}`);
+      account.douyinLiveId && await dyExtract(douyinLiveRequestUrl, {...config.pluginOptions, ...cookieOnDemand(config.pluginOptions.customCookies.douyin)}).then(async resp => {
         const json = resp?.initialState?.roomStore?.roomInfo;
 
         if (json) {
@@ -391,7 +393,9 @@ async function main(config) {
       });
 
       // Fetch Douyin
-      account.douyinId && await dyExtract(`https://www.douyin.com/user/${account.douyinId}`, {...config.pluginOptions, ...cookieOnDemand(config.pluginOptions.customCookies.douyin)}).then(async resp => {
+      const douyinRequestUrl = `https://www.douyin.com/user/${account.douyinId}`;
+      argv.verbose && log(`douyin requesting ${douyinRequestUrl}`);
+      account.douyinId && await dyExtract(douyinRequestUrl, {...config.pluginOptions, ...cookieOnDemand(config.pluginOptions.customCookies.douyin)}).then(async resp => {
         const currentTime = Date.now();
 
         // Douyin trends to change object key regularly. (ie. C_10, C_12, C_14)
@@ -521,7 +525,9 @@ async function main(config) {
       });
 
       // Fetch bilibili live
-      account.biliId && await got(`https://api.bilibili.com/x/space/acc/info?mid=${account.biliId}`, {...config.pluginOptions?.requestOptions, ...proxyOptions}).then(async resp => {
+      const bilibiliLiveRequestUrl = `https://api.bilibili.com/x/space/acc/info?mid=${account.biliId}`;
+      argv.verbose && log(`bilibili-live requesting ${bilibiliLiveRequestUrl}`);
+      account.biliId && await got(bilibiliLiveRequestUrl, {...config.pluginOptions?.requestOptions, ...proxyOptions}).then(async resp => {
         const json = JSON.parse(resp.body);
 
         if (json?.code === 0) {
@@ -1029,7 +1035,9 @@ async function main(config) {
       });
 
       // Fetch bilibili microblog (dynamics)
-      account.biliId && await got(`https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history?host_uid=${account.biliId}&offset_dynamic_id=0&need_top=0&platform=web`, {...config.pluginOptions?.requestOptions, ...proxyOptions}).then(async resp => {
+      const bilibiliMblogRequestUrl = `https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history?host_uid=${account.biliId}&offset_dynamic_id=0&need_top=0&platform=web`;
+      argv.verbose && log(`bilibili-mblog requesting ${bilibiliMblogRequestUrl}`);
+      account.biliId && await got(bilibiliMblogRequestUrl, {...config.pluginOptions?.requestOptions, ...proxyOptions}).then(async resp => {
         const json = JSON.parse(resp.body);
 
         if (json?.code === 0) {
@@ -1942,7 +1950,9 @@ async function main(config) {
       });
 
       // Fetch DDStats
-      !account.disableDdstats && account.biliId && await got(`https://ddstats-api.ericlamm.xyz/records/${account.biliId}?limit=15&type=dd`).then(async resp => {
+      const ddstatsRequestUrl = `https://ddstats-api.ericlamm.xyz/records/${account.biliId}?limit=15&type=dd`;
+      argv.verbose && log(`ddstats requesting ${ddstatsRequestUrl}`);
+      !account.disableDdstats && account.biliId && await got(ddstatsRequestUrl).then(async resp => {
         const json = JSON.parse(resp.body);
 
         if (json?.code === 200) {
