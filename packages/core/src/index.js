@@ -1910,28 +1910,31 @@ async function main(config) {
 
                   // Send an additional message if original post has more than one photo
                   if (activity.pic_ids?.length > 1) {
-                    await Promise.all(activity.pic_ids.map(async (pic, idx) => {
-                      if (idx === 0) return;
-                      const photoCount = activity.pic_ids.length;
-                      const photoCountText = photoCount > 1 ? `（${idx + 1}/${photoCount}）` : ``;
-                      const photoExt = activity.pics[idx].large.url.split('.').pop();
 
-                      const tgForm = new FormData();
-                      tgForm.append('chat_id', account.tgChannelId);
-                      tgForm.append('parse_mode', 'HTML');
-                      tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${activity.pics[idx].large.url}`));
-                      tgForm.append('caption', `${msgPrefix}#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}${tgBodyFooter}`);
+                    for (const [idx, pic] of activity.pic_ids.entries()) {
 
-                      await sendTelegram({
-                        method: photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto',
-                        payload: 'form',
-                      }, tgForm).then(resp => {
-                        log(`telegram post weibo (batch #${idx + 1}) success`)
-                      })
-                      .catch(err => {
-                        log(`telegram post weibo (batch #${idx + 1}) error: ${err?.response?.body || err}`);
-                      });
-                    }));
+                      if (idx !== 0) {
+                        const photoCount = activity.pic_ids.length;
+                        const photoCountText = photoCount > 1 ? `（${idx + 1}/${photoCount}）` : ``;
+                        const photoExt = activity.pics[idx].large.url.split('.').pop();
+
+                        const tgForm = new FormData();
+                        tgForm.append('chat_id', account.tgChannelId);
+                        tgForm.append('parse_mode', 'HTML');
+                        tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${activity.pics[idx].large.url}`));
+                        tgForm.append('caption', `${msgPrefix}#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}${tgBodyFooter}`);
+
+                        await sendTelegram({
+                          method: photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto',
+                          payload: 'form',
+                        }, tgForm).then(resp => {
+                          log(`telegram post weibo (batch #${idx + 1}) success`)
+                        })
+                        .catch(err => {
+                          log(`telegram post weibo (batch #${idx + 1}) error: ${err?.response?.body || err}`);
+                        });
+                      }
+                    }
                   }
                 }
               }
