@@ -1679,11 +1679,15 @@ async function main(config) {
               }
             }
 
+            // Creating Telegram cache set from database. This ensure no duplicated notifications will be sent
+            const tgCacheSet = new Set(Array.isArray(dbScope?.weibo?.tgCache) ? dbScope.weibo.tgCache.reverse().slice(0, 9).reverse() : []);
+
             // Start storing time-sensitive data after checking user info changes
             const dbStore = {
               scrapedTime: new Date(currentTime),
               scrapedTimeUnix: +new Date(currentTime),
               user: user,
+              tgCache: [...tgCacheSet],
             };
 
             // Morph data for database schema
@@ -1894,10 +1898,11 @@ async function main(config) {
                   });
                 }
 
-                if (account.tgChannelId && config.telegram.enabled) {
+                if (account.tgChannelId && config.telegram.enabled && !tgCacheSet.has(id)) {
 
                   await sendTelegram(tgOptions, tgOptions?.payload === 'form' ? tgForm : tgBody).then(resp => {
                     argv.verbose && log(`telegram post weibo success: message_id ${JSON.parse(resp.body)?.result?.message_id}`);
+                    tgCacheSet.add(id);
                   })
                   .catch(err => {
                     log(`telegram post weibo error: ${err?.response?.body || err}`);
@@ -1933,6 +1938,7 @@ async function main(config) {
             };
 
             // Set new data to database
+            dbStore.tgCache = [...tgCacheSet];
             dbScope['weibo'] = dbStore;
           } else {
             log('weibo empty result, skipping...');
