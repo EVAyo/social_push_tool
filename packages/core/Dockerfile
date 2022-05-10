@@ -8,6 +8,9 @@ COPY . /app
 
 VOLUME /app
 
+# https://github.com/lovell/sharp/issues/3150
+RUN apk add --no-cache vips-dev
+
 RUN yarn --frozen-lockfile && \
     yarn cache clean
 
