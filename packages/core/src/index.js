@@ -326,9 +326,9 @@ async function main(config) {
                     parse_mode: 'HTML',
                     caption: `${msgPrefix}#抖音开播：${title}`
                       + `\n\n<a href="https://webcast.amemv.com/webcast/reflow/${id_str}">Watch</a>`
-                      + `| <a href="${streamUrl}">M3U8</a>`
-                      + `| <a href="${liveCover}">Artwork</a>`
-                      + `| <a href="https://live.douyin.com/${account.douyinLiveId}">${nickname}</a>`
+                      + ` | <a href="${streamUrl}">M3U8</a>`
+                      + ` | <a href="${liveCover}">Artwork</a>`
+                      + ` | <a href="https://live.douyin.com/${account.douyinLiveId}">${nickname}</a>`
                   }
 
                   if (dbScope?.douyin_live?.latestStream?.isTgSent) {
@@ -1110,7 +1110,7 @@ async function main(config) {
                   text: `${msgPrefix}#b站粉丝装扮变更\n新：${decoNew?.name || '无装扮'}${decoNew?.fan?.number ? '#' + decoNew?.fan?.number : '（无编号）'}`
                     + `\n旧：${decoOld?.name || '无装扮'}${decoOld?.fan?.number ? '#' + decoOld?.fan?.number : '（无编号）'}`
                     + `${decoNew?.id ? `\n\n<a href="${decoNew?.jump_url || '未知'}">Decoration Link</a>` : ''}`
-                    + `<a href="https://space.bilibili.com/${uid}">${user.info.uname}</a>`
+                    + `${decoNew?.id ? ` | ` : `\n\n`}<a href="https://space.bilibili.com/${uid}">${user.info.uname}</a>`
                 }).then(resp => {
                   // log(`telegram post bilibili-mblog::decorate_card success: message_id ${resp.result.message_id}`)
                 })
@@ -1381,8 +1381,8 @@ async function main(config) {
                   disable_web_page_preview: true,
                   text: `${msgPrefix}#b站动态删除：监测到最新动态旧于数据库中的动态，可能有动态被删除（也存在网络原因误报）`
                     + `\n\n<a href="https://t.bilibili.com/${dynamicId}">Latest</a>`
-                    + `| <a href="https://t.bilibili.com/${dbScope?.bilibili_mblog?.latestDynamic?.id}">Deleted</a>`
-                    + `| <a href="https://space.bilibili.com/${uid}/dynamic">${user.info.uname}</a>`
+                    + ` | <a href="https://t.bilibili.com/${dbScope?.bilibili_mblog?.latestDynamic?.id}">Deleted</a>`
+                    + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.info.uname}</a>`
                 }).then(resp => {
                   // log(`telegram post bilibili-mblog success: message_id ${resp.result.message_id}`)
                 })
