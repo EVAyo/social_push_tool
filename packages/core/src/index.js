@@ -1408,28 +1408,31 @@ async function main(config) {
 
                     // Send an additional message if original post has more than one photo
                     if (cardJson?.item?.pictures?.length > 1) {
-                      await Promise.all(cardJson.item.pictures.map(async (pic, idx) => {
-                        if (idx === 0) return;
-                        const photoCount = cardJson.item.pictures.length;
-                        const photoCountText = photoCount > 1 ? `（${idx + 1}/${photoCount}）` : ``;
-                        const photoExt = cardJson.item.pictures[idx].img_src.split('.').pop();
 
-                        const tgForm = new FormData();
-                        tgForm.append('chat_id', account.tgChannelId);
-                        tgForm.append('parse_mode', 'HTML');
-                        tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${cardJson.item.pictures[idx].img_src}`));
-                        tgForm.append('caption', `${msgPrefix}#b站相册动态${photoCountText}：${cardJson?.item?.description}${extendedMeta}${tgBodyFooter}`);
+                      for (const [idx, pic] of cardJson.item.pictures.entries()) {
 
-                        await sendTelegram({
-                          method: photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto',
-                          payload: 'form',
-                        }, tgForm).then(resp => {
-                          log(`telegram post bilibili-mblog (batch #${idx + 1}) success`)
-                        })
-                        .catch(err => {
-                          log(`telegram post bilibili-mblog (batch #${idx + 1}) error: ${err?.response?.body || err}`);
-                        });
-                      }));
+                        if (idx !== 0) {
+                          const photoCount = cardJson.item.pictures.length;
+                          const photoCountText = photoCount > 1 ? `（${idx + 1}/${photoCount}）` : ``;
+                          const photoExt = cardJson.item.pictures[idx].img_src.split('.').pop();
+
+                          const tgForm = new FormData();
+                          tgForm.append('chat_id', account.tgChannelId);
+                          tgForm.append('parse_mode', 'HTML');
+                          tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${cardJson.item.pictures[idx].img_src}`));
+                          tgForm.append('caption', `${msgPrefix}#b站相册动态${photoCountText}：${cardJson?.item?.description}${extendedMeta}${tgBodyFooter}`);
+
+                          await sendTelegram({
+                            method: photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto',
+                            payload: 'form',
+                          }, tgForm).then(resp => {
+                            log(`telegram post bilibili-mblog (batch #${idx + 1}) success`)
+                          })
+                          .catch(err => {
+                            log(`telegram post bilibili-mblog (batch #${idx + 1}) error: ${err?.response?.body || err}`);
+                          });
+                        }
+                      }
                     }
                   }
                 }
