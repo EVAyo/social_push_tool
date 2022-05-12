@@ -1045,39 +1045,18 @@ async function main(config) {
           const data = json.data;
           const cards = data?.cards;
 
-          if (cards) {
+          if (cards && cards.length > 0) {
             const card = cards[0];
-
             const cardMeta = card.desc;
-            const cardJson = JSON.parse(card.card);
-            const cardExtendedJson = card?.extension?.lbs && JSON.parse(card.extension.lbs) || null;
-            const cardAddon = card?.display?.add_on_card_info?.[0] || cardJson?.sketch || null;
-            let extendedMeta = '';
 
             const {
               uid,
-              type,
-              orig_type: origType,
-              dynamic_id_str: dynamicId,
               user_profile: user
             } = cardMeta;
-            const timestamp = cardMeta.timestamp * 1000;
 
             argv.json && fs.writeFile(`db/${account.slug}-bilibili-mblog.json`, JSON.stringify(json, null, 2), err => {
               if (err) return console.log(err);
             });
-
-            const dbStore = {
-              scrapedTime: new Date(currentTime),
-              user: user,
-              latestDynamic: {
-                id: dynamicId,
-                type: type,
-                timestamp: new Date(timestamp),
-                timestampUnix: timestamp,
-                timeAgo: timeAgo(timestamp),
-              }
-            };
 
             // If user decorate_card verification update
             if (user?.decorate_card?.id !== dbScope?.bilibili_mblog?.user?.decorate_card?.id && dbScope?.bilibili_mblog) {
@@ -1120,282 +1099,345 @@ async function main(config) {
               }
             }
 
-            // NOTE: card content (mblog content) is escaped inside JSON,
-            // uncomment the following to output parsed JSON for debugging
-            // if (account.slug === '测试账号') {
-            //   log(`cardJson`);
-            //   console.log(cardJson);
-            // };
+            // Creating Telegram cache set from database. This ensure no duplicated notifications will be sent
+            const tgCacheSet = new Set(Array.isArray(dbScope?.bilibili_mblog?.tgCache) ? dbScope.bilibili_mblog.tgCache.reverse().slice(0, 30).reverse() : []);
 
-            // If latest post is newer than the one in database
-            if (dynamicId !== dbScope?.bilibili_mblog?.latestDynamic?.id && timestamp > dbScope?.bilibili_mblog?.latestDynamic?.timestampUnix) {
-              const tgOptions = {
-                method: 'sendMessage',
+            // Start storing time-sensitive data after checking user info changes
+            const dbStore = {
+              scrapedTime: new Date(currentTime),
+              scrapedTimeUnix: +new Date(currentTime),
+              user: user,
+              tgCache: [...tgCacheSet],
+            };
+
+            // Morph data for database schema
+            const activities = cards.map(obj => {
+              return {
+                ...obj,
+                created_at_unix: +new Date(obj.desc.timestamp * 1000)
+              }
+              // Sort array by date in ascending order (reversed). This will make the sticky status in its right order
+            }).sort((a, b) => a.created_at_unix - b.created_at_unix);
+
+            // console.log(`activities`, activities);
+
+            const dbScopeTimestampUnix = dbScope?.bilibili_mblog?.latestDynamic?.timestampUnix;
+
+            // Loop array
+            for (let [idx, activity] of activities.entries()) {
+              const cardMeta = activity.desc;
+              const cardJson = JSON.parse(activity.card);
+              const cardExtendedJson = activity?.extension?.lbs && JSON.parse(activity.extension.lbs) || null;
+              const cardAddon = activity?.display?.add_on_card_info?.[0] || cardJson?.sketch || null;
+              const idxLatest = activities.length - 1;
+              let extendedMeta = '';
+
+              // NOTE: card content (mblog content) is escaped inside JSON,
+              // uncomment the following to output parsed JSON for debugging
+              // if (account.slug === '测试账号') {
+              //   log(`cardJson`);
+              //   console.log(cardJson);
+              // };
+
+              const {
+                uid,
+                type,
+                orig_type: origType,
+                dynamic_id_str: dynamicId,
+                user_profile: user
+              } = cardMeta;
+              const timestamp = cardMeta.timestamp * 1000;
+
+              // If last (the last one in the array is the latest now) item
+              if (idx === idxLatest) {
+                dbStore.latestDynamic = {
+                  id: dynamicId,
+                  type: type,
+                  timestamp: new Date(timestamp),
+                  timestampUnix: timestamp,
+                  timeAgo: timeAgo(timestamp),
+                }
               };
 
-              const tgBodyFooter = `\n\n<a href="https://t.bilibili.com/${dynamicId}">View</a>`
-                + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.info.uname}</a>`;
+              if (!dbScopeTimestampUnix) {
+                log(`bilibili-mblog initial run, notifications skipped`);
+              } else if (timestamp === dbScopeTimestampUnix) {
+                log(`bilibili-mblog no update. latest: ${dbScope?.bilibili_mblog?.latestDynamic?.id} (${timeAgo(dbScope?.bilibili_mblog?.latestDynamic?.timestamp)})`);
+              } else if (idx === idxLatest && timestamp <= dbScopeTimestampUnix) {
+                log(`bilibili-mblog new post older than database. latest: ${dynamicId} (${timeAgo(timestamp)})`);
+                // NOTE: Disable deleted dynamic detection when API is unstable
+                // if (account.qGuildId && config.qGuild.enabled) {
 
-              const tgBody = {
-                chat_id: account.tgChannelId,
-                parse_mode: 'HTML',
-                disable_web_page_preview: true,
-                text: `${msgPrefix}#b站动态`
-              };
+                //   await sendQGuild({method: 'send_guild_channel_msg'}, {
+                //     guild_id: account.qGuildId,
+                //     channel_id: account.qGuildChannelId,
+                //     message: `${msgPrefix}#b站动态删除：监测到最新动态旧于数据库中的动态，可能有动态被删除（也存在网络原因误报）\n最新动态：https://t.bilibili.com/${dynamicId}\n被删动态：https://t.bilibili.com/${dbScope?.bilibili_mblog?.latestDynamic?.id}`,
+                //   }).then(resp => {
+                //     // log(`go-qchttp post weibo success: ${resp}`);
+                //   })
+                //   .catch(err => {
+                //     log(`go-qchttp post bilibili-blog error: ${err?.response?.body || err}`);
+                //   });
+                // }
 
-              const qgBody = {
-                guild_id: account.qGuildId,
-                channel_id: account.qGuildChannelId,
-                message: `${msgPrefix}#b站动态`
-              };
+                // if (account.tgChannelId && config.telegram.enabled) {
 
-              const tgForm = new FormData();
-              tgForm.append('chat_id', account.tgChannelId);
-              tgForm.append('parse_mode', 'HTML');
+                //   await sendTelegram({ method: 'sendMessage' }, {
+                //     chat_id: account.tgChannelId,
+                //     parse_mode: 'HTML',
+                //     disable_web_page_preview: true,
+                //     text: `${msgPrefix}#b站动态删除：监测到最新动态旧于数据库中的动态，可能有动态被删除（也存在网络原因误报）`
+                //       + `\n\n<a href="https://t.bilibili.com/${dynamicId}">Latest</a>`
+                //       + ` | <a href="https://t.bilibili.com/${dbScope?.bilibili_mblog?.latestDynamic?.id}">Deleted</a>`
+                //       + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.info.uname}</a>`
+                //   }).then(resp => {
+                //     // log(`telegram post bilibili-mblog success: message_id ${resp.result.message_id}`)
+                //   })
+                //   .catch(err => {
+                //     log(`telegram post bilibili-mblog error: ${err?.response?.body || err}`);
+                //   });
+                // }
 
-              // If the status has additional meta (ie. reserved events)
-              if (cardAddon) {
-                if (cardAddon?.add_on_card_show_type === 3 && cardAddon?.vote_card) {
-                  const voteJson = JSON.parse(cardAddon?.vote_card);
-                  extendedMeta += `\n\n投票（id：${voteJson?.vote_id}）：\n${voteJson?.options.map(option => ` - ${option?.desc} ${option?.title}`)?.join('\n')}`;
-                }
-
-                if (cardAddon?.reserve_attach_card?.title) {
-                  extendedMeta += `\n\n预约：${cardAddon.reserve_attach_card.title}（${cardAddon.reserve_attach_card?.desc_first?.text || '无详情'}）`;
-                }
-
-                if (cardJson?.sketch?.title) {
-                  extendedMeta += `\n\n${cardJson?.sketch?.title}：${cardJson?.sketch?.desc_text || ''} ${cardJson?.sketch?.target_url || ''}`;
-                }
-              }
-
-              // If the status has additional geolocation info
-              if (cardExtendedJson) {
-                extendedMeta += `\n\n坐标：${cardExtendedJson.show_title}（${cardExtendedJson.address}）`;
-              }
-
-              // Check post type
-              // https://www.mywiki.cn/dgck81lnn/index.php/%E5%93%94%E5%93%A9%E5%93%94%E5%93%A9API%E8%AF%A6%E8%A7%A3
-              //
-              // Forwarded post (think retweet)
-              if (type === 1) {
-                const originJson = JSON.parse(cardJson?.origin);
-
-                // console.log(originJson);
-
-                // Column post
-                if (originJson?.origin_image_urls) {
-                  tgOptions.method = 'sendPhoto';
-                  tgBody.photo = `${originJson?.origin_image_urls}`;
-                  tgBody.caption = `${msgPrefix}#b站专栏转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.author.name}\n被转标题：${originJson.title}\n\n${originJson.summary}${tgBodyFooter}`;
-                  qgBody.message = `${msgPrefix}#b站专栏转发：${cardJson?.item?.content.trim()}\n动态链接：https://t.bilibili.com/${dynamicId}\n\n被转作者：@${originJson.author.name}\n被转标题：${originJson.title}\n\n${originJson.summary}\n[CQ:image,file=${originJson?.origin_image_urls}]`;
-                }
-
-                // Text with gallery
-                else if (originJson?.item?.description && originJson?.item?.pictures) {
-                  // console.log(originJson?.item.pictures);
-
-                  const photoCount = originJson.item.pictures.length;
-                  const photoCountText = photoCount > 1 ? `（共 ${photoCount} 张）` : ``;
-                  const photoExt = originJson?.item?.pictures[0].img_src.split('.').pop();
-                  tgOptions.method = photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto';
-                  tgOptions.payload = 'form';
-                  tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${originJson?.item?.pictures[0].img_src}`));
-                  tgForm.append('caption', `${msgPrefix}#b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.name}\n被转内容：${photoCountText}：${originJson?.item?.description}${extendedMeta}${tgBodyFooter}`);
-                  qgBody.message = `${msgPrefix}#b站转发：${cardJson?.item?.content.trim()}\n动态链接：https://t.bilibili.com/${dynamicId}\n\n被转作者：@${originJson.user.name}\n被转内容：${photoCountText}：${originJson?.item?.description}${extendedMeta}\n[CQ:image,file=${originJson?.item?.pictures[0].img_src}]`;
-
-                  // if (originJson?.item?.pictures[0].img_width > 1200 || originJson?.item?.pictures[0].img_height > 1200) {
-                  //   tgBody.photo = `https://experiments.sparanoid.net/imageproxy/1000x1000,fit/${originJson?.item?.pictures[0].img_src}@1036w.webp`;
-                  // } else {
-                  //   tgBody.photo = `${originJson?.item?.pictures[0].img_src}`;
-                  // }
-                  // tgBody.caption = `${msgPrefix}#b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.name}\n被转内容：${originJson.item.description}`;
-                }
-
-                // Video
-                else if (originJson?.duration && originJson?.videos) {
-                  tgOptions.method = 'sendPhoto';
-                  tgBody.photo = `${originJson?.pic}`;
-                  tgBody.caption = `${msgPrefix}#b站视频转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.owner.name}\n被转视频：${originJson.title}\n\n${originJson.desc}\n${originJson.short_link}${tgBodyFooter}`;
-                  qgBody.message = `${msgPrefix}#b站视频转发：${cardJson?.item?.content.trim()}\n动态链接：https://t.bilibili.com/${dynamicId}\n\n被转作者：@${originJson.owner.name}\n被转视频：${originJson.title}\n\n${originJson.desc}\n${originJson.short_link}\n[CQ:image,file=${originJson?.pic}]`;
-                }
-
-                // Plain text
-                else {
-                  tgBody.text = `${msgPrefix}#b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.uname}\n被转动态：${originJson.item.content}${tgBodyFooter}`;
-                  qgBody.message = `${msgPrefix}#b站转发：${cardJson?.item?.content.trim()}\n动态链接：https://t.bilibili.com/${dynamicId}\n\n被转作者：@${originJson.user.uname}\n被转动态：${originJson.item.content}`;
-                }
-
-                log(`bilibili-mblog got forwarded post (${timeAgo(timestamp)})`);
-              }
-
-              // Gallery post (text post with images)
-              else if (type === 2 && cardJson?.item?.pictures.length > 0) {
-                const photoCount = cardJson.item.pictures.length;
-                const photoCountText = photoCount > 1 ? `（共 ${photoCount} 张）` : ``;
-                const photoExt = cardJson.item.pictures[0].img_src.split('.').pop();
-                tgOptions.method = photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto';
-                tgOptions.payload = 'form';
-                // NOTE: old JSON method
-                // tgBody.caption = `${msgPrefix}#b站相册动态${photoCountText}：${cardJson?.item?.description}`;
-                // tgBody.photo = cardJson.item.pictures[0].img_src;
-                tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${cardJson.item.pictures[0].img_src}`));
-                tgForm.append('caption', `${msgPrefix}#b站相册动态${photoCountText}：${cardJson?.item?.description}${extendedMeta}${tgBodyFooter}`);
-                qgBody.message = `${msgPrefix}#b站相册动态${photoCountText}：${cardJson?.item?.description}${extendedMeta}\n动态链接：https://t.bilibili.com/${dynamicId}\n${cardJson.item.pictures.map(item => generateCqCode(item.img_src))}`;
-
-                log(`bilibili-mblog got gallery post (${timeAgo(timestamp)})`);
-              }
-
-              // Text post
-              else if (type === 4) {
-                tgBody.text = `${msgPrefix}#b站动态：${cardJson?.item?.content.trim()}${extendedMeta}${tgBodyFooter}`;
-                qgBody.message = `${msgPrefix}#b站动态：${cardJson?.item?.content.trim()}${extendedMeta}\n动态链接：https://t.bilibili.com/${dynamicId}`;
-                log(`bilibili-mblog got text post (${timeAgo(timestamp)})`);
-              }
-
-              // Video post
-              else if (type === 8) {
-                tgOptions.method = 'sendPhoto';
-                tgBody.photo = cardJson.pic;
-                // dynamic: microblog text
-                // desc: video description
-                tgBody.caption = `${msgPrefix}#b站视频：${cardJson.title}\n${cardJson.dynamic}\n${cardJson.desc}`
-                  + `\n\n<a href="https://t.bilibili.com/${dynamicId}">View</a>`
-                  + ` | <a href="${cardJson.short_link}">Watch Video</a>`
-                  + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.info.uname}</a>`;
-                qgBody.message = `${msgPrefix}#b站视频：${cardJson.title}\n${cardJson.dynamic}\n${cardJson.desc}\n动态链接：https://t.bilibili.com/${dynamicId}\n视频链接：${cardJson.short_link}\n[CQ:image,file=${cardJson.pic}]`;
-
-                log(`bilibili-mblog got video post (${timeAgo(timestamp)})`);
-              }
-
-              // VC video post (think ticktok)
-              else if (type === 16) {
-                log(`bilibili-mblog got vc video post (${timeAgo(timestamp)})`);
-              }
-
-              // Column post
-              else if (type === 64) {
-                tgOptions.method = 'sendPhoto';
-                tgBody.photo = cardJson.origin_image_urls[0];
-                tgBody.caption = `${msgPrefix}#b站专栏：${cardJson.title}\n\n${cardJson.summary}${tgBodyFooter}`;
-                qgBody.message = `${msgPrefix}#b站专栏：${cardJson.title}\n\n${cardJson.summary}\n动态链接：https://t.bilibili.com/${dynamicId}\n${cardJson.origin_image_urls.map(item => generateCqCode(item))}`;
-
-                log(`bilibili-mblog got column post (${timeAgo(timestamp)})`);
-              }
-
-              // Audio post
-              else if (type === 256) {
-                log(`bilibili-mblog got audio post (${timeAgo(timestamp)})`);
-              }
-
-              // General card link (calendar, etc.)
-              // Share audio bookmark
-              else if (type === 2048) {
-                tgBody.text = `${msgPrefix}#b站动态：${cardJson?.vest?.content.trim()}${extendedMeta}${tgBodyFooter}`;
-                qgBody.message = `${msgPrefix}#b站动态：${cardJson?.vest?.content.trim()}${extendedMeta}\n动态链接：https://t.bilibili.com/${dynamicId}`;
-                log(`bilibili-mblog got share audio bookmark (${timeAgo(timestamp)})`);
-              }
-
-              // Share video bookmark
-              else if (type === 4300) {
-                log(`bilibili-mblog got share video bookmark (${timeAgo(timestamp)})`);
-              }
-
-              // Others
-              else {
-                log(`bilibili-mblog got unkown type (${timeAgo(timestamp)})`);
-              }
-
-              if ((currentTime - timestamp) >= config.bilibiliBotThrottle) {
-                log(`bilibili-mblog too old, notifications skipped`);
+              } else if (idx === idxLatest && (currentTime - timestamp) >= config.bilibiliBotThrottle) {
+                log(`bilibili-mblog latest status ${dynamicId} (${timeAgo(timestamp)}) older than 'bilibiliBotThrottle', skipping...`);
+              } else if (timestamp < dbScopeTimestampUnix) {
+                argv.verbose && log(`bilibili-mblog got old activity: ${dynamicId} (${timeAgo(timestamp)}), discarding...`);
               } else {
+                log(`bilibili-mblog got update: ${dynamicId} (${timeAgo(timestamp)})`);
 
-                if (account.qGuildId && config.qGuild.enabled) {
+                const tgOptions = {
+                  method: 'sendMessage',
+                };
 
-                  await sendQGuild({method: 'send_guild_channel_msg'}, qgBody).then(resp => {
-                    // log(`go-qchttp post weibo success: ${resp}`);
-                  })
-                  .catch(err => {
-                    log(`go-qchttp post bilibili-mblog error: ${err?.response?.body || err}`);
-                  });
-                }
+                const tgBodyFooter = `\n\n<a href="https://t.bilibili.com/${dynamicId}">View</a>`
+                  + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.info.uname}</a>`;
 
-                if (account.tgChannelId && config.telegram.enabled) {
-
-                  await sendTelegram(tgOptions, tgOptions?.payload === 'form' ? tgForm : tgBody).then(resp => {
-                    // log(`telegram post bilibili-mblog success: message_id ${resp.result.message_id}`)
-                  })
-                  .catch(err => {
-                    log(`telegram post bilibili-mblog error: ${err?.response?.body || err}`);
-                  });
-
-                  // Send an additional message if original post has more than one photo
-                  if (cardJson?.item?.pictures?.length > 1) {
-                    await Promise.all(cardJson.item.pictures.map(async (pic, idx) => {
-                      if (idx === 0) return;
-                      const photoCount = cardJson.item.pictures.length;
-                      const photoCountText = photoCount > 1 ? `（${idx + 1}/${photoCount}）` : ``;
-                      const photoExt = cardJson.item.pictures[idx].img_src.split('.').pop();
-
-                      const tgForm = new FormData();
-                      tgForm.append('chat_id', account.tgChannelId);
-                      tgForm.append('parse_mode', 'HTML');
-                      tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${cardJson.item.pictures[idx].img_src}`));
-                      tgForm.append('caption', `${msgPrefix}#b站相册动态${photoCountText}：${cardJson?.item?.description}${extendedMeta}${tgBodyFooter}`);
-
-                      await sendTelegram({
-                        method: photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto',
-                        payload: 'form',
-                      }, tgForm).then(resp => {
-                        log(`telegram post bilibili-mblog (batch #${idx + 1}) success`)
-                      })
-                      .catch(err => {
-                        log(`telegram post bilibili-mblog (batch #${idx + 1}) error: ${err?.response?.body || err}`);
-                      });
-                    }));
-                  }
-                }
-              }
-            } else if (dynamicId !== dbScope?.bilibili_mblog?.latestDynamic?.id && timestamp < dbScope?.bilibili_mblog?.latestDynamic?.timestampUnix) {
-              log(`bilibili-mblog new post older than database. latest: ${dynamicId} (${timeAgo(timestamp)})`);
-
-              if (account.qGuildId && config.qGuild.enabled) {
-
-                await sendQGuild({method: 'send_guild_channel_msg'}, {
-                  guild_id: account.qGuildId,
-                  channel_id: account.qGuildChannelId,
-                  message: `${msgPrefix}#b站动态删除：监测到最新动态旧于数据库中的动态，可能有动态被删除（也存在网络原因误报）\n最新动态：https://t.bilibili.com/${dynamicId}\n被删动态：https://t.bilibili.com/${dbScope?.bilibili_mblog?.latestDynamic?.id}`,
-                }).then(resp => {
-                  // log(`go-qchttp post weibo success: ${resp}`);
-                })
-                .catch(err => {
-                  log(`go-qchttp post bilibili-blog error: ${err?.response?.body || err}`);
-                });
-              }
-
-              if (account.tgChannelId && config.telegram.enabled) {
-
-                await sendTelegram({ method: 'sendMessage' }, {
+                const tgBody = {
                   chat_id: account.tgChannelId,
                   parse_mode: 'HTML',
                   disable_web_page_preview: true,
-                  text: `${msgPrefix}#b站动态删除：监测到最新动态旧于数据库中的动态，可能有动态被删除（也存在网络原因误报）`
-                    + `\n\n<a href="https://t.bilibili.com/${dynamicId}">Latest</a>`
-                    + ` | <a href="https://t.bilibili.com/${dbScope?.bilibili_mblog?.latestDynamic?.id}">Deleted</a>`
-                    + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.info.uname}</a>`
-                }).then(resp => {
-                  // log(`telegram post bilibili-mblog success: message_id ${resp.result.message_id}`)
-                })
-                .catch(err => {
-                  log(`telegram post bilibili-mblog error: ${err?.response?.body || err}`);
-                });
-              }
+                  text: `${msgPrefix}#b站动态`
+                };
 
-            } else {
-              log(`bilibili-mblog no update. latest: ${dynamicId} (${timeAgo(timestamp)})`);
-            }
+                const qgBody = {
+                  guild_id: account.qGuildId,
+                  channel_id: account.qGuildChannelId,
+                  message: `${msgPrefix}#b站动态`
+                };
+
+                const tgForm = new FormData();
+                tgForm.append('chat_id', account.tgChannelId);
+                tgForm.append('parse_mode', 'HTML');
+
+                // If the status has additional meta (ie. reserved events)
+                if (cardAddon) {
+                  if (cardAddon?.add_on_card_show_type === 3 && cardAddon?.vote_card) {
+                    const voteJson = JSON.parse(cardAddon?.vote_card);
+                    extendedMeta += `\n\n投票（id：${voteJson?.vote_id}）：\n${voteJson?.options.map(option => ` - ${option?.desc} ${option?.title}`)?.join('\n')}`;
+                  }
+
+                  if (cardAddon?.reserve_attach_card?.title) {
+                    extendedMeta += `\n\n预约：${cardAddon.reserve_attach_card.title}（${cardAddon.reserve_attach_card?.desc_first?.text || '无详情'}）`;
+                  }
+
+                  if (cardJson?.sketch?.title) {
+                    extendedMeta += `\n\n${cardJson?.sketch?.title}：${cardJson?.sketch?.desc_text || ''} ${cardJson?.sketch?.target_url || ''}`;
+                  }
+                }
+
+                // If the status has additional geolocation info
+                if (cardExtendedJson) {
+                  extendedMeta += `\n\n坐标：${cardExtendedJson.show_title}（${cardExtendedJson.address}）`;
+                }
+
+                // Check post type
+                // https://www.mywiki.cn/dgck81lnn/index.php/%E5%93%94%E5%93%A9%E5%93%94%E5%93%A9API%E8%AF%A6%E8%A7%A3
+                //
+                // Forwarded post (think retweet)
+                if (type === 1) {
+                  const originJson = JSON.parse(cardJson?.origin);
+
+                  // console.log(originJson);
+
+                  // Column post
+                  if (originJson?.origin_image_urls) {
+                    tgOptions.method = 'sendPhoto';
+                    tgBody.photo = `${originJson?.origin_image_urls}`;
+                    tgBody.caption = `${msgPrefix}#b站专栏转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.author.name}\n被转标题：${originJson.title}\n\n${originJson.summary}${tgBodyFooter}`;
+                    qgBody.message = `${msgPrefix}#b站专栏转发：${cardJson?.item?.content.trim()}\n动态链接：https://t.bilibili.com/${dynamicId}\n\n被转作者：@${originJson.author.name}\n被转标题：${originJson.title}\n\n${originJson.summary}\n[CQ:image,file=${originJson?.origin_image_urls}]`;
+                  }
+
+                  // Text with gallery
+                  else if (originJson?.item?.description && originJson?.item?.pictures) {
+                    // console.log(originJson?.item.pictures);
+
+                    const photoCount = originJson.item.pictures.length;
+                    const photoCountText = photoCount > 1 ? `（共 ${photoCount} 张）` : ``;
+                    const photoExt = originJson?.item?.pictures[0].img_src.split('.').pop();
+                    tgOptions.method = photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto';
+                    tgOptions.payload = 'form';
+                    tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${originJson?.item?.pictures[0].img_src}`));
+                    tgForm.append('caption', `${msgPrefix}#b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.name}\n被转内容：${photoCountText}：${originJson?.item?.description}${extendedMeta}${tgBodyFooter}`);
+                    qgBody.message = `${msgPrefix}#b站转发：${cardJson?.item?.content.trim()}\n动态链接：https://t.bilibili.com/${dynamicId}\n\n被转作者：@${originJson.user.name}\n被转内容：${photoCountText}：${originJson?.item?.description}${extendedMeta}\n[CQ:image,file=${originJson?.item?.pictures[0].img_src}]`;
+
+                    // if (originJson?.item?.pictures[0].img_width > 1200 || originJson?.item?.pictures[0].img_height > 1200) {
+                    //   tgBody.photo = `https://experiments.sparanoid.net/imageproxy/1000x1000,fit/${originJson?.item?.pictures[0].img_src}@1036w.webp`;
+                    // } else {
+                    //   tgBody.photo = `${originJson?.item?.pictures[0].img_src}`;
+                    // }
+                    // tgBody.caption = `${msgPrefix}#b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.name}\n被转内容：${originJson.item.description}`;
+                  }
+
+                  // Video
+                  else if (originJson?.duration && originJson?.videos) {
+                    tgOptions.method = 'sendPhoto';
+                    tgBody.photo = `${originJson?.pic}`;
+                    tgBody.caption = `${msgPrefix}#b站视频转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.owner.name}\n被转视频：${originJson.title}\n\n${originJson.desc}\n${originJson.short_link}${tgBodyFooter}`;
+                    qgBody.message = `${msgPrefix}#b站视频转发：${cardJson?.item?.content.trim()}\n动态链接：https://t.bilibili.com/${dynamicId}\n\n被转作者：@${originJson.owner.name}\n被转视频：${originJson.title}\n\n${originJson.desc}\n${originJson.short_link}\n[CQ:image,file=${originJson?.pic}]`;
+                  }
+
+                  // Plain text
+                  else {
+                    tgBody.text = `${msgPrefix}#b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.uname}\n被转动态：${originJson.item.content}${tgBodyFooter}`;
+                    qgBody.message = `${msgPrefix}#b站转发：${cardJson?.item?.content.trim()}\n动态链接：https://t.bilibili.com/${dynamicId}\n\n被转作者：@${originJson.user.uname}\n被转动态：${originJson.item.content}`;
+                  }
+
+                  log(`bilibili-mblog got forwarded post (${timeAgo(timestamp)})`);
+                }
+
+                // Gallery post (text post with images)
+                else if (type === 2 && cardJson?.item?.pictures.length > 0) {
+                  const photoCount = cardJson.item.pictures.length;
+                  const photoCountText = photoCount > 1 ? `（共 ${photoCount} 张）` : ``;
+                  const photoExt = cardJson.item.pictures[0].img_src.split('.').pop();
+                  tgOptions.method = photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto';
+                  tgOptions.payload = 'form';
+                  // NOTE: old JSON method
+                  // tgBody.caption = `${msgPrefix}#b站相册动态${photoCountText}：${cardJson?.item?.description}`;
+                  // tgBody.photo = cardJson.item.pictures[0].img_src;
+                  tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${cardJson.item.pictures[0].img_src}`));
+                  tgForm.append('caption', `${msgPrefix}#b站相册动态${photoCountText}：${cardJson?.item?.description}${extendedMeta}${tgBodyFooter}`);
+                  qgBody.message = `${msgPrefix}#b站相册动态${photoCountText}：${cardJson?.item?.description}${extendedMeta}\n动态链接：https://t.bilibili.com/${dynamicId}\n${cardJson.item.pictures.map(item => generateCqCode(item.img_src))}`;
+
+                  log(`bilibili-mblog got gallery post (${timeAgo(timestamp)})`);
+                }
+
+                // Text post
+                else if (type === 4) {
+                  tgBody.text = `${msgPrefix}#b站动态：${cardJson?.item?.content.trim()}${extendedMeta}${tgBodyFooter}`;
+                  qgBody.message = `${msgPrefix}#b站动态：${cardJson?.item?.content.trim()}${extendedMeta}\n动态链接：https://t.bilibili.com/${dynamicId}`;
+                  log(`bilibili-mblog got text post (${timeAgo(timestamp)})`);
+                }
+
+                // Video post
+                else if (type === 8) {
+                  tgOptions.method = 'sendPhoto';
+                  tgBody.photo = cardJson.pic;
+                  // dynamic: microblog text
+                  // desc: video description
+                  tgBody.caption = `${msgPrefix}#b站视频：${cardJson.title}\n${cardJson.dynamic}\n${cardJson.desc}`
+                    + `\n\n<a href="https://t.bilibili.com/${dynamicId}">View</a>`
+                    + ` | <a href="${cardJson.short_link}">Watch Video</a>`
+                    + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.info.uname}</a>`;
+                  qgBody.message = `${msgPrefix}#b站视频：${cardJson.title}\n${cardJson.dynamic}\n${cardJson.desc}\n动态链接：https://t.bilibili.com/${dynamicId}\n视频链接：${cardJson.short_link}\n[CQ:image,file=${cardJson.pic}]`;
+
+                  log(`bilibili-mblog got video post (${timeAgo(timestamp)})`);
+                }
+
+                // VC video post (think ticktok)
+                else if (type === 16) {
+                  log(`bilibili-mblog got vc video post (${timeAgo(timestamp)})`);
+                }
+
+                // Column post
+                else if (type === 64) {
+                  tgOptions.method = 'sendPhoto';
+                  tgBody.photo = cardJson.origin_image_urls[0];
+                  tgBody.caption = `${msgPrefix}#b站专栏：${cardJson.title}\n\n${cardJson.summary}${tgBodyFooter}`;
+                  qgBody.message = `${msgPrefix}#b站专栏：${cardJson.title}\n\n${cardJson.summary}\n动态链接：https://t.bilibili.com/${dynamicId}\n${cardJson.origin_image_urls.map(item => generateCqCode(item))}`;
+
+                  log(`bilibili-mblog got column post (${timeAgo(timestamp)})`);
+                }
+
+                // Audio post
+                else if (type === 256) {
+                  log(`bilibili-mblog got audio post (${timeAgo(timestamp)})`);
+                }
+
+                // General card link (calendar, etc.)
+                // Share audio bookmark
+                else if (type === 2048) {
+                  tgBody.text = `${msgPrefix}#b站动态：${cardJson?.vest?.content.trim()}${extendedMeta}${tgBodyFooter}`;
+                  qgBody.message = `${msgPrefix}#b站动态：${cardJson?.vest?.content.trim()}${extendedMeta}\n动态链接：https://t.bilibili.com/${dynamicId}`;
+                  log(`bilibili-mblog got share audio bookmark (${timeAgo(timestamp)})`);
+                }
+
+                // Share video bookmark
+                else if (type === 4300) {
+                  log(`bilibili-mblog got share video bookmark (${timeAgo(timestamp)})`);
+                }
+
+                // Others
+                else {
+                  log(`bilibili-mblog got unkown type (${timeAgo(timestamp)})`);
+                }
+
+                if ((currentTime - timestamp) >= config.bilibiliBotThrottle) {
+                  log(`bilibili-mblog too old, notifications skipped`);
+                } else {
+
+                  if (account.qGuildId && config.qGuild.enabled) {
+
+                    await sendQGuild({method: 'send_guild_channel_msg'}, qgBody).then(resp => {
+                      // log(`go-qchttp post weibo success: ${resp}`);
+                    })
+                    .catch(err => {
+                      log(`go-qchttp post bilibili-mblog error: ${err?.response?.body || err}`);
+                    });
+                  }
+
+                  if (account.tgChannelId && config.telegram.enabled && !tgCacheSet.has(dynamicId)) {
+
+                    await sendTelegram(tgOptions, tgOptions?.payload === 'form' ? tgForm : tgBody).then(resp => {
+                      argv.verbose && log(`telegram post bilibili-mblog success: message_id ${JSON.parse(resp.body)?.result?.message_id}`);
+                      tgCacheSet.add(dynamicId);
+                    })
+                    .catch(err => {
+                      log(`telegram post bilibili-mblog error: ${err?.response?.body || err}`);
+                    });
+
+                    // Send an additional message if original post has more than one photo
+                    if (cardJson?.item?.pictures?.length > 1) {
+                      await Promise.all(cardJson.item.pictures.map(async (pic, idx) => {
+                        if (idx === 0) return;
+                        const photoCount = cardJson.item.pictures.length;
+                        const photoCountText = photoCount > 1 ? `（${idx + 1}/${photoCount}）` : ``;
+                        const photoExt = cardJson.item.pictures[idx].img_src.split('.').pop();
+
+                        const tgForm = new FormData();
+                        tgForm.append('chat_id', account.tgChannelId);
+                        tgForm.append('parse_mode', 'HTML');
+                        tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${cardJson.item.pictures[idx].img_src}`));
+                        tgForm.append('caption', `${msgPrefix}#b站相册动态${photoCountText}：${cardJson?.item?.description}${extendedMeta}${tgBodyFooter}`);
+
+                        await sendTelegram({
+                          method: photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto',
+                          payload: 'form',
+                        }, tgForm).then(resp => {
+                          log(`telegram post bilibili-mblog (batch #${idx + 1}) success`)
+                        })
+                        .catch(err => {
+                          log(`telegram post bilibili-mblog (batch #${idx + 1}) error: ${err?.response?.body || err}`);
+                        });
+                      }));
+                    }
+                  }
+                }
+              }
+            };
 
             // Set new data to database
+            dbStore.tgCache = [...tgCacheSet];
             dbScope['bilibili_mblog'] = dbStore;
           } else {
             log('bilibili-mblog empty result, skipping...');
@@ -1680,7 +1722,7 @@ async function main(config) {
             }
 
             // Creating Telegram cache set from database. This ensure no duplicated notifications will be sent
-            const tgCacheSet = new Set(Array.isArray(dbScope?.weibo?.tgCache) ? dbScope.weibo.tgCache.reverse().slice(0, 9).reverse() : []);
+            const tgCacheSet = new Set(Array.isArray(dbScope?.weibo?.tgCache) ? dbScope.weibo.tgCache.reverse().slice(0, 30).reverse() : []);
 
             // Start storing time-sensitive data after checking user info changes
             const dbStore = {
