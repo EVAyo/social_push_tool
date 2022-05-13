@@ -1661,19 +1661,43 @@ async function main(config) {
               log(`weibo user avatar updated: ${user.avatar_hd}`);
 
               if (account.tgChannelId && config.telegram.enabled) {
+                const photoExt = user.avatar_hd.split('.').pop();
+                const tgForm = new FormData();
+                const avatarImage = await readProcessedImage(`${user.avatar_hd}`);
+                tgForm.append('chat_id', account.tgChannelId);
+                tgForm.append('parse_mode', 'HTML');
+                tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', avatarImage);
+                tgForm.append('caption', `${msgPrefix}#微博头像更新，旧头像：${dbScope?.weibo?.user?.avatar_hd}`
+                  + `\n\n<a href="https://weibo.com/${user.id}">${user.screen_name}</a>`
+                );
 
-                await sendTelegram({ method: 'sendPhoto' }, {
-                  chat_id: account.tgChannelId,
-                  photo: user.avatar_hd,
-                  parse_mode: 'HTML',
-                  caption: `${msgPrefix}#微博头像更新，旧头像：${dbScope?.weibo?.user?.avatar_hd}`
-                    + `\n\n<a href="https://weibo.com/${user.id}">${user.screen_name}</a>`
-                }).then(resp => {
+                await sendTelegram({
+                  method: photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto',
+                  payload: 'form',
+                }, tgForm).then(resp => {
                   // log(`telegram post weibo::avatar success: message_id ${resp.result.message_id}`)
                 })
                 .catch(err => {
                   log(`telegram post weibo::avatar error: ${err}`);
                 });
+
+                if (account.tgChannelAvatarSource && account.tgChannelAvatarSource.includes('weiboz')) {
+                  log(`telegram avatar update enabled for this channel: ${user.avatar_hd}`);
+
+                  const tgAvatarForm = new FormData();
+                  tgAvatarForm.append('chat_id', account.tgChannelId);
+                  tgAvatarForm.append('photo', avatarImage);
+
+                  await sendTelegram({
+                    method: 'setChatPhoto',
+                    payload: 'form',
+                  }, tgAvatarForm).then(resp => {
+                    // log(`telegram post weibo::avatar success: message_id ${resp.result.message_id}`)
+                  })
+                  .catch(err => {
+                    log(`telegram post weibo::avatar error: ${err}`);
+                  });
+                }
               }
 
               if (account.qGuildId && config.qGuild.enabled) {
@@ -1813,7 +1837,9 @@ async function main(config) {
 
                 if (activity?.isLongText) {
                   log('weibo got post too long, trying extended text...')
-                  await got(`https://m.weibo.cn/statuses/extend?id=${id}`, weiboRequestOptions).then(async resp => {
+                  const weiboLongPostRequestUrl = `https://m.weibo.cn/statuses/extend?id=${id}`;
+                  argv.verbose && log(`weibo long post requesting ${weiboLongPostRequestUrl}`);
+                  await got(weiboLongPostRequestUrl, weiboRequestOptions).then(resp => {
                     const json = JSON.parse(resp.body);
 
                     if (json?.ok === 1 && json?.data?.longTextContent) {
