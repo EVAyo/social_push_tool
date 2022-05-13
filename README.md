@@ -79,18 +79,25 @@ export default {
 }
 ```
 
-Your full `config.js` file may look like:
+Your full `config.js` configuration may look like:
 
 ```js
 export default {
-  loopInterval: 60 * 1000, // ms
-  douyinBotThrottle: 24 * 3600 * 1000, // 24 hours, if latest post older than this value, do not send notifications
+  // Loop interval in milliseconds
+  loopInterval: 60 * 1000,
+
+  // 24 hours, if latest post older than this value, do not send notifications
+  douyinBotThrottle: 24 * 3600 * 1000,
   douyinLiveBotThrottle: 1200 * 1000, // 20 mins
-  bilibiliBotThrottle: 65 * 60 * 1000, // 65 mins, bilibili sometimes got limit rate for 60 mins.
+
+  // 65 mins, bilibili sometimes got limit rate for 60 mins.
+  bilibiliBotThrottle: 65 * 60 * 1000,
   bilibiliLiveBotThrottle: 65 * 60 * 1000,
   weiboBotThrottle: 3600 * 1000,
   ddstatsBotThrottle: 3600 * 1000,
-  rateLimitProxy: 'http://10.2.1.2:7890', // Custom proxy to bypass bilibili API rate limit
+
+   // Custom proxy to bypass bilibili API rate limit
+  rateLimitProxy: 'http://10.2.1.2:7890',
   pluginOptions: {
     requestOptions: {
       timeout: {
@@ -101,8 +108,10 @@ export default {
       // Nov 11, 2021
       // Douyin main site now requires `__ac_nonce` and `__ac_signature` to work
       douyin: `__ac_nonce=XXX; __ac_signature=XXX;`,
+
       // get `SESSDATA` cookie from https://www.bilibili.com/
       bilibili: `SESSDATA=XXX`,
+
       // get `SUB` cookie from https://m.weibo.cn/
       weibo: `SUB=XXX`,
     }
@@ -115,32 +124,62 @@ export default {
   qGuild: {
     enabled: true,
     // go-cqhttp endpoint
-    // See https://github.com/Mrs4s/go-cqhttp to learn how to deploy qo-cqhttp and send updates to QQ Guild
+    // See https://github.com/Mrs4s/go-cqhttp to learn how to deploy qo-cqhttp
+    // and send updates to QQ Guild
     apiBase: 'http://10.2.1.2:5700',
   },
   accounts: [
     {
       // Use `false` to disable checking this profile
       enabled: false,
+
+      // Slug is used to identify accounts in logs
       slug: '嘉然',
-      // Set to `true` to add `slug` at the beginning of the notification. ie: #嘉然
-      // Useful for pushing notifications with multiple accounts in one channel
+
+      // Set to `true` to add `slug` at the beginning of the notification.
+      // ie: #嘉然. Useful for pushing notifications with multiple accounts in
+      // one channel
       showSlug: true,
+
+      // bilibili account UID
       biliId: '672328094',
+
+      // Douyin account ID
       douyinId: 'MS4wLjABAAAA5ZrIrbgva_HMeHuNn64goOD2XYnk4ItSypgRHlbSh1c',
+
       // Douyin live ID is separated and need to be calculated from `douyinId`
       douyinLiveId: '',
+
+      // Weibo account ID
       weiboId: '7595006312',
+
+      // Telegram chat/channel ID to receive notifications
       tgChannelId: 41205411,
+
+      // QQ guild ID to receive notifications
       qGuildId: '12345678901234567',
+
+      // QQ guild channel ID to receive notifications, `qGuildId` is also
+      // required to identify which channel to be sent
       qGuildChannelId: 1234567,
+
+      // Update Telegram chat/channel photo/avatar when user avatar updates in
+      // included sources.
+      tgChannelAvatarSource: ['weibo'],
+
       // Show custom color output in console. Nothing useful
       color: '#e799b0',
-      // Avoid chekcing bilibili live stream. Some accounts may not have live stream ability
+
+      // Avoid chekcing bilibili live stream. Some accounts may not have live
+      // stream ability
       disableBilibiliLive: false,
+
       // Avoid checking douyin live stream
+
       disableDouyinLive: false,
-      // Disable checking DDStats. Some bilibili accounts may not have DDStats enabled
+
+      // Disable checking DDStats. Some bilibili accounts may not have DDStats
+      // feature enabled
       disableDdstats: false,
     },
     {
