@@ -175,7 +175,6 @@ export default {
       disableBilibiliLive: false,
 
       // Avoid checking douyin live stream
-
       disableDouyinLive: false,
 
       // Disable checking DDStats. Some bilibili accounts may not have DDStats
