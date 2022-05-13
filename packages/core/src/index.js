@@ -1125,13 +1125,13 @@ async function main(config) {
 
             // Creating Telegram cache set from database. This ensure no duplicated notifications will be sent
             const tgCacheSet = new Set(Array.isArray(dbScope?.bilibili_mblog?.tgCache) ? dbScope.bilibili_mblog.tgCache.reverse().slice(0, 30).reverse() : []);
+            const tgCommentsCacheSet = new Set(Array.isArray(dbScope?.bilibili_mblog?.tgCommentsCache) ? dbScope.bilibili_mblog.tgCommentsCache.reverse().slice(0, 30).reverse() : []);
 
             // Start storing time-sensitive data after checking user info changes
             const dbStore = {
               scrapedTime: new Date(currentTime),
               scrapedTimeUnix: +new Date(currentTime),
               user: user,
-              tgCache: [...tgCacheSet],
             };
 
             // Morph data for database schema
@@ -1168,6 +1168,7 @@ async function main(config) {
                 type,
                 orig_type: origType,
                 dynamic_id_str: dynamicId,
+                rid_str: commentsId,
                 user_profile: user
               } = cardMeta;
               const timestamp = cardMeta.timestamp * 1000;
@@ -1187,6 +1188,84 @@ async function main(config) {
                 log(`bilibili-mblog initial run, notifications skipped`);
               } else if (timestamp === dbScopeTimestampUnix) {
                 log(`bilibili-mblog no update. latest: ${dbScope?.bilibili_mblog?.latestDynamic?.id} (${timeAgo(dbScope?.bilibili_mblog?.latestDynamic?.timestamp)})`);
+
+                if (account.bilibiliFetchingComments) {
+                  const bilibiliCommentsRequestUrl = `https://api.bilibili.com/x/v2/reply/main?oid=${dynamicId}&type=17`;
+                  log(`bilibili-mblog fetching comments from ${commentsId} for activity ${dynamicId}...`)
+                  argv.verbose && log(`bilibili-mblog comments requesting ${bilibiliCommentsRequestUrl}`);
+                  await got(bilibiliCommentsRequestUrl, {...config.pluginOptions?.requestOptions, ...proxyOptions}).then(async resp => {
+                    const json = JSON.parse(resp.body);
+
+                    if (json?.code === 0 && Array.isArray(json.data.replies) && json.data.replies.length > 0) {
+                      const comments = json.data.replies;
+
+                      for (const [idx, comment] of comments.entries()) {
+
+                        if (comment?.member?.mid === account.biliId && !tgCommentsCacheSet.has(comment.rpid_str)) {
+                          log(`bilibili-mblog author comment detected ${comment.rpid_str} for activity ${dynamicId}...`)
+
+                          if (account.tgChannelId && config.telegram.enabled) {
+
+                            await sendTelegram({ method: 'sendMessage' }, {
+                              chat_id: account.tgChannelId,
+                              parse_mode: 'HTML',
+                              disable_web_page_preview: true,
+                              text: `${msgPrefix}#b站新评论 (${timeAgo(+new Date(comment.ctime * 1000))})：${stripHtml(comment?.content?.message) || '未知内容'}`
+                                + `\n\n<a href="https://t.bilibili.com/${dynamicId}#reply${comment.rpid_str}">View Comment</a>`
+                                + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.info.uname}</a>`
+                            }).then(resp => {
+                              log(`telegram post bilibili-mblog::author_comment success: message_id ${JSON.parse(resp.body)?.result?.message_id}`);
+                              tgCommentsCacheSet.add(comment.rpid_str);
+                            })
+                            .catch(err => {
+                              log(`telegram post bilibili-mblog::author_comment error: ${err}`);
+                            });
+                          }
+                        }
+
+                        // Check replies inside comments
+                        if (Array.isArray(comment.replies) && comment.replies.length > 0) {
+                          const replies = comment.replies;
+
+                          for (const [idx, reply] of replies.entries()) {
+
+                            if (reply?.member?.mid === account.biliId && !tgCommentsCacheSet.has(reply.rpid_str)) {
+                              log(`bilibili-mblog author comment reply detected ${reply.rpid_str} in comment ${comment.rpid_str} for activity ${dynamicId}...`)
+
+                              if (account.tgChannelId && config.telegram.enabled) {
+
+                                await sendTelegram({ method: 'sendMessage' }, {
+                                  chat_id: account.tgChannelId,
+                                  parse_mode: 'HTML',
+                                  disable_web_page_preview: true,
+                                  text: `${msgPrefix}#b站新评论回复 (${timeAgo(+new Date(reply.ctime * 1000))})：${stripHtml(reply?.content?.message) || '未知内容'}`
+                                    + `\n\n<a href="https://t.bilibili.com/${dynamicId}#reply${reply.rpid_str}">View Reply</a>`
+                                    + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.info.uname}</a>`
+                                  }).then(resp => {
+                                  log(`telegram post bilibili-mblog::author_comment_reply success: message_id ${JSON.parse(resp.body)?.result?.message_id}`);
+                                  tgCommentsCacheSet.add(reply.rpid_str);
+                                })
+                                .catch(err => {
+                                  log(`telegram post bilibili-mblog::author_comment_reply error: ${err}`);
+                                });
+                              }
+                            }
+                          }
+                        } else {
+                          argv.verbose && log(`bilibili-mblog comment ${comment.rpid_str} has no reply, skipped`);
+                        }
+                      }
+                    } else {
+                      log('bilibili-mblog comments corrupted, skipped');
+                    }
+                  }).catch(err => {
+                    log(`bilibili-mblog comments request error: ${err}`);
+
+                    if (err.stack) {
+                      console.log(err.stack);
+                    }
+                  });
+                }
               } else if (idx === idxLatest && timestamp <= dbScopeTimestampUnix) {
                 log(`bilibili-mblog new post older than database. latest: ${dynamicId} (${timeAgo(timestamp)})`);
                 // NOTE: Disable deleted dynamic detection when API is unstable
@@ -1467,6 +1546,7 @@ async function main(config) {
 
             // Set new data to database
             dbStore.tgCache = [...tgCacheSet];
+            dbStore.tgCommentsCache = [...tgCommentsCacheSet];
             dbScope['bilibili_mblog'] = dbStore;
           } else {
             log('bilibili-mblog empty result, skipping...');
@@ -1776,13 +1856,13 @@ async function main(config) {
 
             // Creating Telegram cache set from database. This ensure no duplicated notifications will be sent
             const tgCacheSet = new Set(Array.isArray(dbScope?.weibo?.tgCache) ? dbScope.weibo.tgCache.reverse().slice(0, 30).reverse() : []);
+            const tgCommentsCacheSet = new Set(Array.isArray(dbScope?.weibo?.tgCommentsCache) ? dbScope.weibo.tgCommentsCache.reverse().slice(0, 30).reverse() : []);
 
             // Start storing time-sensitive data after checking user info changes
             const dbStore = {
               scrapedTime: new Date(currentTime),
               scrapedTimeUnix: +new Date(currentTime),
               user: user,
-              tgCache: [...tgCacheSet],
             };
 
             // Morph data for database schema
@@ -1808,6 +1888,7 @@ async function main(config) {
 
               const timestamp = +new Date(activity.created_at);
               const id = activity.bid;
+              const commentsId = activity.id;
               const visibility = activity?.visible?.type;
               const editCount = activity?.edit_count || 0;
               const idxLatest = activities.length - 1;
@@ -1817,6 +1898,7 @@ async function main(config) {
               if (idx === idxLatest) {
                 dbStore.latestStatus = {
                   id: id,
+                  commentsId: commentsId,
                   text: text,
                   visibility: visibility,
                   editCount: editCount,
@@ -1830,6 +1912,86 @@ async function main(config) {
                 log(`weibo initial run, notifications skipped`);
               } else if (timestamp === dbScopeTimestampUnix) {
                 log(`weibo no update. latest: ${dbScope?.weibo?.latestStatus?.id} (${timeAgo(dbScope?.weibo?.latestStatus?.timestamp)})`);
+
+                if (account.weiboFetchingComments) {
+                  const weiboCommentsRequestUrl = `https://m.weibo.cn/comments/hotflow?id=${commentsId}&mid=${commentsId}&max_id_type=0`;
+                  log(`weibo fetching comments from ${commentsId} for activity ${id}...`)
+                  argv.verbose && log(`weibo comments requesting ${weiboCommentsRequestUrl}`);
+                  await got(weiboCommentsRequestUrl, weiboRequestOptions).then(async resp => {
+                    const json = JSON.parse(resp.body);
+
+                    if (json?.ok === 1 && Array.isArray(json.data.data) && json.data.data.length > 0) {
+                      const comments = json.data.data;
+
+                      for (const [idx, comment] of comments.entries()) {
+
+                        if (comment?.user?.id === +account.weiboId && !tgCommentsCacheSet.has(comment.bid)) {
+                          log(`weibo author comment detected ${comment.bid} for activity ${id}...`)
+
+                          if (account.tgChannelId && config.telegram.enabled) {
+
+                            await sendTelegram({ method: 'sendMessage' }, {
+                              chat_id: account.tgChannelId,
+                              parse_mode: 'HTML',
+                              disable_web_page_preview: true,
+                              text: `${msgPrefix}#微博新评论 (${timeAgo(+new Date(comment.created_at))})：${stripHtml(comment?.text) || '未知内容'}`
+                                + `\n被评论的微博：${text || '未知内容'}`
+                                + `\n\n<a href="https://weibo.com/${user.id}/${id}">View</a>`
+                                + ` | <a href="https://weibo.com/${user.id}">${user.screen_name}</a>`
+                            }).then(resp => {
+                              log(`telegram post weibo::author_comment success: message_id ${JSON.parse(resp.body)?.result?.message_id}`);
+                              tgCommentsCacheSet.add(comment.bid);
+                            })
+                            .catch(err => {
+                              log(`telegram post weibo::author_comment error: ${err}`);
+                            });
+                          }
+                        }
+
+                        // Check replies inside comments
+                        if (Array.isArray(comment.comments) && comment.comments.length > 0) {
+                          const replies = comment.comments;
+
+                          for (const [idx, reply] of replies.entries()) {
+
+                            if (reply?.user?.id === +account.weiboId && !tgCommentsCacheSet.has(reply.bid)) {
+                              log(`weibo author comment reply detected ${reply.bid} in comment ${comment.bid} for activity ${id}...`)
+
+                              if (account.tgChannelId && config.telegram.enabled) {
+
+                                await sendTelegram({ method: 'sendMessage' }, {
+                                  chat_id: account.tgChannelId,
+                                  parse_mode: 'HTML',
+                                  disable_web_page_preview: true,
+                                  text: `${msgPrefix}#微博新评论回复 (${timeAgo(+new Date(reply.created_at))})：${stripHtml(reply?.text) || '未知内容'}`
+                                    + `\n被回复的评论：${stripHtml(comment?.text) || '未知内容'}`
+                                    + `\n\n<a href="https://weibo.com/${user.id}/${id}">View</a>`
+                                    + ` | <a href="https://weibo.com/${user.id}">${user.screen_name}</a>`
+                                }).then(resp => {
+                                  log(`telegram post weibo::author_comment_reply success: message_id ${JSON.parse(resp.body)?.result?.message_id}`);
+                                  tgCommentsCacheSet.add(reply.bid);
+                                })
+                                .catch(err => {
+                                  log(`telegram post weibo::author_comment_reply error: ${err}`);
+                                });
+                              }
+                            }
+                          }
+                        } else {
+                          argv.verbose && log(`weibo comment ${comment.bid} has no reply, skipped`);
+                        }
+                      }
+                    } else {
+                      log('weibo comments corrupted, skipped');
+                    }
+                  }).catch(err => {
+                    log(`weibo comments request error: ${err}`);
+
+                    if (err.stack) {
+                      console.log(err.stack);
+                    }
+                  });
+                }
               } else if (idx === idxLatest && timestamp <= dbScopeTimestampUnix) {
                 log(`weibo new post older than database. latest: ${id} (${timeAgo(timestamp)})`);
                 // NOTE: Disable deleted weibo detection when API is unstable
@@ -2039,6 +2201,7 @@ async function main(config) {
 
             // Set new data to database
             dbStore.tgCache = [...tgCacheSet];
+            dbStore.tgCommentsCache = [...tgCommentsCacheSet];
             dbScope['weibo'] = dbStore;
           } else {
             log('weibo empty result, skipping...');

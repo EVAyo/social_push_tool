@@ -144,6 +144,12 @@ export default {
       // bilibili account UID
       biliId: '672328094',
 
+      // Check bilibili activity comments. Disabled by default
+      // This fires another API to monitor comments and replies. It's not
+      // recommended to enable this feature if you have a lot of accounts to
+      // monitor or you will soon hit API rate limit.
+      bilibiliFetchingComments: true,
+
       // Douyin account ID
       douyinId: 'MS4wLjABAAAA5ZrIrbgva_HMeHuNn64goOD2XYnk4ItSypgRHlbSh1c',
 
@@ -152,6 +158,12 @@ export default {
 
       // Weibo account ID
       weiboId: '7595006312',
+
+      // Check Weibo activity comments. Disabled by default
+      // This fires another API to monitor comments and replies. It's not
+      // recommended to enable this feature if you have a lot of accounts to
+      // monitor or you will soon hit API rate limit.
+      weiboFetchingComments: true,
 
       // Telegram chat/channel ID to receive notifications
       tgChannelId: 41205411,
