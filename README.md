@@ -165,7 +165,7 @@ export default {
 
       // Update Telegram chat/channel photo/avatar when user avatar updates in
       // included sources.
-      tgChannelAvatarSource: ['weibo'],
+      tgChannelAvatarSource: ['weibo', 'bilibili'],
 
       // Show custom color output in console. Nothing useful
       color: '#e799b0',

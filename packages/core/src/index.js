@@ -736,19 +736,43 @@ async function main(config) {
             }
 
             if (account.tgChannelId && config.telegram.enabled) {
+              const photoExt = avatar.split('.').pop();
+              const tgForm = new FormData();
+              const avatarImage = await readProcessedImage(`${avatar}`);
+              tgForm.append('chat_id', account.tgChannelId);
+              tgForm.append('parse_mode', 'HTML');
+              tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', avatarImage);
+              tgForm.append('caption', `${msgPrefix}#b站头像更新，旧头像：${dbScope?.bilibili_live?.avatar}`
+                + `\n\n<a href="https://space.bilibili.com/${uid}">${nickname}</a>`
+              );
 
-              await sendTelegram({ method: 'sendPhoto' }, {
-                chat_id: account.tgChannelId,
-                photo: avatar,
-                parse_mode: 'HTML',
-                caption: `${msgPrefix}#b站头像更新，旧头像：${dbScope?.bilibili_live?.avatar}`
-                  + `\n\n<a href="https://space.bilibili.com/${uid}">${nickname}</a>`
-              }).then(resp => {
-                // log(`telegram post bilibili-live::avatar success: message_id ${resp.result.message_id}`)
+              await sendTelegram({
+                method: photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto',
+                payload: 'form',
+              }, tgForm).then(resp => {
+                // log(`telegram post weibo::avatar success: message_id ${resp.result.message_id}`)
               })
               .catch(err => {
                 log(`telegram post bilibili-live::avatar error: ${err?.response?.body || err}`);
               });
+
+              if (account.tgChannelAvatarSource && account.tgChannelAvatarSource.includes('bilibili')) {
+                log(`telegram avatar update enabled from bilibili-live: ${avatar}`);
+
+                const tgAvatarForm = new FormData();
+                tgAvatarForm.append('chat_id', account.tgChannelId);
+                tgAvatarForm.append('photo', avatarImage);
+
+                await sendTelegram({
+                  method: 'setChatPhoto',
+                  payload: 'form',
+                }, tgAvatarForm).then(resp => {
+                  // log(`telegram post weibo::avatar success: message_id ${resp.result.message_id}`)
+                })
+                .catch(err => {
+                  log(`telegram post bilibili-live::avatar error: ${err?.response?.body || err}`);
+                });
+              }
             }
           }
 
@@ -1681,8 +1705,8 @@ async function main(config) {
                   log(`telegram post weibo::avatar error: ${err}`);
                 });
 
-                if (account.tgChannelAvatarSource && account.tgChannelAvatarSource.includes('weiboz')) {
-                  log(`telegram avatar update enabled for this channel: ${user.avatar_hd}`);
+                if (account.tgChannelAvatarSource && account.tgChannelAvatarSource.includes('weibo')) {
+                  log(`telegram avatar update enabled from weibo: ${user.avatar_hd}`);
 
                   const tgAvatarForm = new FormData();
                   tgAvatarForm.append('chat_id', account.tgChannelId);
