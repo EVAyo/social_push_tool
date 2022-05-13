@@ -1246,8 +1246,10 @@ async function main(config) {
                 }
 
                 // If the status has additional geolocation info
+                // bilibili returns false positive data for ukown geolocation:
+                // lbs: "{\"location\":{},\"title\":\"隐藏位置\"}"
                 if (cardExtendedJson) {
-                  extendedMeta += `\n\n坐标：${cardExtendedJson.show_title}（${cardExtendedJson.address}）`;
+                  extendedMeta += `\n\n坐标：${cardExtendedJson.show_title || cardExtendedJson.title || '未知'}（${cardExtendedJson.address || '未知坐标'}）`;
                 }
 
                 // Check post type
