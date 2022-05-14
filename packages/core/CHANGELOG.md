@@ -3,6 +3,22 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.5.1](https://github.com/sparanoid/a-soul/compare/v1.5.0...v1.5.1) (2022-05-14)
+
+
+### Bug Fixes
+
+* **core:** wrong comment fetching for bilibili-mblog ([1561fdc](https://github.com/sparanoid/a-soul/commit/1561fdcdc0b0ad0b2794e3745d04d64ed3d376a2))
+
+
+### Features
+
+* **core:** silent comments and reply notifications for telegram by default ([fbfaac7](https://github.com/sparanoid/a-soul/commit/fbfaac75a9fc57c7137fa544046022addeb7c227))
+
+
+
+
+
 # [1.5.0](https://github.com/sparanoid/a-soul/compare/v1.4.0...v1.5.0) (2022-05-14)
 
 
