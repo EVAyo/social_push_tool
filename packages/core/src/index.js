@@ -1211,12 +1211,56 @@ async function main(config) {
               } else if (timestamp === dbScopeTimestampUnix) {
                 log(`bilibili-mblog no update. latest: ${dbScope?.bilibili_mblog?.latestDynamic?.id} (${timeAgo(dbScope?.bilibili_mblog?.latestDynamic?.timestamp)})`);
 
+                // Set comment type based on activity type
+                //
+                // Check post type
+                // https://www.mywiki.cn/dgck81lnn/index.php/%E5%93%94%E5%93%A9%E5%93%94%E5%93%A9API%E8%AF%A6%E8%A7%A3
+                //
+                // Activity type:
+                // 1	转发动态	355295470145652823	查看 查询
+                // 2	相册投稿	351782199784737587	查看 查询
+                // 4	文字动态	371794999330051793	查看 查询
+                // 8	视频投稿	355292278981797225	查看 查询
+                // 16	VC小视频投稿	354713888622461421	查看 查询
+                // 64	专栏投稿	334997154054634266	查看 查询
+                // 256	音频投稿	352216850471547670	查看 查询
+                // 2048	分享歌单	325805722180163707	查看 查询
+                // 4300	分享视频收藏夹	355307388674695344	查看 查询
+                //
+                // Comment type:
+                // 1	视频投稿	AV号	59671812	查看 查询
+                // 5	VC小视频投稿	VC号	2879073	查看 查询
+                // 11	相册投稿	相册投稿号	65916366	查看 查询
+                // 12	专栏投稿	CV号	3695898	查看 查询
+                // 14	音频投稿	AU号	1285217	查看 查询
+                // 17	其他动态	动态号	371794999330051793	查看 查询
+                // 19	音频歌单	AM号	10624	查看 查询
                 const commentsTypeMap = {
-
+                  1: 17,
+                  2: 11,
+                  4: 17,
+                  8: 1,
+                  16: 5,
+                  64: 12,
+                  256: 14,
+                  2048: 19,
+                  4300: 17,
                 };
 
+                const commentsIdMap = {
+                  1: dynamicId,
+                  2: commentsId,
+                  4: dynamicId,
+                  8: commentsId,
+                  16: commentsId,
+                  64: commentsId,
+                  256: commentsId,
+                  2048: commentsId,
+                  4300: dynamicId,
+                }
+
                 if (account.bilibiliFetchingComments) {
-                  const bilibiliCommentsRequestUrl = `https://api.bilibili.com/x/v2/reply/main?oid=${dynamicId}&type=17`;
+                  const bilibiliCommentsRequestUrl = `https://api.bilibili.com/x/v2/reply/main?oid=${commentsIdMap[type]}&type=${commentsTypeMap[type]}`;
                   log(`bilibili-mblog fetching comments from ${commentsId} for activity ${dynamicId}...`)
                   argv.verbose && log(`bilibili-mblog comments requesting ${bilibiliCommentsRequestUrl}`);
                   await got(bilibiliCommentsRequestUrl, {...config.pluginOptions?.requestOptions, ...proxyOptions}).then(async resp => {
@@ -1286,7 +1330,7 @@ async function main(config) {
                         }
                       }
                     } else {
-                      log('bilibili-mblog comments corrupted, skipped');
+                      log('bilibili-mblog comments corrupted or has no reply, skipped');
                     }
                   }).catch(err => {
                     log(`bilibili-mblog comments request error: ${err}`);
@@ -1385,9 +1429,6 @@ async function main(config) {
                   extendedMeta += `\n\n坐标：${cardExtendedJson.show_title || cardExtendedJson.title || '未知'}（${cardExtendedJson.address || '未知坐标'}）`;
                 }
 
-                // Check post type
-                // https://www.mywiki.cn/dgck81lnn/index.php/%E5%93%94%E5%93%A9%E5%93%94%E5%93%A9API%E8%AF%A6%E8%A7%A3
-                //
                 // Forwarded post (think retweet)
                 if (type === 1) {
                   const originJson = JSON.parse(cardJson?.origin);
