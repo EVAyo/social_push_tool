@@ -1935,7 +1935,7 @@ async function main(config) {
                               parse_mode: 'HTML',
                               disable_web_page_preview: true,
                               text: `${msgPrefix}#微博新评论 (${timeAgo(+new Date(comment.created_at))})：${stripHtml(comment?.text) || '未知内容'}`
-                                + `\n被评论的微博：${text || '未知内容'}`
+                                + `\n\n被评论的微博：${text || '未知内容'}`
                                 + `\n\n<a href="https://weibo.com/${user.id}/${id}">View</a>`
                                 + ` | <a href="https://weibo.com/${user.id}">${user.screen_name}</a>`
                             }).then(resp => {
@@ -1964,7 +1964,7 @@ async function main(config) {
                                   parse_mode: 'HTML',
                                   disable_web_page_preview: true,
                                   text: `${msgPrefix}#微博新评论回复 (${timeAgo(+new Date(reply.created_at))})：${stripHtml(reply?.text) || '未知内容'}`
-                                    + `\n被回复的评论：${stripHtml(comment?.text) || '未知内容'}`
+                                    + `\n\n被回复的评论：${stripHtml(comment?.text) || '未知内容'}`
                                     + `\n\n<a href="https://weibo.com/${user.id}/${id}">View</a>`
                                     + ` | <a href="https://weibo.com/${user.id}">${user.screen_name}</a>`
                                 }).then(resp => {
