@@ -41,7 +41,7 @@ async function extract(url, options = {}) {
       return JSON.parse(decodeJson);
     }
 
-    // Deprecated: this was used to detech detect Douyin live streams for mobile
+    // Deprecated: this was used to detect Douyin live streams for mobile
     // devices like https://webcast.amemv.com/webcast/reflow/6996256987986021157
     // But now it uses a seperate API call without embedding then in HTML.
     // See core/src/index.js for example.
