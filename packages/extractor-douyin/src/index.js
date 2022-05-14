@@ -36,12 +36,15 @@ async function extract(url, options = {}) {
     const renderedData = dom.window.document.querySelector(el_target);
     const renderedLiveData = dom.window.document.querySelectorAll('script');
 
-    // If Douyin main site
     if (renderedData) {
       const decodeJson = decodeURIComponent(renderedData.textContent);
       return JSON.parse(decodeJson);
     }
 
+    // Deprecated: this was used to detech detect Douyin live streams for mobile
+    // devices like https://webcast.amemv.com/webcast/reflow/6996256987986021157
+    // But now it uses a seperate API call without embedding then in HTML.
+    // See core/src/index.js for example.
     else if (renderedLiveData) {
 
       for (let i = 0; i < renderedLiveData.length; i++) {

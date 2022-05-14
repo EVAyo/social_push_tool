@@ -262,116 +262,138 @@ async function main(config) {
           const id_str = json?.room?.id_str;
 
           if (status === 2) {
-            argv.verbose && log(`douyin-live seems started, begin second check...`);
+            // Magic `app_id` from Douyin source code:
+            //
+            // ...
+            // t[t.douyin = 1128] = "douyin",
+            // t[t.huoshan = 1112] = "huoshan",
+            // t[t.toutiao = 13] = "toutiao",
+            // t[t.xigua = 32] = "xigua",
+            // t[t.toutiaoLite = 35] = "toutiaoLite",
+            // t[t.motor = 36] = "motor",
+            // t[t.douyinLite = 2329] = "douyinLite",
+            // t[t.jumanji = 6340] = "jumanji",
+            // t[t.maya = 1349] = "maya"
+            // ...
+            const douyinLiveDetailsRequestUrl = `https://webcast.amemv.com/webcast/room/reflow/info/?type_id=0&live_id=1&room_id=${id_str}&app_id=1128`;
+            log(`douyin-live seems started, begin second check...`);
+            argv.verbose && log(`douyin-live requesting ${douyinLiveDetailsRequestUrl}`);
 
-            await dyExtract(`https://webcast.amemv.com/webcast/reflow/${id_str}`, {...config.pluginOptions, ...cookieOnDemand(config.pluginOptions.customCookies.douyin)}).then(async resp => {
-              const currentTime = Date.now();
-              const json = resp?.['/webcast/reflow/:id'];
+            await got(douyinLiveDetailsRequestUrl, {...config.pluginOptions?.requestOptions, ...proxyOptions}).then(async resp => {
+              const json = JSON.parse(resp.body);
 
-              if (json?.room) {
-                argv.json && fs.writeFile(`db/${account.slug}-douyin-live.json`, JSON.stringify(json, null, 2), err => {
-                  if (err) return console.log(err);
-                });
+              if (json?.status_code === 0) {
+                const currentTime = Date.now();
+                const data = json.data;
 
-                const {
-                  id_str,
-                  title,
-                  cover,
-                  create_time,
-                  stream_url,
-                } = json.room;
+                if (data?.room) {
+                  argv.json && fs.writeFile(`db/${account.slug}-douyin-live.json`, JSON.stringify(json, null, 2), err => {
+                    if (err) return console.log(err);
+                  });
 
-                const {
-                  nickname,
-                  web_rid,
-                  sec_uid,
-                  id,
-                  short_id,
-                  signature,
-                  avatar_large,
-                  authentication_info,
-                } = json.room.owner;
+                  const {
+                    id_str,
+                    title,
+                    cover,
+                    create_time,
+                    stream_url,
+                  } = data.room;
 
-                const liveCover = cover?.url_list?.[0];
-                const timestamp = create_time * 1000;
-                const streamUrl = Object.values(stream_url.hls_pull_url_map)[0];
+                  const {
+                    nickname,
+                    web_rid,
+                    sec_uid,
+                    id,
+                    short_id,
+                    signature,
+                    avatar_large,
+                    authentication_info,
+                  } = data.room.owner;
 
-                const dbStore = {
-                  nickname: nickname,
-                  uid: sec_uid,
-                  scrapedTime: new Date(currentTime),
-                  sign: signature,
-                  latestStream: {
-                    liveStatus: status,
-                    liveStarted: timestamp,
-                    liveRoom: id_str,
-                    liveTitle: title,
-                    liveCover: liveCover,
-                    isTgSent: dbScope?.douyin_live?.latestStream?.isTgSent,
-                  },
-                  streamFormats: stream_url.candidate_resolution,
-                  streamUrl: streamUrl,
-                };
+                  const liveCover = cover?.url_list?.[0];
+                  const timestamp = create_time * 1000;
+                  const streamUrl = Object.values(stream_url.hls_pull_url_map)[0];
 
-                if (json?.room?.status === 2) {
-                  log(`douyin-live started: ${title} (${timeAgo(timestamp)})`);
-
-                  const tgOptions = {
-                    method: 'sendPhoto',
+                  const dbStore = {
+                    nickname: nickname,
+                    uid: sec_uid,
+                    scrapedTime: new Date(currentTime),
+                    sign: signature,
+                    latestStream: {
+                      liveStatus: status,
+                      liveStarted: timestamp,
+                      liveRoom: id_str,
+                      liveTitle: title,
+                      liveCover: liveCover,
+                      isTgSent: dbScope?.douyin_live?.latestStream?.isTgSent,
+                    },
+                    streamFormats: stream_url.candidate_resolution,
+                    streamUrl: streamUrl,
                   };
 
-                  const tgBody = {
-                    chat_id: account.tgChannelId,
-                    photo: liveCover,
-                    parse_mode: 'HTML',
-                    caption: `${msgPrefix}#抖音开播：${title}`
+                  if (data?.room?.status === 2) {
+                    log(`douyin-live started: ${title} (${timeAgo(timestamp)})`);
+
+                    const tgOptions = {
+                      method: 'sendPhoto',
+                      payload: 'form'
+                    };
+
+                    const tgForm = new FormData();
+                    tgForm.append('chat_id', account.tgChannelId);
+                    tgForm.append('parse_mode', 'HTML');
+                    tgForm.append('photo', await readProcessedImage(`${liveCover}`));
+                    tgForm.append('caption', `${msgPrefix}#抖音开播：${title}`
                       + `\n\n<a href="https://webcast.amemv.com/webcast/reflow/${id_str}">Watch</a>`
                       + ` | <a href="${streamUrl}">M3U8</a>`
                       + ` | <a href="${liveCover}">Artwork</a>`
-                      + ` | <a href="https://live.douyin.com/${account.douyinLiveId}">${nickname}</a>`
-                  }
+                      + ` | <a href="https://live.douyin.com/${account.douyinLiveId}">${nickname}</a>`);
 
-                  if (dbScope?.douyin_live?.latestStream?.isTgSent) {
-                    log(`douyin-live notification sent, skipping...`);
-                  } else if ((currentTime - timestamp) >= config.douyinLiveBotThrottle) {
-                    log(`douyin-live too old, notifications skipped`);
+                    if (dbScope?.douyin_live?.latestStream?.isTgSent) {
+                      log(`douyin-live notification sent, skipping...`);
+                    } else if ((currentTime - timestamp) >= config.douyinLiveBotThrottle) {
+                      log(`douyin-live too old, notifications skipped`);
+                    } else {
+
+                      if (account.qGuildId && config.qGuild.enabled) {
+
+                        await sendQGuild({method: 'send_guild_channel_msg'}, {
+                          guild_id: account.qGuildId,
+                          channel_id: account.qGuildChannelId,
+                          message: `${msgPrefix}#抖音开播：${title}\n地址：https://webcast.amemv.com/webcast/reflow/${id_str}\nM3U8提取：${streamUrl}\n[CQ:image,file=${liveCover}]`,
+                        }).then(resp => {
+                          // log(`go-qchttp post weibo success: ${resp}`);
+                        })
+                        .catch(err => {
+                          log(`go-qchttp post douyin-live error: ${err?.response?.body || err}`);
+                        });
+                      }
+
+                      if (account.tgChannelId && config.telegram.enabled) {
+
+                        // This function should be waited since we rely on the `isTgSent` flag
+                        await sendTelegram(tgOptions, tgForm).then(resp => {
+                          // log(`telegram post douyin-live success: message_id ${resp.result.message_id}`)
+                          dbStore.latestStream.isTgSent = true;
+                        })
+                        .catch(err => {
+                          log(`telegram post douyin-live error: ${err?.response?.body || err}`);
+                        });
+                      }
+                    }
                   } else {
-
-                    if (account.qGuildId && config.qGuild.enabled) {
-
-                      await sendQGuild({method: 'send_guild_channel_msg'}, {
-                        guild_id: account.qGuildId,
-                        channel_id: account.qGuildChannelId,
-                        message: `${msgPrefix}#抖音开播：${title}\n地址：https://webcast.amemv.com/webcast/reflow/${id_str}\nM3U8提取：${streamUrl}\n[CQ:image,file=${liveCover}]`,
-                      }).then(resp => {
-                        // log(`go-qchttp post weibo success: ${resp}`);
-                      })
-                      .catch(err => {
-                        log(`go-qchttp post douyin-live error: ${err?.response?.body || err}`);
-                      });
-                    }
-
-                    if (account.tgChannelId && config.telegram.enabled) {
-
-                      // This function should be waited since we rely on the `isTgSent` flag
-                      await sendTelegram(tgOptions, tgBody).then(resp => {
-                        // log(`telegram post douyin-live success: message_id ${resp.result.message_id}`)
-                        dbStore.latestStream.isTgSent = true;
-                      })
-                      .catch(err => {
-                        log(`telegram post douyin-live error: ${err?.response?.body || err}`);
-                      });
-                    }
+                    log(`douyin-live not started yet (2nd check)`);
+                    dbStore.latestStream.isTgSent = false;
                   }
+
+                  // Set new data to database
+                  dbScope['douyin_live'] = dbStore;
                 } else {
-                  log(`douyin-live not started yet (2nd check)`);
-                  dbStore.latestStream.isTgSent = false;
+                  log(`douyin-live empty room info, skipping...`);
                 }
 
-                // Set new data to database
-                dbScope['douyin_live'] = dbStore;
               } else {
-                log(`douyin-live stream info corrupted, skipping...`);
+                log('douyin-live stream info corrupted, skipping...');
               }
             });
           } else {
@@ -1188,6 +1210,10 @@ async function main(config) {
                 log(`bilibili-mblog initial run, notifications skipped`);
               } else if (timestamp === dbScopeTimestampUnix) {
                 log(`bilibili-mblog no update. latest: ${dbScope?.bilibili_mblog?.latestDynamic?.id} (${timeAgo(dbScope?.bilibili_mblog?.latestDynamic?.timestamp)})`);
+
+                const commentsTypeMap = {
+
+                };
 
                 if (account.bilibiliFetchingComments) {
                   const bilibiliCommentsRequestUrl = `https://api.bilibili.com/x/v2/reply/main?oid=${dynamicId}&type=17`;
