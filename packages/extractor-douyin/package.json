@@ -1,6 +1,6 @@
 {
   "name": "@a-soul/extractor-douyin",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Extract rendered data from Douyin web version",
   "main": "src/index.js",
   "repository": "https://github.com/sparanoid/a-soul",

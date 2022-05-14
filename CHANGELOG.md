@@ -3,6 +3,27 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [1.5.0](https://github.com/sparanoid/a-soul/compare/v1.4.0...v1.5.0) (2022-05-14)
+
+
+### Bug Fixes
+
+* **core:** avoid undefined service request log ([7f16ff6](https://github.com/sparanoid/a-soul/commit/7f16ff6ed3d783c5a814a9e2ae4cf8cfc293addd))
+* **core:** douyin-live detection outdated ([16df9d9](https://github.com/sparanoid/a-soul/commit/16df9d993b3236a98150a82dc069537242c38689))
+* **core:** wrong bilibili geolocation detection ([06ac1c9](https://github.com/sparanoid/a-soul/commit/06ac1c9eceb9a8e6286f1b3482e75d69c7b16ff3))
+
+
+### Features
+
+* **core:** ability to check comments for bilibili and weibo ([7e79716](https://github.com/sparanoid/a-soul/commit/7e797169b2a5402ae8b1c100bcda5248436d1902))
+* **core:** sending image with multipart/form-data to avoid weird file naming issues ([a53f821](https://github.com/sparanoid/a-soul/commit/a53f82146c62de997409504f361af964e49295d4))
+* **core:** telegram channel avatar auto update from bilibili ([b4dc7b0](https://github.com/sparanoid/a-soul/commit/b4dc7b026d3d3ca819449cc1acc3aa86ee30af86))
+* **core:** update telegram chat photo when user avatar updates in inincluded sources ([24e84d0](https://github.com/sparanoid/a-soul/commit/24e84d0fca55c7451537ebe60d2e0fec44e01c83))
+
+
+
+
+
 # [1.4.0](https://github.com/sparanoid/a-soul/compare/v1.3.2...v1.4.0) (2022-05-12)
 
 
