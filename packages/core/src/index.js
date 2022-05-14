@@ -1367,8 +1367,9 @@ async function main(config) {
                   // Column post
                   if (originJson?.origin_image_urls) {
                     tgOptions.method = 'sendPhoto';
-                    tgBody.photo = `${originJson?.origin_image_urls}`;
-                    tgBody.caption = `${msgPrefix}#b站专栏转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.author.name}\n被转标题：${originJson.title}\n\n${originJson.summary}${tgBodyFooter}`;
+                    tgOptions.payload = 'form';
+                    tgForm.append('photo', await readProcessedImage(`${originJson?.origin_image_urls}`));
+                    tgForm.append('caption', `${msgPrefix}#b站专栏转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.author.name}\n被转标题：${originJson.title}\n\n${originJson.summary}${tgBodyFooter}`);
                     qgBody.message = `${msgPrefix}#b站专栏转发：${cardJson?.item?.content.trim()}\n动态链接：https://t.bilibili.com/${dynamicId}\n\n被转作者：@${originJson.author.name}\n被转标题：${originJson.title}\n\n${originJson.summary}\n[CQ:image,file=${originJson?.origin_image_urls}]`;
                   }
 
@@ -1457,8 +1458,9 @@ async function main(config) {
                 // Column post
                 else if (type === 64) {
                   tgOptions.method = 'sendPhoto';
-                  tgBody.photo = cardJson.origin_image_urls[0];
-                  tgBody.caption = `${msgPrefix}#b站专栏：${cardJson.title}\n\n${cardJson.summary}${tgBodyFooter}`;
+                  tgOptions.payload = 'form';
+                  tgForm.append('photo', await readProcessedImage(`${cardJson.origin_image_urls[0]}`));
+                  tgForm.append('caption', `${msgPrefix}#b站专栏：${cardJson.title}\n\n${cardJson.summary}${tgBodyFooter}`);
                   qgBody.message = `${msgPrefix}#b站专栏：${cardJson.title}\n\n${cardJson.summary}\n动态链接：https://t.bilibili.com/${dynamicId}\n${cardJson.origin_image_urls.map(item => generateCqCode(item))}`;
 
                   log(`bilibili-mblog got column post (${timeAgo(timestamp)})`);
@@ -1824,14 +1826,20 @@ async function main(config) {
               log(`weibo user cover updated: ${user.cover_image_phone}`);
 
               if (account.tgChannelId && config.telegram.enabled) {
+                const photoExt = convertWeiboUrl(user.cover_image_phone).split('.').pop();
+                const tgForm = new FormData();
+                const coverImage = await readProcessedImage(`${convertWeiboUrl(user.cover_image_phone)}`);
+                tgForm.append('chat_id', account.tgChannelId);
+                tgForm.append('parse_mode', 'HTML');
+                tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', coverImage);
+                tgForm.append('caption', `${msgPrefix}#微博封面更新，旧封面：${convertWeiboUrl(dbScope?.weibo?.user?.cover_image_phone)}`
+                  + `\n\n<a href="https://weibo.com/${user.id}">${user.screen_name}</a>`
+                );
 
-                await sendTelegram({ method: 'sendPhoto' }, {
-                  chat_id: account.tgChannelId,
-                  photo: convertWeiboUrl(user.cover_image_phone),
-                  parse_mode: 'HTML',
-                  caption: `${msgPrefix}#微博封面更新，旧封面：${convertWeiboUrl(dbScope?.weibo?.user?.cover_image_phone)}`
-                    + `\n\n<a href="https://weibo.com/${user.id}">${user.screen_name}</a>`
-                }).then(resp => {
+                await sendTelegram({
+                  method: 'sendPhoto',
+                  payload: 'form'
+                }, tgForm).then(resp => {
                   // log(`telegram post weibo::avatar success: message_id ${resp.result.message_id}`)
                 })
                 .catch(err => {
