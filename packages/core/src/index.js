@@ -253,7 +253,7 @@ async function main(config) {
 
       // Fetch Douyin live
       const douyinLiveRequestUrl = `https://live.douyin.com/${account.douyinLiveId}`;
-      argv.verbose && log(`douyin-live requesting ${douyinLiveRequestUrl}`);
+      account.douyinLiveId && argv.verbose && log(`douyin-live requesting ${douyinLiveRequestUrl}`);
       account.douyinLiveId && await dyExtract(douyinLiveRequestUrl, {...config.pluginOptions, ...cookieOnDemand(config.pluginOptions.customCookies.douyin)}).then(async resp => {
         const json = resp?.initialState?.roomStore?.roomInfo;
 
@@ -394,7 +394,7 @@ async function main(config) {
 
       // Fetch Douyin
       const douyinRequestUrl = `https://www.douyin.com/user/${account.douyinId}`;
-      argv.verbose && log(`douyin requesting ${douyinRequestUrl}`);
+      account.douyinId && argv.verbose && log(`douyin requesting ${douyinRequestUrl}`);
       account.douyinId && await dyExtract(douyinRequestUrl, {...config.pluginOptions, ...cookieOnDemand(config.pluginOptions.customCookies.douyin)}).then(async resp => {
         const currentTime = Date.now();
 
@@ -526,7 +526,7 @@ async function main(config) {
 
       // Fetch bilibili live
       const bilibiliLiveRequestUrl = `https://api.bilibili.com/x/space/acc/info?mid=${account.biliId}`;
-      argv.verbose && log(`bilibili-live requesting ${bilibiliLiveRequestUrl}`);
+      account.biliId && argv.verbose && log(`bilibili-live requesting ${bilibiliLiveRequestUrl}`);
       account.biliId && await got(bilibiliLiveRequestUrl, {...config.pluginOptions?.requestOptions, ...proxyOptions}).then(async resp => {
         const json = JSON.parse(resp.body);
 
@@ -1060,7 +1060,7 @@ async function main(config) {
 
       // Fetch bilibili microblog (dynamics)
       const bilibiliMblogRequestUrl = `https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history?host_uid=${account.biliId}&offset_dynamic_id=0&need_top=0&platform=web`;
-      argv.verbose && log(`bilibili-mblog requesting ${bilibiliMblogRequestUrl}`);
+      account.biliId && argv.verbose && log(`bilibili-mblog requesting ${bilibiliMblogRequestUrl}`);
       account.biliId && await got(bilibiliMblogRequestUrl, {...config.pluginOptions?.requestOptions, ...proxyOptions}).then(async resp => {
         const json = JSON.parse(resp.body);
 
@@ -1574,7 +1574,7 @@ async function main(config) {
       // 231567 + uid: videos
       // 107803 + uid: photos
       const weiboRequestUrl = `https://m.weibo.cn/api/container/getIndex?containerid=230413${account.weiboId}_-_WEIBO_SECOND_PROFILE_WEIBO`;
-      argv.verbose && log(`weibo requesting ${weiboRequestUrl}`);
+      account.weiboId && argv.verbose && log(`weibo requesting ${weiboRequestUrl}`);
       account.weiboId && await got(weiboRequestUrl, weiboRequestOptions).then(async resp => {
         const json = JSON.parse(resp.body);
 
@@ -2220,7 +2220,7 @@ async function main(config) {
 
       // Fetch DDStats
       const ddstatsRequestUrl = `https://ddstats-api.ericlamm.xyz/records/${account.biliId}?limit=15&type=dd`;
-      argv.verbose && log(`ddstats requesting ${ddstatsRequestUrl}`);
+      !account.disableDdstats && argv.verbose && log(`ddstats requesting ${ddstatsRequestUrl}`);
       !account.disableDdstats && account.biliId && await got(ddstatsRequestUrl).then(async resp => {
         const json = JSON.parse(resp.body);
 
