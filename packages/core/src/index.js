@@ -1236,6 +1236,8 @@ async function main(config) {
                               chat_id: account.tgChannelId,
                               parse_mode: 'HTML',
                               disable_web_page_preview: true,
+                              disable_notification: true,
+                              allow_sending_without_reply: true,
                               text: `${msgPrefix}#b站新评论 (${timeAgo(+new Date(comment.ctime * 1000))})：${stripHtml(comment?.content?.message) || '未知内容'}`
                                 + `\n\n<a href="https://t.bilibili.com/${dynamicId}#reply${comment.rpid_str}">View Comment</a>`
                                 + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.info.uname}</a>`
@@ -1264,6 +1266,8 @@ async function main(config) {
                                   chat_id: account.tgChannelId,
                                   parse_mode: 'HTML',
                                   disable_web_page_preview: true,
+                                  disable_notification: true,
+                                  allow_sending_without_reply: true,
                                   text: `${msgPrefix}#b站新评论回复 (${timeAgo(+new Date(reply.ctime * 1000))})：${stripHtml(reply?.content?.message) || '未知内容'}`
                                     + `\n\n<a href="https://t.bilibili.com/${dynamicId}#reply${reply.rpid_str}">View Reply</a>`
                                     + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.info.uname}</a>`
@@ -1968,6 +1972,8 @@ async function main(config) {
                               chat_id: account.tgChannelId,
                               parse_mode: 'HTML',
                               disable_web_page_preview: true,
+                              disable_notification: true,
+                              allow_sending_without_reply: true,
                               text: `${msgPrefix}#微博新评论 (${timeAgo(+new Date(comment.created_at))})：${stripHtml(comment?.text) || '未知内容'}`
                                 + `\n\n被评论的微博：${text || '未知内容'}`
                                 + `\n\n<a href="https://weibo.com/${user.id}/${id}">View</a>`
@@ -1997,6 +2003,8 @@ async function main(config) {
                                   chat_id: account.tgChannelId,
                                   parse_mode: 'HTML',
                                   disable_web_page_preview: true,
+                                  disable_notification: true,
+                                  allow_sending_without_reply: true,
                                   text: `${msgPrefix}#微博新评论回复 (${timeAgo(+new Date(reply.created_at))})：${stripHtml(reply?.text) || '未知内容'}`
                                     + `\n\n被回复的评论：${stripHtml(comment?.text) || '未知内容'}`
                                     + `\n\n<a href="https://weibo.com/${user.id}/${id}">View</a>`
