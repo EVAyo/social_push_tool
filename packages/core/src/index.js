@@ -999,7 +999,9 @@ async function main(config) {
           if (room?.liveStatus === 1) {
 
             // Deprecated v1 API, may be changed in the future
-            await got(`https://api.live.bilibili.com/room/v1/Room/room_init?id=${liveId}`, {...config.pluginOptions?.requestOptions, ...proxyOptions}).then(async resp => {
+            const bilibiliLiveInfoRequestUrl = `https://api.live.bilibili.com/room/v1/Room/room_init?id=${liveId}`;
+            argv.verbose && log(`bilibili-live stream info requesting ${bilibiliLiveInfoRequestUrl}`);
+            await got(bilibiliLiveInfoRequestUrl, {...config.pluginOptions?.requestOptions, ...proxyOptions}).then(async resp => {
               const json = JSON.parse(resp.body);
 
               if (json?.code === 0) {
