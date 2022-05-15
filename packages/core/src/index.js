@@ -2304,7 +2304,7 @@ async function main(config) {
       // Fetch DDStats
       const ddstatsRequestUrl = `https://ddstats-api.ericlamm.xyz/records/${account.biliId}?limit=15&type=dd`;
       !account.disableDdstats && argv.verbose && log(`ddstats requesting ${ddstatsRequestUrl}`);
-      !account.disableDdstats && account.biliId && await got(ddstatsRequestUrl).then(async resp => {
+      !account.disableDdstats && account.biliId && await got(ddstatsRequestUrl, {...config.pluginOptions?.requestOptions, ...proxyOptions}).then(async resp => {
         const json = JSON.parse(resp.body);
 
         if (json?.code === 200) {
