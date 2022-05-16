@@ -1149,7 +1149,7 @@ async function main(config) {
 
             // Creating Telegram cache set from database. This ensure no duplicated notifications will be sent
             const tgCacheSet = new Set(Array.isArray(dbScope?.bilibili_mblog?.tgCache) ? dbScope.bilibili_mblog.tgCache.reverse().slice(0, 30).reverse() : []);
-            const tgCommentsCacheSet = new Set(Array.isArray(dbScope?.bilibili_mblog?.tgCommentsCache) ? dbScope.bilibili_mblog.tgCommentsCache.reverse().slice(0, 30).reverse() : []);
+            const tgCommentsCacheSet = new Set(Array.isArray(dbScope?.bilibili_mblog?.tgCommentsCache) ? dbScope.bilibili_mblog.tgCommentsCache.reverse().slice(0, 300).reverse() : []);
 
             // Start storing time-sensitive data after checking user info changes
             const dbStore = {
@@ -1937,7 +1937,7 @@ async function main(config) {
 
             // Creating Telegram cache set from database. This ensure no duplicated notifications will be sent
             const tgCacheSet = new Set(Array.isArray(dbScope?.weibo?.tgCache) ? dbScope.weibo.tgCache.reverse().slice(0, 30).reverse() : []);
-            const tgCommentsCacheSet = new Set(Array.isArray(dbScope?.weibo?.tgCommentsCache) ? dbScope.weibo.tgCommentsCache.reverse().slice(0, 30).reverse() : []);
+            const tgCommentsCacheSet = new Set(Array.isArray(dbScope?.weibo?.tgCommentsCache) ? dbScope.weibo.tgCommentsCache.reverse().slice(0, 300).reverse() : []);
 
             // Start storing time-sensitive data after checking user info changes
             const dbStore = {
