@@ -4,10 +4,17 @@ export function formatDate(timestamp) {
 }
 
 export function stripHtml(string = '', withBr = true) {
+  // https://regex101.com/r/xa83Od/1
+  // Replace Weibo custom emojis with its alt attribute
   if (withBr) {
-    return string.replace(/<br ?\/?>/gmi, '\n').replace(/(<([^>]+)>)/gmi, '');
+    return string
+      .replace(/<img.*?alt=(\[.*?\])[^\>]+>/gmi, '$1')
+      .replace(/<br ?\/?>/gmi, '\n')
+      .replace(/(<([^>]+)>)/gmi, '');
   } else {
-    return string.replace(/(<([^>]+)>)/gmi, '');
+    return string
+      .replace(/<img.*?alt=(\[.*?\])[^\>]+>/gmi, '$1')
+      .replace(/(<([^>]+)>)/gmi, '');
   }
 }
 
