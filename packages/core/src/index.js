@@ -2279,7 +2279,7 @@ async function main(config) {
 
       // Fetch DDStats
       const ddstatsRequestUrl = `https://ddstats-api.ericlamm.xyz/records/${account.biliId}?limit=15&type=dd`;
-      !account.disableDdstats && argv.verbose && log(`ddstats requesting ${ddstatsRequestUrl}`);
+      !account.disableDdstats && account.biliId && argv.verbose && log(`ddstats requesting ${ddstatsRequestUrl}`);
       !account.disableDdstats && account.biliId && await got(ddstatsRequestUrl, {...config.pluginOptions?.requestOptions, ...proxyOptions}).then(async resp => {
         const json = JSON.parse(resp.body);
 
@@ -2321,7 +2321,8 @@ async function main(config) {
               const timestamp = +new Date(activity.created_at);
               const id = activity.id;
               const type = activity.command || 'UNKNOWN';
-              const content = activity.display;
+              const contentImage = activity?.image?.Valid ? activity.image.String : '';
+              const content = `${activity.display} ${contentImage}`;
               const parsedContent = parseDdstatsString(content, type);
               const idxLatest = activities.length - 1;
 
@@ -2349,7 +2350,7 @@ async function main(config) {
                 chat_id: account.tgChannelId,
                 parse_mode: 'HTML',
                 disable_web_page_preview: true,
-                disable_notification: true,
+                disable_notification: type === 'INTERACT_WORD' ? true : false,
                 text: `${content}${tgBodyFooter}`,
               };
 
@@ -2384,12 +2385,32 @@ async function main(config) {
 
                 if (account.tgChannelId && config.telegram.enabled) {
 
-                  await sendTelegram(tgOptions, tgBody).then(resp => {
-                    // log(`telegram post ddstats success: message_id ${resp.result.message_id}`)
-                  })
-                  .catch(err => {
-                    log(`telegram post ddstats error: ${err?.response?.body || err}`);
-                  });
+                  if (contentImage) {
+                    const tgForm = new FormData();
+                    tgForm.append('chat_id', account.tgChannelId);
+                    tgForm.append('parse_mode', 'HTML');
+                    tgForm.append('disable_web_page_preview', true);
+                    tgForm.append('disable_notification', type === 'INTERACT_WORD' ? true : false);
+                    tgForm.append('photo', await readProcessedImage(`${contentImage}`));
+                    tgForm.append('caption', `${content}${tgBodyFooter}`);
+
+                    await sendTelegram({
+                      method: 'sendPhoto',
+                      payload: 'form',
+                    }, tgForm).then(resp => {
+                      // log(`telegram post ddstats success`)
+                    })
+                    .catch(err => {
+                      log(`telegram post ddstats error: ${err?.response?.body || err}`);
+                    });
+                  } else {
+                    await sendTelegram(tgOptions, tgBody).then(resp => {
+                      // log(`telegram post ddstats success: message_id ${resp.result.message_id}`)
+                    })
+                    .catch(err => {
+                      log(`telegram post ddstats error: ${err?.response?.body || err}`);
+                    });
+                  }
                 }
               }
             };
