@@ -2375,6 +2375,7 @@ async function main(config) {
                 chat_id: account.tgChannelId,
                 parse_mode: 'HTML',
                 disable_web_page_preview: true,
+                disable_notification: true,
                 text: `${content}${tgBodyFooter}`,
               };
 
