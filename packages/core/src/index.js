@@ -1236,7 +1236,9 @@ async function main(config) {
                 }
 
                 if (account.bilibiliFetchingComments) {
-                  const bilibiliCommentsRequestUrl = `https://api.bilibili.com/x/v2/reply/main?oid=${commentsIdMap[type]}&type=${commentsTypeMap[type]}`;
+                  // mode 2: sort by latest
+                  // mode 3: sort by hotest
+                  const bilibiliCommentsRequestUrl = `https://api.bilibili.com/x/v2/reply/main?mode=3&oid=${commentsIdMap[type]}&type=${commentsTypeMap[type]}`;
                   log(`bilibili-mblog fetching comments from ${commentsId} for activity ${dynamicId}...`)
                   argv.verbose && log(`bilibili-mblog comments requesting ${bilibiliCommentsRequestUrl}`);
                   await got(bilibiliCommentsRequestUrl, {...config.pluginOptions?.requestOptions, ...proxyOptions}).then(async resp => {
@@ -1289,6 +1291,7 @@ async function main(config) {
                                   disable_notification: true,
                                   allow_sending_without_reply: true,
                                   text: `${msgPrefix}#b站新评论回复 (${timeAgo(+new Date(reply.ctime * 1000))})：${stripHtml(reply?.content?.message) || '未知内容'}`
+                                    + `\n\n被回复的评论：${stripHtml(comment?.content?.message) || '未知内容'}`
                                     + `\n\n<a href="https://t.bilibili.com/${dynamicId}#reply${reply.rpid_str}">View Reply</a>`
                                     + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.info.uname}</a>`
                                   }).then(resp => {
