@@ -55,7 +55,9 @@ async function generateConfig() {
 
   const userConfig = argv.config ? await import(`${process.cwd()}/${argv.config}`) : { default: {}};
   const defaultConfig = {
-    loopInterval: 60 * 1000, // n seconds
+    loopInterval: 60 * 1000, // 60 seconds
+    loopPauseTimeBase: 1000, // 1 seconds
+    loopPauseTimeRandomFactor: 2000, // 2 seconds
     pluginOptions: {
       requestOptions: {
         timeout: {
@@ -194,7 +196,9 @@ async function main(config) {
     // Only check enabled account
     if (account?.enabled) {
       // Set random request time to avoid request limit
-      await setTimeout(1000 + Math.floor(Math.random() * 2000));
+      const randomPaseTime = config.loopPauseTimeBase + Math.floor(Math.random() * config.loopPauseTimeRandomFactor);
+      argv.verbose && log(`wait ${randomPaseTime} ms before checking...`);
+      await setTimeout(randomPaseTime);
 
       argv.verbose && log(`is checking...`);
 

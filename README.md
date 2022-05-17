@@ -86,6 +86,12 @@ export default {
   // Loop interval in milliseconds
   loopInterval: 60 * 1000,
 
+  // A small amount of time to wait inserted before each account
+  loopPauseTimeBase: 1000,
+
+  // Math.random() time factor for `loopPauseTimeBase`
+  loopPauseTimeRandomFactor: 2000,
+
   // 24 hours, if latest post older than this value, do not send notifications
   douyinBotThrottle: 24 * 3600 * 1000,
   douyinLiveBotThrottle: 1200 * 1000, // 20 mins
