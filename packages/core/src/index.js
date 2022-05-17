@@ -1243,9 +1243,13 @@ async function main(config) {
                   argv.verbose && log(`bilibili-mblog comments requesting ${bilibiliCommentsRequestUrl}`);
                   await got(bilibiliCommentsRequestUrl, {...config.pluginOptions?.requestOptions, ...proxyOptions}).then(async resp => {
                     const json = JSON.parse(resp.body);
+                    const comments = Array.isArray(json.data.replies) && json.data.replies.length > 0 ? json.data.replies : [];
 
-                    if (json?.code === 0 && Array.isArray(json.data.replies) && json.data.replies.length > 0) {
-                      const comments = json.data.replies;
+                    if (json?.code === 0 && comments.length > 0) {
+                      const stickyComments = json?.data?.top?.upper;
+
+                      // Merge sticky comments
+                      stickyComments && comments.unshift(stickyComments);
 
                       for (const [idx, comment] of comments.entries()) {
 
@@ -1291,7 +1295,7 @@ async function main(config) {
                                   disable_notification: true,
                                   allow_sending_without_reply: true,
                                   text: `${msgPrefix}#b站新评论回复 (${timeAgo(+new Date(reply.ctime * 1000))})：${stripHtml(reply?.content?.message) || '未知内容'}`
-                                    + `\n\n被回复的评论：${stripHtml(comment?.content?.message) || '未知内容'}`
+                                    + `\n\n被回复的评论：@${comment?.member?.uname || '未知用户名'}: ${stripHtml(comment?.content?.message) || '未知内容'}`
                                     + `\n\n<a href="https://t.bilibili.com/${dynamicId}#reply${reply.rpid_str}">View Reply</a>`
                                     + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.info.uname}</a>`
                                   }).then(resp => {
