@@ -318,9 +318,9 @@ async function main(config) {
                     tgForm.append('parse_mode', 'HTML');
                     tgForm.append('photo', await readProcessedImage(`${liveCover}`));
                     tgForm.append('caption', `${msgPrefix}#抖音开播：${title}`
-                      + `\n\n<a href="https://webcast.amemv.com/webcast/reflow/${id_str}">Watch</a>`
-                      + ` | <a href="${streamUrl}">M3U8</a>`
-                      + ` | <a href="${liveCover}">Artwork</a>`
+                      + `\n\n<a href="https://webcast.amemv.com/webcast/reflow/${id_str}">${timeAgo(timestamp, 'zh_cn')}</a>`
+                      + ` | <a href="${streamUrl}">M3U8 直链</a>`
+                      + ` | <a href="${liveCover}">封面</a>`
                       + ` | <a href="https://live.douyin.com/${account.douyinLiveId}">${nickname}</a>`);
 
                     if (dbScope?.douyin_live?.latestStream?.isTgSent) {
@@ -470,8 +470,8 @@ async function main(config) {
               video: videoUrl,
               parse_mode: 'HTML',
               caption: `${msgPrefix}#抖音视频：${title} #${id}`
-                + `\n\n<a href="${shareUrl}">Watch</a>`
-                + ` | <a href="${cover}">Artwork</a>`
+                + `\n\n<a href="${shareUrl}">${timeAgo(timestamp, 'zh_cn')}</a>`
+                + ` | <a href="${cover}">封面</a>`
                 + ` | <a href="https://www.douyin.com/user/${secUid}">${nickname}</a>`
             }
             // Check if this is a new post compared to last scrap
@@ -598,10 +598,6 @@ async function main(config) {
             chat_id: account.tgChannelId,
             photo: liveCover,
             parse_mode: 'HTML',
-            caption: `${msgPrefix}#b站开播：${liveTitle}`
-              + `\n\n<a href="${liveRoom}">Watch</a>`
-              + ` | <a href="${liveCover}">Artwork</a>`
-              + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${nickname}</a>`
           };
 
           // If live room title updates
@@ -632,7 +628,7 @@ async function main(config) {
                 parse_mode: 'HTML',
                 disable_web_page_preview: true,
                 text: `${msgPrefix}#b站直播间标题更新\n新：${liveTitle}\n旧：${dbScope?.bilibili_live?.latestStream?.liveTitle}`
-                  + `\n\n<a href="${liveRoom}">Watch</a>`
+                  + `\n\n<a href="${liveRoom}">查看直播间</a>`
                   + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${nickname}</a>`
               }).then(resp => {
                 // log(`telegram post bilibili-live title success: message_id ${resp.result.message_id}`)
@@ -982,6 +978,11 @@ async function main(config) {
                 const data = json.data;
                 const timestamp = data.live_time * 1000;
 
+                tgBody.caption = `${msgPrefix}#b站开播：${liveTitle}`
+                  + `\n\n<a href="${liveRoom}">${timeAgo(timestamp, 'zh_cn')}</a>`
+                  + ` | <a href="${liveCover}">封面</a>`
+                  + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${nickname}</a>`;
+
                 argv.json && fs.writeFile(`db/${account.slug}-bilibili-live.json`, JSON.stringify(json, null, 2), err => {
                   if (err) return console.log(err);
                 });
@@ -1110,7 +1111,7 @@ async function main(config) {
                   disable_web_page_preview: true,
                   text: `${msgPrefix}#b站粉丝装扮变更\n新：${decoNew?.name || '无装扮'}${decoNew?.fan?.number ? '#' + decoNew?.fan?.number : '（无编号）'}`
                     + `\n旧：${decoOld?.name || '无装扮'}${decoOld?.fan?.number ? '#' + decoOld?.fan?.number : '（无编号）'}`
-                    + `${decoNew?.id ? `\n\n<a href="${decoNew?.jump_url || '未知'}">Decoration Link</a>` : ''}`
+                    + `${decoNew?.id ? `\n\n<a href="${decoNew?.jump_url || '未知'}">装扮链接</a>` : ''}`
                     + `${decoNew?.id ? ` | ` : `\n\n`}<a href="https://space.bilibili.com/${uid}">${user.info.uname}</a>`
                 }).then(resp => {
                   // log(`telegram post bilibili-mblog::decorate_card success: message_id ${resp.result.message_id}`)
@@ -1264,8 +1265,8 @@ async function main(config) {
                               disable_web_page_preview: true,
                               disable_notification: true,
                               allow_sending_without_reply: true,
-                              text: `${msgPrefix}#b站新评论 (${timeAgo(+new Date(comment.ctime * 1000))})：${stripHtml(comment?.content?.message) || '未知内容'}`
-                                + `\n\n<a href="https://t.bilibili.com/${dynamicId}#reply${comment.rpid_str}">View Comment</a>`
+                              text: `${msgPrefix}#b站新评论：${stripHtml(comment?.content?.message) || '未知内容'}`
+                                + `\n\n<a href="https://t.bilibili.com/${dynamicId}#reply${comment.rpid_str}">${timeAgo(+new Date(comment.ctime * 1000), 'zh_cn')}</a>`
                                 + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.info.uname}</a>`
                             }).then(resp => {
                               log(`telegram post bilibili-mblog::author_comment success: message_id ${JSON.parse(resp.body)?.result?.message_id}`);
@@ -1294,9 +1295,9 @@ async function main(config) {
                                   disable_web_page_preview: true,
                                   disable_notification: true,
                                   allow_sending_without_reply: true,
-                                  text: `${msgPrefix}#b站新评论回复 (${timeAgo(+new Date(reply.ctime * 1000))})：${stripHtml(reply?.content?.message) || '未知内容'}`
+                                  text: `${msgPrefix}#b站新评论回复：${stripHtml(reply?.content?.message) || '未知内容'}`
                                     + `\n\n被回复的评论：@${comment?.member?.uname || '未知用户名'}: ${stripHtml(comment?.content?.message) || '未知内容'}`
-                                    + `\n\n<a href="https://t.bilibili.com/${dynamicId}#reply${reply.rpid_str}">View Reply</a>`
+                                    + `\n\n<a href="https://t.bilibili.com/${dynamicId}#reply${reply.rpid_str}">${timeAgo(+new Date(reply.ctime * 1000), 'zh_cn')}</a>`
                                     + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.info.uname}</a>`
                                   }).then(resp => {
                                   log(`telegram post bilibili-mblog::author_comment_reply success: message_id ${JSON.parse(resp.body)?.result?.message_id}`);
@@ -1369,7 +1370,7 @@ async function main(config) {
                   method: 'sendMessage',
                 };
 
-                const tgBodyFooter = `\n\n<a href="https://t.bilibili.com/${dynamicId}">View</a>`
+                const tgBodyFooter = `\n\n<a href="https://t.bilibili.com/${dynamicId}">${timeAgo(timestamp, 'zh_cn')}</a>`
                   + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.info.uname}</a>`;
 
                 const tgBody = {
@@ -1496,8 +1497,8 @@ async function main(config) {
                   // dynamic: microblog text
                   // desc: video description
                   tgBody.caption = `${msgPrefix}#b站视频：${cardJson.title}\n${cardJson.dynamic}\n${cardJson.desc}`
-                    + `\n\n<a href="https://t.bilibili.com/${dynamicId}">View</a>`
-                    + ` | <a href="${cardJson.short_link}">Watch Video</a>`
+                    + `\n\n<a href="https://t.bilibili.com/${dynamicId}">${timeAgo(timestamp, 'zh_cn')}</a>`
+                    + ` | <a href="${cardJson.short_link}">观看视频</a>`
                     + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.info.uname}</a>`;
                   qgBody.message = `${msgPrefix}#b站视频：${cardJson.title}\n${cardJson.dynamic}\n${cardJson.desc}\n动态链接：https://t.bilibili.com/${dynamicId}\n视频链接：${cardJson.short_link}\n[CQ:image,file=${cardJson.pic}]`;
 
@@ -1998,9 +1999,9 @@ async function main(config) {
                               disable_web_page_preview: true,
                               disable_notification: true,
                               allow_sending_without_reply: true,
-                              text: `${msgPrefix}#微博新评论 (${timeAgo(+new Date(comment.created_at))})：${stripHtml(comment?.text) || '未知内容'}`
+                              text: `${msgPrefix}#微博新评论：${stripHtml(comment?.text) || '未知内容'}`
                                 + `\n\n被评论的微博：${text || '未知内容'}`
-                                + `\n\n<a href="https://weibo.com/${user.id}/${id}">View</a>`
+                                + `\n\n<a href="https://weibo.com/${user.id}/${id}">${timeAgo(+new Date(comment.created_at), 'zh_cn')}</a>`
                                 + ` | <a href="https://weibo.com/${user.id}">${user.screen_name}</a>`
                             }).then(resp => {
                               log(`telegram post weibo::author_comment success: message_id ${JSON.parse(resp.body)?.result?.message_id}`);
@@ -2029,9 +2030,9 @@ async function main(config) {
                                   disable_web_page_preview: true,
                                   disable_notification: true,
                                   allow_sending_without_reply: true,
-                                  text: `${msgPrefix}#微博新评论回复 (${timeAgo(+new Date(reply.created_at))})：${stripHtml(reply?.text) || '未知内容'}`
+                                  text: `${msgPrefix}#微博新评论回复：${stripHtml(reply?.text) || '未知内容'}`
                                     + `\n\n被回复的评论：${stripHtml(comment?.text) || '未知内容'}`
-                                    + `\n\n<a href="https://weibo.com/${user.id}/${id}">View</a>`
+                                    + `\n\n<a href="https://weibo.com/${user.id}/${id}">${timeAgo(+new Date(reply.created_at), 'zh_cn')}</a>`
                                     + ` | <a href="https://weibo.com/${user.id}">${user.screen_name}</a>`
                                 }).then(resp => {
                                   log(`telegram post weibo::author_comment_reply success: message_id ${JSON.parse(resp.body)?.result?.message_id}`);
@@ -2138,10 +2139,10 @@ async function main(config) {
                   method: 'sendMessage',
                 };
 
-                const tgBodyFooter = `\n\n<a href="https://weibo.com/${user.id}/${id}">View</a>`
+                const tgBodyFooter = `\n\n<a href="https://weibo.com/${user.id}/${id}">${timeAgo(timestamp, 'zh_cn')}</a>`
                   // Check if retweeted user is visible
                   // `user: null` will be returned if text: "抱歉，作者已设置仅展示半年内微博，此微博已不可见。 "
-                  + `${retweetedStatus && retweetedStatus?.user ? ` | <a href="https://weibo.com/${retweetedStatus.user.id}/${retweetedStatus.bid}">View Retweeted</a>` : ''}`
+                  + `${retweetedStatus && retweetedStatus?.user ? ` | <a href="https://weibo.com/${retweetedStatus.user.id}/${retweetedStatus.bid}">查看被转发微博</a>` : ''}`
                   + ` | <a href="https://weibo.com/${user.id}">${user.screen_name}</a>`;
 
                 const tgBody = {
@@ -2349,9 +2350,9 @@ async function main(config) {
                 method: 'sendMessage',
               };
 
-              const tgBodyFooter = `\n\n<a href="https://ddstats.ericlamm.xyz/user/${account.biliId}">DDStats</a>`
-                + ` | <a href="https://space.bilibili.com/${account.biliId}">${parsedContent?.user || 'View User'}</a>`
-                + ` | <a href="https://space.bilibili.com/${activity?.target_uid}">${parsedContent?.target || 'View Target'}</a>`;
+              const tgBodyFooter = `\n\n<a href="https://ddstats.ericlamm.xyz/user/${account.biliId}">${timeAgo(timestamp, 'zh_cn')}</a>`
+                + ` | <a href="https://space.bilibili.com/${account.biliId}">${parsedContent?.user || '查看用户'}</a>`
+                + ` | <a href="https://space.bilibili.com/${activity?.target_uid}">${parsedContent?.target || '查看目标用户'}</a>`;
 
               const tgBody = {
                 chat_id: account.tgChannelId,
