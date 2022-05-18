@@ -473,7 +473,7 @@ async function main(config) {
               chat_id: account.tgChannelId,
               video: videoUrl,
               parse_mode: 'HTML',
-              caption: `${msgPrefix}#抖音视频：${title} #${id}`
+              caption: `${msgPrefix}#抖音视频：${title}`
                 + `\n\n<a href="${shareUrl}">${timeAgo(timestamp, 'zh_cn')}</a>`
                 + ` | <a href="${cover}">封面</a>`
                 + ` | <a href="https://www.douyin.com/user/${secUid}">${nickname}</a>`
