@@ -26,7 +26,16 @@ import TelegramBot from '@a-soul/sender-telegram';
 import GoQcHttp from '@a-soul/sender-go-qchttp';
 import dyExtract from '@a-soul/extractor-douyin';
 
+import pkg from '../package.json' assert { type: 'json' };
+
+const __dirname = new URL('.', import.meta.url).pathname;
+
 const argv = yargs(hideBin(process.argv))
+  // Workaround for https://github.com/yargs/yargs/issues/1934
+  // TODO: remove once fixed
+  .version(
+    `${pkg.version} -- ${__dirname}`
+  )
   .command('run', 'Extract new posts from services', {
     once: {
       description: 'Only run once',
