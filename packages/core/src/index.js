@@ -2470,7 +2470,10 @@ async function main(config) {
             for (let [idx, activity] of activities.entries()) {
               const timestamp = +new Date(activity.answerAt * 1000);
               const id = activity.visitCode;
-              const content = `${msgPrefix}#提问箱回答 ${activity.title}\n\n回答：${activity.answer.txtContent}`;
+              const content = `${msgPrefix}#提问箱回答 ${activity.title}`
+                + `\n\n回答：${activity.answer.txtContent}`
+                + `${activity.answer?.imgList?.length ? `\n附图：${activity.answer.imgList.join(' ')}` : ''}`
+                + `${activity.answer?.linkCard ? `\n链接：<a href="${activity.answer.linkCard.originalUrl}">${activity.answer.linkCard.title}</a>` : ''}`;
               const idxLatest = activities.length - 1;
 
               // If last (the last one in the array is the latest now) item
