@@ -71,6 +71,7 @@ async function generateConfig() {
     bilibiliLiveBotThrottle: 65 * 60 * 1000,
     weiboBotThrottle: 3600 * 1000,
     ddstatsBotThrottle: 3600 * 1000,
+    tapechatBotThrottle: 3600 * 1000,
     rateLimitProxy: '',
     telegram: {
       enabled: true,
@@ -2428,6 +2429,127 @@ async function main(config) {
       })
       .catch(err => {
         log(`ddstats request error: ${err}`);
+
+        if (err.stack) {
+          console.log(err.stack);
+        }
+      });
+
+      // Fetch DDStats
+      const tapechatRequestUrl = `https://apiv4.tapechat.net/unuser/getQuestionFromUser/${account.tapechatId}?pageSize=20`;
+      account.tapechatId && argv.verbose && log(`tapechat requesting ${tapechatRequestUrl}`);
+      account.tapechatId && await got(tapechatRequestUrl, {...config.pluginOptions?.requestOptions, ...proxyOptions}).then(async resp => {
+        const json = JSON.parse(resp.body);
+
+        if (json?.code === 200) {
+          const currentTime = Date.now();
+          const data = json.content.data;
+
+          if (data.length > 0) {
+            const dbStore = {
+              scrapedTime: new Date(currentTime),
+              scrapedTimeUnix: +new Date(currentTime),
+            };
+
+            // Morph data for database schema
+            const activities = data.map(obj => {
+              return {
+                ...obj,
+                created_at_unix: +new Date(obj.answerAt * 1000)
+              }
+              // Sort array by date in ascending order (reversed).
+            }).sort((a, b) => a.created_at_unix - b.created_at_unix);
+
+            const dbScopeTimestampUnix = dbScope?.tapechat?.latestActivity?.timestampUnix;
+
+            argv.json && fs.writeFile(`db/${account.slug}-tapechat.json`, JSON.stringify(json, null, 2), err => {
+              if (err) return console.log(err);
+            });
+
+            // Loop array reversed to send the latest activity last
+            for (let [idx, activity] of activities.entries()) {
+              const timestamp = +new Date(activity.answerAt * 1000);
+              const id = activity.visitCode;
+              const content = `${msgPrefix}#提问箱回答 ${activity.title}\n\n回答：${activity.answer.txtContent}`;
+              const idxLatest = activities.length - 1;
+
+              // If last (the last one in the array is the latest now) item
+              if (idx === idxLatest) {
+                dbStore.latestActivity = {
+                  id: id,
+                  // Avoid storing content, take too much space
+                  // content: content,
+                  timestamp: new Date(timestamp),
+                  timestampUnix: timestamp,
+                  timeAgo: timeAgo(timestamp),
+                }
+              };
+
+              const tgOptions = {
+                method: 'sendMessage',
+              };
+
+              const tgBodyFooter = `\n\n<a href="https://www.tapechat.net/answeredDetail.html?dynamicId=${id}">${timeAgo(timestamp, 'zh_cn')}</a>`;
+
+              const tgBody = {
+                chat_id: account.tgChannelId,
+                parse_mode: 'HTML',
+                disable_web_page_preview: true,
+                text: `${content}${tgBodyFooter}`,
+              };
+
+              const qgBody = {
+                guild_id: account.qGuildId,
+                channel_id: account.qGuildChannelId,
+                message: `${content}${tgBodyFooter}`,
+              };
+
+              if (!dbScopeTimestampUnix) {
+                log(`tapechat initial run, notifications skipped`);
+              } else if (timestamp === dbScopeTimestampUnix) {
+                log(`tapechat no update. latest: ${dbScope?.tapechat?.latestActivity?.id} (${timeAgo(dbScope?.tapechat?.latestActivity?.timestamp)})`);
+              } else if (idx === idxLatest && timestamp <= dbScopeTimestampUnix) {
+                log(`tapechat new activity older than database. latest: ${id} (${timeAgo(timestamp)})`);
+              } else if (idx === idxLatest && (currentTime - timestamp) >= config.tapechatBotThrottle) {
+                log(`tapechat latest status ${id} (${timeAgo(timestamp)}) older than 'tapechatBotThrottle', skipping...`);
+              } else if (timestamp < dbScopeTimestampUnix) {
+                argv.verbose && log(`tapechat got old activity: ${id} (${timeAgo(timestamp)}), discarding...`);
+              } else {
+                log(`tapechat got update: ${id}: ${content} (${timeAgo(timestamp)})`);
+
+                if (account.qGuildId && config.qGuild.enabled) {
+
+                  await sendQGuild({method: 'send_guild_channel_msg'}, qgBody).then(resp => {
+                    // log(`go-qchttp post tapechat success: ${resp}`);
+                  })
+                  .catch(err => {
+                    log(`go-qchttp post tapechat error: ${err?.response?.body || err}`);
+                  });
+                }
+
+                if (account.tgChannelId && config.telegram.enabled) {
+
+                  await sendTelegram(tgOptions, tgBody).then(resp => {
+                    // log(`telegram post tapechat success: message_id ${resp.result.message_id}`)
+                  })
+                  .catch(err => {
+                    log(`telegram post tapechat error: ${err?.response?.body || err}`);
+                  });
+                }
+              }
+            };
+
+            // Set new data to database
+            dbScope['tapechat'] = dbStore;
+          } else {
+            log('tapechat empty result, skipping...');
+          }
+        } else {
+          log('tapechat info corrupted, skipping...');
+        }
+      })
+      .catch(err => {
+        log(`tapechat request error: ${err}`);
 
         if (err.stack) {
           console.log(err.stack);
