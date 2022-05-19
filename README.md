@@ -29,6 +29,8 @@ Full-featured social media monitor that extracts data from a variety of services
 - [ ] general-rss
 - [ ] github
 - [x] ddstats
+- [x] tapechat
+- [x] aifadian
 
 ## Supported Senders
 
