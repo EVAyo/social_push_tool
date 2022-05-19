@@ -1301,7 +1301,7 @@ async function main(config) {
                                   disable_notification: true,
                                   allow_sending_without_reply: true,
                                   text: `${msgPrefix}#b站新评论回复：${stripHtml(reply?.content?.message) || '未知内容'}`
-                                    + `\n\n被回复的评论：@${comment?.member?.uname || '未知用户名'}: ${stripHtml(comment?.content?.message) || '未知内容'}`
+                                    + `\n\n被回复的评论：<a href="https://space.bilibili.com/${comment.member.mid}">@${comment?.member?.uname || '未知用户名'}</a>: ${stripHtml(comment?.content?.message) || '未知内容'}`
                                     + `\n\n<a href="https://t.bilibili.com/${dynamicId}#reply${reply.rpid_str}">${timeAgo(+new Date(reply.ctime * 1000), 'zh_cn')}</a>`
                                     + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.info.uname}</a>`
                                   }).then(resp => {
