@@ -2036,7 +2036,7 @@ async function main(config) {
                                   disable_notification: true,
                                   allow_sending_without_reply: true,
                                   text: `${msgPrefix}#微博新评论回复：${stripHtml(reply?.text) || '未知内容'}`
-                                    + `\n\n被回复的评论：${stripHtml(comment?.text) || '未知内容'}`
+                                    + `\n\n被回复的评论：@<a href="${comment?.user?.profile_url}">${comment?.user?.screen_name || '未知用户名'}</a>: ${stripHtml(comment?.text) || '未知内容'}`
                                     + `\n\n<a href="https://weibo.com/${user.id}/${id}">${timeAgo(+new Date(reply.created_at), 'zh_cn')}</a>`
                                     + ` | <a href="https://weibo.com/${user.id}">${user.screen_name}</a>`
                                 }).then(resp => {
