@@ -2305,6 +2305,15 @@ async function main(config) {
               scrapedTimeUnix: +new Date(currentTime),
             };
 
+            const tgOptions = {
+              method: 'sendMessage',
+            };
+
+            // Prepared merged content for sending multiple activities in one notification to avoid spamming
+            const mergedContent = [];
+
+            let tgBodyMergedFooter = `\n\n<a href="https://ddstats.ericlamm.xyz/user/${account.biliId}">DDStats</a>`;
+
             // Morph data for database schema
             const activities = data.map(obj => {
               return {
@@ -2348,29 +2357,16 @@ async function main(config) {
                   timestampUnix: timestamp,
                   timeAgo: timeAgo(timestamp),
                 }
+
+                // Update global footer from the first item
+                tgBodyMergedFooter += ` | <a href="https://space.bilibili.com/${account.biliId}">${parsedContent?.user || '查看用户'}</a>`;
               };
 
-              const tgOptions = {
-                method: 'sendMessage',
-              };
+              const targetUserHtml = `<a href="https://space.bilibili.com/${activity?.target_uid}">${parsedContent?.target || '目标用户'}</a>`
 
-              const tgBodyFooter = `\n\n<a href="https://ddstats.ericlamm.xyz/user/${account.biliId}">${timeAgo(timestamp, 'zh_cn')}</a>`
-                + ` | <a href="https://space.bilibili.com/${account.biliId}">${parsedContent?.user || '查看用户'}</a>`
-                + ` | <a href="https://space.bilibili.com/${activity?.target_uid}">${parsedContent?.target || '查看目标用户'}</a>`;
-
-              const tgBody = {
-                chat_id: account.tgChannelId,
-                parse_mode: 'HTML',
-                disable_web_page_preview: true,
-                disable_notification: type === 'INTERACT_WORD' ? true : false,
-                text: `${content}${tgBodyFooter}`,
-              };
-
-              const qgBody = {
-                guild_id: account.qGuildId,
-                channel_id: account.qGuildChannelId,
-                message: `${content}${tgBodyFooter}`,
-              };
+              const contentHtml = content
+                .replace(parsedContent?.target || '未知目标', targetUserHtml)
+                .replace(parsedContent?.user || '未知用户', `#${account.slug}`);
 
               if (!dbScopeTimestampUnix) {
                 log(`ddstats initial run, notifications skipped`);
@@ -2384,48 +2380,42 @@ async function main(config) {
                 argv.verbose && log(`ddstats got old activity: ${id} (${timeAgo(timestamp)}), discarding...`);
               } else {
                 log(`ddstats got update: ${id}: ${content} (${timeAgo(timestamp)})`);
-
-                if (account.qGuildId && config.qGuild.enabled) {
-
-                  await sendQGuild({method: 'send_guild_channel_msg'}, qgBody).then(resp => {
-                    // log(`go-qchttp post ddstats success: ${resp}`);
-                  })
-                  .catch(err => {
-                    log(`go-qchttp post ddstats error: ${err?.response?.body || err}`);
-                  });
-                }
-
-                if (account.tgChannelId && config.telegram.enabled) {
-
-                  if (contentImage) {
-                    const tgForm = new FormData();
-                    tgForm.append('chat_id', account.tgChannelId);
-                    tgForm.append('parse_mode', 'HTML');
-                    tgForm.append('disable_web_page_preview', true);
-                    tgForm.append('disable_notification', type === 'INTERACT_WORD' ? true : false);
-                    tgForm.append('photo', await readProcessedImage(`${contentImage}`));
-                    tgForm.append('caption', `${content}${tgBodyFooter}`);
-
-                    await sendTelegram({
-                      method: 'sendPhoto',
-                      payload: 'form',
-                    }, tgForm).then(resp => {
-                      // log(`telegram post ddstats success`)
-                    })
-                    .catch(err => {
-                      log(`telegram post ddstats error: ${err?.response?.body || err}`);
-                    });
-                  } else {
-                    await sendTelegram(tgOptions, tgBody).then(resp => {
-                      // log(`telegram post ddstats success: message_id ${resp.result.message_id}`)
-                    })
-                    .catch(err => {
-                      log(`telegram post ddstats error: ${err?.response?.body || err}`);
-                    });
-                  }
-                }
+                mergedContent.push(`${timeAgo(timestamp, 'zh_cn')}：${contentHtml}`);
               }
             };
+
+            if (mergedContent.length > 0) {
+
+              if (account.qGuildId && config.qGuild.enabled) {
+
+                await sendQGuild({method: 'send_guild_channel_msg'}, {
+                  guild_id: account.qGuildId,
+                  channel_id: account.qGuildChannelId,
+                  message: `${mergedContent.join('\n\n')}${tgBodyMergedFooter}`,
+                }).then(resp => {
+                  // log(`go-qchttp post ddstats success: ${resp}`);
+                })
+                .catch(err => {
+                  log(`go-qchttp post ddstats error: ${err?.response?.body || err}`);
+                });
+              }
+
+              if (account.tgChannelId && config.telegram.enabled) {
+
+                await sendTelegram(tgOptions, {
+                  chat_id: account.tgChannelId,
+                  parse_mode: 'HTML',
+                  disable_web_page_preview: true,
+                  disable_notification: true,
+                  text: `${mergedContent.join('\n\n')}${tgBodyMergedFooter}`,
+                }).then(resp => {
+                  // log(`telegram post ddstats success: message_id ${resp.result.message_id}`)
+                })
+                .catch(err => {
+                  log(`telegram post ddstats error: ${err?.response?.body || err}`);
+                });
+              }
+            }
 
             // Set new data to database
             dbScope['ddstats'] = dbStore;
