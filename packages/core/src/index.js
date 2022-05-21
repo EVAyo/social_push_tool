@@ -192,7 +192,7 @@ async function main(config) {
   // const url = 'https://www.douyin.com/user/MS4wLjABAAAA5ZrIrbgva_HMeHuNn64goOD2XYnk4ItSypgRHlbSh1c';
 
   console.time('# Loop time used');
-  console.log(`\n# Check loop started at ${formatDate(Date.now())} ------------`);
+  console.log(`\n# a-soul v${pkg.version} | loop started at ${formatDate(Date.now())} ------------`);
 
   for (let i = 0; i < config.accounts.length; i++) {
     const account = config.accounts[i];
