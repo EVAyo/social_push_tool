@@ -35,8 +35,8 @@ export function parseDdstatsString(string, type) {
 
   let parseRegex = /.*/;
 
-  if (type === 'SUPER_CHAT_MESSAGE' || type === 'GUARD_BUY') {
-    // https://regex101.com/r/psuaVf/1
+  if (type === 'SUPER_CHAT_MESSAGE' || type === 'GUARD_BUY' || type === 'SEND_GIFT') {
+    // https://regex101.com/r/M35gu2/1
     // schema:
     //   action: "的直播间收到来自"
     //   content: "500 元醒目留言: gong xi！！！！"
