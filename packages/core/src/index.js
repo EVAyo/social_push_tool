@@ -1431,7 +1431,7 @@ async function main(config) {
                 if (type === 1) {
                   const originJson = JSON.parse(cardJson?.origin);
 
-                  // console.log(originJson);
+                  // console.log(`originJson`, originJson);
 
                   // Column post
                   if (originJson?.origin_image_urls) {
@@ -1471,10 +1471,22 @@ async function main(config) {
                     qgBody.message = `${msgPrefix}#b站视频转发：${cardJson?.item?.content.trim()}\n动态链接：https://t.bilibili.com/${dynamicId}\n\n被转作者：@${originJson.owner.name}\n被转视频：${originJson.title}\n\n${originJson.desc}\n${originJson.short_link}\n[CQ:image,file=${originJson?.pic}]`;
                   }
 
+                  // Live room
+                  else if (originJson?.roomid && originJson?.uname) {
+                    tgBody.text = `${msgPrefix}#b站直播间转发：${cardJson?.item?.content.trim()}\n\n被转直播间：@<a href="https://live.bilibili.com/${originJson.roomid}">${originJson.uname}</a>\n直播间标题：${originJson.title}${tgBodyFooter}`;
+                    qgBody.message = `${msgPrefix}#b站直播间转发：${cardJson?.item?.content.trim()}\n被转直播间：@${originJson.uname} https://live.bilibili.com/${originJson.roomid}\n\n被转作者：@${originJson.uname}\n直播间标题：${originJson.title}`;
+                  }
+
                   // Plain text
-                  else {
+                  else if (originJson?.user?.uname) {
                     tgBody.text = `${msgPrefix}#b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.uname}\n被转动态：${originJson.item.content}${tgBodyFooter}`;
                     qgBody.message = `${msgPrefix}#b站转发：${cardJson?.item?.content.trim()}\n动态链接：https://t.bilibili.com/${dynamicId}\n\n被转作者：@${originJson.user.uname}\n被转动态：${originJson.item.content}`;
+                  }
+
+                  // Unknown type
+                  else {
+                    tgBody.text = `${msgPrefix}#b站未知类型转发：${cardJson?.item?.content.trim()}${tgBodyFooter}`;
+                    qgBody.message = `${msgPrefix}#b站未知类型转发：${cardJson?.item?.content.trim()}\n动态链接：https://t.bilibili.com/${dynamicId}`;
                   }
 
                   log(`bilibili-mblog got forwarded post (${timeAgo(timestamp)})`);
