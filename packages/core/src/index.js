@@ -535,6 +535,7 @@ async function main(config) {
       });
 
       // Fetch bilibili live
+      // This ia actually the users' homepage API, which contains the livestream info
       const bilibiliLiveRequestUrl = `https://api.bilibili.com/x/space/acc/info?mid=${account.biliId}`;
       account.biliId && argv.verbose && log(`bilibili-live requesting ${bilibiliLiveRequestUrl}`);
       account.biliId && await got(bilibiliLiveRequestUrl, {...config.pluginOptions?.requestOptions, ...proxyOptions}).then(async resp => {
@@ -571,8 +572,9 @@ async function main(config) {
             cover: liveCover,
           } = room;
 
-          // Avatar URL is not reliable, URL may change because of CDN
+          // Avatar and cover URL is not reliable, URL may change because of CDN
           const avatarHash = avatar && new URL(avatar);
+          const liveCoverHash = liveCover && new URL(liveCover);
 
           // Space API ocassionally returns a default name (bilibili). Skip processing when ocurrs
           if (nickname === 'bilibili') {
@@ -649,6 +651,52 @@ async function main(config) {
               })
               .catch(err => {
                 log(`telegram post bilibili-live title error: ${err?.response?.body || err}`);
+              });
+            }
+          }
+
+          // If live room cover updates
+          const oldLiveCoverHash = dbScope?.bilibili_live?.latestStream?.liveCover && new URL(dbScope?.bilibili_live?.latestStream?.liveCover);
+          if (
+            liveCoverHash && oldLiveCoverHash &&
+            liveCoverHash.pathname !== oldLiveCoverHash.pathname &&
+            liveStatus === dbScope?.bilibili_live?.latestStream?.liveStatus
+          ) {
+            log(`bilibili-live cover updated: ${liveCover}`);
+
+            if (account.qGuildId && config.qGuild.enabled) {
+
+              await sendQGuild({method: 'send_guild_channel_msg'}, {
+                guild_id: account.qGuildId,
+                channel_id: account.qGuildChannelId,
+                message: `${msgPrefix}#b站直播间封面更新\n新封面：[CQ:image,file=${liveCover}]\n旧封面：[CQ:image,file=${dbScope?.bilibili_live?.latestStream?.liveCover}]`,
+              }).then(resp => {
+                // log(`go-qchttp post weibo success: ${resp}`);
+              })
+              .catch(err => {
+                log(`go-qchttp post bilibili-live::cover error: ${err?.response?.body || err}`);
+              });
+            }
+
+            if (account.tgChannelId && config.telegram.enabled) {
+              const photoExt = liveCover.split('.').pop();
+              const tgForm = new FormData();
+              const liveCoverImage = await readProcessedImage(`${liveCover}`);
+              tgForm.append('chat_id', account.tgChannelId);
+              tgForm.append('parse_mode', 'HTML');
+              tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', liveCoverImage, photoExt === 'gif' && 'image.gif');
+              tgForm.append('caption', `${msgPrefix}#b站直播间封面更新，旧封面：${dbScope?.bilibili_live?.latestStream?.liveCover}`
+                + `\n\n<a href="https://space.bilibili.com/${uid}">${nickname}</a>`
+              );
+
+              await sendTelegram({
+                method: photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto',
+                payload: 'form',
+              }, tgForm).then(resp => {
+                // log(`telegram post weibo::avatar success: message_id ${resp.result.message_id}`)
+              })
+              .catch(err => {
+                log(`telegram post bilibili-live::cover error: ${err?.response?.body || err}`);
               });
             }
           }
