@@ -1031,7 +1031,8 @@ async function main(config) {
           if (room?.liveStatus === 1) {
 
             // Deprecated v1 API, may be changed in the future
-            const bilibiliLiveInfoRequestUrl = `https://api.live.bilibili.com/room/v1/Room/room_init?id=${liveId}`;
+            // const bilibiliLiveInfoRequestUrl = `https://api.live.bilibili.com/room/v1/Room/room_init?id=${liveId}`;
+            const bilibiliLiveInfoRequestUrl = `https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?room_id=${liveId}&protocol=0,1&format=0,1,2&codec=0,1&qn=0&platform=web&ptype=8&dolby=5`;
             argv.verbose && log(`bilibili-live stream info requesting ${bilibiliLiveInfoRequestUrl}`);
             await got(bilibiliLiveInfoRequestUrl, {...config.pluginOptions?.requestOptions, ...proxyOptions}).then(async resp => {
               const json = JSON.parse(resp.body);
@@ -1039,6 +1040,8 @@ async function main(config) {
               if (json?.code === 0) {
                 const data = json.data;
                 const timestamp = data.live_time * 1000;
+                // TODO: parse m3u8 links
+                const streamUrls = data?.playurl_info;
 
                 tgBody.caption = `${msgPrefix}#b站开播：${liveTitle}`
                   + `\n\n<a href="${liveRoom}">${timeAgo(timestamp, 'zh_cn')}</a>`
@@ -1049,7 +1052,7 @@ async function main(config) {
                   if (err) return console.log(err);
                 });
 
-                // Always returns -62170012800 when stream not start
+                // Always returns -62170012800 (v1) or 0 (v2) when stream not start
                 if (data.live_time > 0) {
                   dbStore.latestStream.timestamp = new Date(timestamp);
                   dbStore.latestStream.timestampUnix = timestamp;
