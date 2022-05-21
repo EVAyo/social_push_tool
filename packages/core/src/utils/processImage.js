@@ -1,10 +1,9 @@
 import path from 'path';
 import { fileFromPath } from 'formdata-node/file-from-path';
+import { Blob } from 'formdata-node';
 import getStream from 'get-stream';
 import sharp from 'sharp';
 import got from 'got';
-
-const cacheDir = './cache';
 
 async function processImage(inputImage) {
   const {
@@ -39,7 +38,7 @@ async function processImage(inputImage) {
   // Ref: https://core.telegram.org/bots/api#sendphoto
 
   if (format == 'gif') {
-    await image.toFile(`${cacheDir}/${name}.gif`);
+    return await image.toBuffer();
   } else {
     if (width / height > 20) {
       console.log('image too wide');
@@ -69,21 +68,17 @@ async function processImage(inputImage) {
 
     // console.log('output metadata', imageBuffer);
 
-    await image.jpeg({
+    return await image.jpeg({
       quality: 90,
       progressive: true,
-    }).toFile(`${cacheDir}/${name}.jpg`);
+    }).toBuffer();
   }
 }
 
 export async function readProcessedImage(inputImage) {
-  const {
-    name,
-    ext
-  } = path.parse(inputImage);
+  const file = new Blob(
+    [await processImage(inputImage)]
+  );
 
-  const fileExt = ext === '.gif' ? '.gif' : '.jpg';
-
-  await processImage(inputImage);
-  return await fileFromPath(`${cacheDir}/${name}${fileExt}`)
+  return file;
 }
