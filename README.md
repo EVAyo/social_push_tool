@@ -174,7 +174,9 @@ export default {
       // monitor or you will soon hit API rate limit.
       weiboFetchComments: true,
 
-      // Tape message box account ID
+      // Tape message box account ID. Usually the last part of your message
+      // box's URL. ie. https://www.tapechat.net/uu/TDL6BG/EVWKIS0F the
+      // `tapechatId` should be `EVWKIS0F`
       tapechatId: 'RQOPYMJQ',
 
       // Telegram chat/channel ID to receive notifications
