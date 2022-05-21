@@ -2600,7 +2600,3 @@ if (argv._.includes('run')) {
     }, config.loopInterval);
   }
 }
-
-process.on('SIGINT', () => {
-  process.exit();
-});

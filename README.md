@@ -56,7 +56,7 @@ npx @a-soul/core run -c config.js
 Run with Docker:
 
 ```bash
-docker run \
+docker run --init \
   -v $(pwd)/config.js:/app/config.js:ro \
   -v $(pwd)/db:/app/db \
   sparanoid/a-soul -c config.js --color
@@ -173,6 +173,9 @@ export default {
       // recommended to enable this feature if you have a lot of accounts to
       // monitor or you will soon hit API rate limit.
       weiboFetchingComments: true,
+
+      // Tape message box account ID
+      tapechatId: 'RQOPYMJQ',
 
       // Telegram chat/channel ID to receive notifications
       tgChannelId: 41205411,
