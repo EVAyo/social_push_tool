@@ -1250,7 +1250,7 @@ async function main(config) {
                   4300: dynamicId,
                 }
 
-                if (account.bilibiliFetchingComments) {
+                if (account.bilibiliFetchComments) {
                   // mode 2: sort by latest
                   // mode 3: sort by hotest
                   const bilibiliCommentsRequestUrl = `https://api.bilibili.com/x/v2/reply/main?mode=3&oid=${commentsIdMap[type]}&type=${commentsTypeMap[type]}`;
@@ -2003,7 +2003,7 @@ async function main(config) {
               } else if (timestamp === dbScopeTimestampUnix) {
                 log(`weibo no update. latest: ${dbScope?.weibo?.latestStatus?.id} (${timeAgo(dbScope?.weibo?.latestStatus?.timestamp)})`);
 
-                if (account.weiboFetchingComments) {
+                if (account.weiboFetchComments) {
                   const weiboCommentsRequestUrl = `https://m.weibo.cn/comments/hotflow?id=${commentsId}&mid=${commentsId}&max_id_type=0`;
                   log(`weibo fetching comments from ${commentsId} for activity ${id}...`)
                   argv.verbose && log(`weibo comments requesting ${weiboCommentsRequestUrl}`);

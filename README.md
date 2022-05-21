@@ -30,7 +30,7 @@ Full-featured social media monitor that extracts data from a variety of services
 - [ ] github
 - [x] ddstats
 - [x] tapechat
-- [x] aifadian
+- [x] afdian
 
 ## Supported Senders
 
@@ -157,7 +157,7 @@ export default {
       // This fires another API to monitor comments and replies. It's not
       // recommended to enable this feature if you have a lot of accounts to
       // monitor or you will soon hit API rate limit.
-      bilibiliFetchingComments: true,
+      bilibiliFetchComments: true,
 
       // Douyin account ID
       douyinId: 'MS4wLjABAAAA5ZrIrbgva_HMeHuNn64goOD2XYnk4ItSypgRHlbSh1c',
@@ -172,7 +172,7 @@ export default {
       // This fires another API to monitor comments and replies. It's not
       // recommended to enable this feature if you have a lot of accounts to
       // monitor or you will soon hit API rate limit.
-      weiboFetchingComments: true,
+      weiboFetchComments: true,
 
       // Tape message box account ID
       tapechatId: 'RQOPYMJQ',
