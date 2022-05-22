@@ -80,6 +80,7 @@ async function generateConfig() {
     douyinLiveBotThrottle: 1200 * 1000, // 20 mins
     bilibiliBotThrottle: 65 * 60 * 1000, // 65 mins, bilibili sometimes got limit rate for 60 mins.
     bilibiliLiveBotThrottle: 65 * 60 * 1000,
+    bilibiliFollowingBotThrottle: 3600 * 1000,
     weiboBotThrottle: 3600 * 1000,
     ddstatsBotThrottle: 3600 * 1000,
     tapechatBotThrottle: 3600 * 1000,

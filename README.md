@@ -100,6 +100,7 @@ export default {
   // 65 mins, bilibili sometimes got limit rate for 60 mins.
   bilibiliBotThrottle: 65 * 60 * 1000,
   bilibiliLiveBotThrottle: 65 * 60 * 1000,
+  bilibiliFollowingBotThrottle: 3600 * 1000,
 
   weiboBotThrottle: 3600 * 1000,
   ddstatsBotThrottle: 3600 * 1000,
