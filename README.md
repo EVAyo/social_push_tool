@@ -141,6 +141,7 @@ export default {
     enabled: true,
     dsn: `https://xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@ingest.sentry.io/9`,
     environment: `production`,
+    tracesSampleRate: 1.0,
   },
   accounts: [
     {
