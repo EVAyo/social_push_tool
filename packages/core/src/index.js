@@ -72,7 +72,7 @@ async function generateConfig() {
     pluginOptions: {
       requestOptions: {
         timeout: {
-          request: 10000
+          request: 4000
         }
       }
     },
