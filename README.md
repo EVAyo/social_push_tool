@@ -137,6 +137,11 @@ export default {
     // and send updates to QQ Guild
     apiBase: 'http://10.2.1.2:5700',
   },
+  sentry: {
+    enabled: true,
+    dsn: `https://xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@ingest.sentry.io/9`,
+    environment: `production`,
+  },
   accounts: [
     {
       // Use `false` to disable checking this profile

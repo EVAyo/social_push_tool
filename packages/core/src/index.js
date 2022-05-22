@@ -12,6 +12,8 @@ import { hideBin } from 'yargs/helpers';
 import { Low, JSONFile } from 'lowdb';
 import { HttpsProxyAgent } from 'hpagent';
 import { FormData } from 'formdata-node';
+import * as Sentry from '@sentry/node';
+import * as Tracing from '@sentry/tracing';
 
 import {
   formatDate,
@@ -96,6 +98,27 @@ async function generateConfig() {
 // Merge default configs and user configs
 const config = await generateConfig();
 // const userConfig = argv.config ? JSON.parse(fs.readFileSync(argv.config)) : {};
+
+// Init Sentry
+const sentryEnabled = config?.sentry?.enabled && config?.sentry?.dsn;
+Sentry.init({
+  dsn: config?.sentry?.dsn,
+  release: `${pkg.version}`,
+  environment: config?.sentry?.environment || process.env.NODE_ENV || 'development',
+  integrations: [
+    // enable HTTP calls tracing
+    new Sentry.Integrations.Http({ tracing: true }),
+  ],
+
+  // Set tracesSampleRate to 1.0 to capture 100%
+  // of transactions for performance monitoring.
+  // We recommend adjusting this value in production
+  tracesSampleRate: 1.0,
+  beforeSend(event) {
+    if (sentryEnabled) return event;
+    return null;
+  }
+});
 
 // Used by extractor-douyin
 function cookieOnDemand(cookie) {
@@ -189,8 +212,6 @@ async function main(config) {
   // Initial database
   const db = new Low(new JSONFile(path.join(path.resolve(), 'db/db.json')));
 
-  // const url = 'https://www.douyin.com/user/MS4wLjABAAAA5ZrIrbgva_HMeHuNn64goOD2XYnk4ItSypgRHlbSh1c';
-
   console.time('# Loop time used');
   console.log(`\n# a-soul v${pkg.version} | loop started at ${formatDate(Date.now())} ------------`);
 
@@ -203,6 +224,19 @@ async function main(config) {
       console.log(`${logName(account.slug)} ${msg}`);
     }
 
+    function err(msg, err) {
+      // Show log
+      log(msg);
+
+      // Show trace if available
+      if (err.stack) {
+        console.log(err.stack);
+      }
+
+      // Send error to Sentry
+      Sentry.captureException(err);
+    }
+
     // Only check enabled account
     if (account?.enabled) {
       // Set random request time to avoid request limit
@@ -211,6 +245,23 @@ async function main(config) {
       await setTimeout(randomPaseTime);
 
       argv.verbose && log(`is checking...`);
+
+      // https://docs.sentry.io/platforms/node/performance/
+      const transaction = Sentry.startTransaction({
+        op: 'loop',
+        name: account.slug,
+      });
+
+      // Note that we set the transaction as the span on the scope.
+      // This step makes sure that if an error happens during the lifetime of the transaction
+      // the transaction context will be attached to the error event
+      Sentry.configureScope(scope => {
+        scope.setSpan(transaction);
+      });
+
+      Sentry.setUser({
+        username: account.slug
+      });
 
       // Read from database
       await db.read();
@@ -352,8 +403,8 @@ async function main(config) {
                         }).then(resp => {
                           // log(`go-qchttp post weibo success: ${resp}`);
                         })
-                        .catch(err => {
-                          log(`go-qchttp post douyin-live error: ${err?.response?.body || err}`);
+                        .catch(e => {
+                          err(`go-qchttp post douyin-live error: ${e?.response?.body || e}`, e);
                         });
                       }
 
@@ -364,8 +415,8 @@ async function main(config) {
                           // log(`telegram post douyin-live success: message_id ${resp.result.message_id}`)
                           dbStore.latestStream.isTgSent = true;
                         })
-                        .catch(err => {
-                          log(`telegram post douyin-live error: ${err?.response?.body || err}`);
+                        .catch(e => {
+                          err(`telegram post douyin-live error: ${e?.response?.body || e}`, e);
                         });
                       }
                     }
@@ -398,8 +449,8 @@ async function main(config) {
         } else {
           log(`douyin-live info corrupted, skipping...`);
         }
-      }).catch(err => {
-        console.log(err);
+      }).catch(e => {
+        err(`douyin-live fetch error`, e);
       });
 
       // Fetch Douyin
@@ -505,8 +556,8 @@ async function main(config) {
                   }).then(resp => {
                     // log(`go-qchttp post weibo success: ${resp}`);
                   })
-                  .catch(err => {
-                    log(`go-qchttp post douyin error: ${err?.response?.body || err}`);
+                  .catch(e => {
+                    err(`go-qchttp post douyin error: ${e?.response?.body || e}`, e);
                   });
                 }
 
@@ -515,8 +566,8 @@ async function main(config) {
                   await sendTelegram(tgOptions, tgBody).then(resp => {
                     // log(`telegram post douyin success: message_id ${resp.result.message_id}`)
                   })
-                  .catch(err => {
-                    log(`telegram post douyin error: ${err?.response?.body || err}`);
+                  .catch(e => {
+                    err(`telegram post douyin error: ${e?.response?.body || e}`, e);
                   });
                 }
               }
@@ -530,8 +581,8 @@ async function main(config) {
         } else {
           log(`douyin scraped data corrupted, skipping...`);
         }
-      }).catch(err => {
-        console.log(err);
+      }).catch(e => {
+        err(`douyin fetch error`, e);
       });
 
       // Fetch bilibili live
@@ -632,8 +683,8 @@ async function main(config) {
               }).then(resp => {
                 // log(`go-qchttp post weibo success: ${resp}`);
               })
-              .catch(err => {
-                log(`go-qchttp post bilibili-live title error: ${err?.response?.body || err}`);
+              .catch(e => {
+                err(`go-qchttp post bilibili-live title error: ${e?.response?.body || e}`, e);
               });
             }
 
@@ -649,8 +700,8 @@ async function main(config) {
               }).then(resp => {
                 // log(`telegram post bilibili-live title success: message_id ${resp.result.message_id}`)
               })
-              .catch(err => {
-                log(`telegram post bilibili-live title error: ${err?.response?.body || err}`);
+              .catch(e => {
+                err(`telegram post bilibili-live title error: ${e?.response?.body || e}`, e);
               });
             }
           }
@@ -673,8 +724,8 @@ async function main(config) {
               }).then(resp => {
                 // log(`go-qchttp post weibo success: ${resp}`);
               })
-              .catch(err => {
-                log(`go-qchttp post bilibili-live::cover error: ${err?.response?.body || err}`);
+              .catch(e => {
+                err(`go-qchttp post bilibili-live::cover error: ${e?.response?.body || e}`, e);
               });
             }
 
@@ -695,8 +746,8 @@ async function main(config) {
               }, tgForm).then(resp => {
                 // log(`telegram post weibo::avatar success: message_id ${resp.result.message_id}`)
               })
-              .catch(err => {
-                log(`telegram post bilibili-live::cover error: ${err?.response?.body || err}`);
+              .catch(e => {
+                err(`telegram post bilibili-live::cover error: ${e?.response?.body || e}`, e);
               });
             }
           }
@@ -714,8 +765,8 @@ async function main(config) {
               }).then(resp => {
                 // log(`go-qchttp post weibo success: ${resp}`);
               })
-              .catch(err => {
-                log(`go-qchttp post bilibili-live::nickname error: ${err?.response?.body || err}`);
+              .catch(e => {
+                err(`go-qchttp post bilibili-live::nickname error: ${e?.response?.body || e}`, e);
               });
             }
 
@@ -730,8 +781,8 @@ async function main(config) {
               }).then(resp => {
                 // log(`telegram post bilibili-live::nickname success: message_id ${resp.result.message_id}`)
               })
-              .catch(err => {
-                log(`telegram post bilibili-live::nickname error: ${err?.response?.body || err}`);
+              .catch(e => {
+                err(`telegram post bilibili-live::nickname error: ${e?.response?.body || e}`, e);
               });
             }
           }
@@ -749,8 +800,8 @@ async function main(config) {
               }).then(resp => {
                 // log(`go-qchttp post weibo success: ${resp}`);
               })
-              .catch(err => {
-                log(`go-qchttp post bilibili-live::sign error: ${err?.response?.body || err}`);
+              .catch(e => {
+                err(`go-qchttp post bilibili-live::sign error: ${e?.response?.body || e}`, e);
               });
             }
 
@@ -765,8 +816,8 @@ async function main(config) {
               }).then(resp => {
                 // log(`telegram post bilibili-live::sign success: message_id ${resp.result.message_id}`)
               })
-              .catch(err => {
-                log(`telegram post bilibili-live::sign error: ${err?.response?.body || err}`);
+              .catch(e => {
+                err(`telegram post bilibili-live::sign error: ${e?.response?.body || e}`, e);
               });
             }
           }
@@ -784,8 +835,8 @@ async function main(config) {
               }).then(resp => {
                 // log(`go-qchttp post weibo success: ${resp}`);
               })
-              .catch(err => {
-                log(`go-qchttp post bilibili-live::avatar error: ${err?.response?.body || err}`);
+              .catch(e => {
+                err(`go-qchttp post bilibili-live::avatar error: ${e?.response?.body || e}`, e);
               });
             }
 
@@ -806,8 +857,8 @@ async function main(config) {
               }, tgForm).then(resp => {
                 // log(`telegram post weibo::avatar success: message_id ${resp.result.message_id}`)
               })
-              .catch(err => {
-                log(`telegram post bilibili-live::avatar error: ${err?.response?.body || err}`);
+              .catch(e => {
+                err(`telegram post bilibili-live::avatar error: ${e?.response?.body || e}`, e);
               });
 
               if (account.tgChannelAvatarSource && account.tgChannelAvatarSource.includes('bilibili')) {
@@ -823,8 +874,8 @@ async function main(config) {
                 }, tgAvatarForm).then(resp => {
                   // log(`telegram post weibo::avatar success: message_id ${resp.result.message_id}`)
                 })
-                .catch(err => {
-                  log(`telegram post bilibili-live::avatar error: ${err?.response?.body || err}`);
+                .catch(e => {
+                  err(`telegram post bilibili-live::avatar error: ${e?.response?.body || e}`, e);
                 });
               }
             }
@@ -847,8 +898,8 @@ async function main(config) {
               }).then(resp => {
                 // log(`go-qchttp post weibo success: ${resp}`);
               })
-              .catch(err => {
-                log(`go-qchttp post bilibili-live::fans_medal error: ${err?.response?.body || err}`);
+              .catch(e => {
+                err(`go-qchttp post bilibili-live::fans_medal error: ${e?.response?.body || e}`, e);
               });
             }
 
@@ -864,8 +915,8 @@ async function main(config) {
               }).then(resp => {
                 // log(`telegram post bilibili-live::fans_medal success: message_id ${resp.result.message_id}`)
               })
-              .catch(err => {
-                log(`telegram post bilibili-live::fans_medal error: ${err?.response?.body || err}`);
+              .catch(e => {
+                err(`telegram post bilibili-live::fans_medal error: ${e?.response?.body || e}`, e);
               });
             }
           }
@@ -886,8 +937,8 @@ async function main(config) {
               }).then(resp => {
                 // log(`go-qchttp post weibo success: ${resp}`);
               })
-              .catch(err => {
-                log(`go-qchttp post bilibili-live::pendant error: ${err?.response?.body || err}`);
+              .catch(e => {
+                err(`go-qchttp post bilibili-live::pendant error: ${e?.response?.body || e}`, e);
               });
             }
 
@@ -903,8 +954,8 @@ async function main(config) {
               }).then(resp => {
                 // log(`telegram post bilibili-live::pendant success: message_id ${resp.result.message_id}`)
               })
-              .catch(err => {
-                log(`telegram post bilibili-live::pendant error: ${err?.response?.body || err}`);
+              .catch(e => {
+                err(`telegram post bilibili-live::pendant error: ${e?.response?.body || e}`, e);
               });
             }
           }
@@ -925,8 +976,8 @@ async function main(config) {
               }).then(resp => {
                 // log(`go-qchttp post weibo success: ${resp}`);
               })
-              .catch(err => {
-                log(`go-qchttp post bilibili-live::nameplate error: ${err?.response?.body || err}`);
+              .catch(e => {
+                err(`go-qchttp post bilibili-live::nameplate error: ${e?.response?.body || e}`, e);
               });
             }
 
@@ -942,8 +993,8 @@ async function main(config) {
               }).then(resp => {
                 // log(`telegram post bilibili-live::nameplate success: message_id ${resp.result.message_id}`)
               })
-              .catch(err => {
-                log(`telegram post bilibili-live::nameplate error: ${err?.response?.body || err}`);
+              .catch(e => {
+                err(`telegram post bilibili-live::nameplate error: ${e?.response?.body || e}`, e);
               });
             }
           }
@@ -964,8 +1015,8 @@ async function main(config) {
               }).then(resp => {
                 // log(`go-qchttp post weibo success: ${resp}`);
               })
-              .catch(err => {
-                log(`go-qchttp post bilibili-live::official verification error: ${err?.response?.body || err}`);
+              .catch(e => {
+                err(`go-qchttp post bilibili-live::official verification error: ${e?.response?.body || e}`, e);
               });
             }
 
@@ -981,8 +1032,8 @@ async function main(config) {
               }).then(resp => {
                 // log(`telegram post bilibili-live::official verification success: message_id ${resp.result.message_id}`)
               })
-              .catch(err => {
-                log(`telegram post bilibili-live::official verification error: ${err?.response?.body || err}`);
+              .catch(e => {
+                err(`telegram post bilibili-live::official verification error: ${e?.response?.body || e}`, e);
               });
             }
           }
@@ -1003,8 +1054,8 @@ async function main(config) {
               }).then(resp => {
                 // log(`go-qchttp post weibo success: ${resp}`);
               })
-              .catch(err => {
-                log(`go-qchttp post bilibili-live::vip status error: ${err?.response?.body || err}`);
+              .catch(e => {
+                err(`go-qchttp post bilibili-live::vip status error: ${e?.response?.body || e}`, e);
               });
             }
 
@@ -1020,8 +1071,8 @@ async function main(config) {
               }).then(resp => {
                 // log(`telegram post bilibili-live::vip status success: message_id ${resp.result.message_id}`)
               })
-              .catch(err => {
-                log(`telegram post bilibili-live::vip status error: ${err?.response?.body || err}`);
+              .catch(e => {
+                err(`telegram post bilibili-live::vip status error: ${e?.response?.body || e}`, e);
               });
             }
           }
@@ -1075,8 +1126,8 @@ async function main(config) {
                     }).then(resp => {
                       // log(`go-qchttp post weibo success: ${resp}`);
                     })
-                    .catch(err => {
-                      log(`go-qchttp post bilibili-live error: ${err?.response?.body || err}`);
+                    .catch(e => {
+                      err(`go-qchttp post bilibili-live error: ${e?.response?.body || e}`, e);
                     });
                   }
 
@@ -1087,8 +1138,8 @@ async function main(config) {
                       // log(`telegram post bilibili-live success: message_id ${resp.result.message_id}`)
                       dbStore.latestStream.isTgSent = true;
                     })
-                    .catch(err => {
-                      log(`telegram post bilibili-live error: ${err?.response?.body || err}`);
+                    .catch(e => {
+                      err(`telegram post bilibili-live error: ${e?.response?.body || e}`, e);
                     });
                   }
                 }
@@ -1096,12 +1147,8 @@ async function main(config) {
                 log('bilibili-live stream info corrupted, skipping...');
               };
             })
-            .catch(err => {
-              log(`bilibili-live stream info request error: ${err?.response?.body || err}`);
-
-              if (err.stack) {
-                console.log(err.stack);
-              }
+            .catch(e => {
+              err(`bilibili-live stream info request error: ${e?.response?.body || e}`, e);
             });
           } else {
             log(`bilibili-live not started yet`);
@@ -1114,12 +1161,8 @@ async function main(config) {
           log('bilibili-live user info corrupted, skipping...');
         }
       })
-      .catch(err => {
-        log(`bilibili-live user info request error: ${err?.response?.body || err}`);
-
-        if (err.stack) {
-          console.log(err.stack);
-        }
+      .catch(e => {
+        err(`bilibili-live user info request error: ${e?.response?.body || e}`, e);
       });
 
       // Fetch bilibili microblog (dynamics)
@@ -1163,8 +1206,8 @@ async function main(config) {
                 }).then(resp => {
                   // log(`go-qchttp post weibo success: ${resp}`);
                 })
-                .catch(err => {
-                  log(`go-qchttp post bilibili-mblog::decorate_card error: ${err?.response?.body || err}`);
+                .catch(e => {
+                  err(`go-qchttp post bilibili-mblog::decorate_card error: ${e?.response?.body || e}`, e);
                 });
               }
 
@@ -1181,8 +1224,8 @@ async function main(config) {
                 }).then(resp => {
                   // log(`telegram post bilibili-mblog::decorate_card success: message_id ${resp.result.message_id}`)
                 })
-                .catch(err => {
-                  log(`telegram post bilibili-mblog::decorate_card error: ${err?.response?.body || err}`);
+                .catch(e => {
+                  err(`telegram post bilibili-mblog::decorate_card error: ${e?.response?.body || e}`, e);
                 });
               }
             }
@@ -1337,8 +1380,8 @@ async function main(config) {
                               log(`telegram post bilibili-mblog::author_comment success: message_id ${JSON.parse(resp.body)?.result?.message_id}`);
                               tgCommentsCacheSet.add(comment.rpid_str);
                             })
-                            .catch(err => {
-                              log(`telegram post bilibili-mblog::author_comment error: ${err}`);
+                            .catch(e => {
+                              err(`telegram post bilibili-mblog::author_comment error: ${err}`, e);
                             });
                           }
                         }
@@ -1368,8 +1411,8 @@ async function main(config) {
                                   log(`telegram post bilibili-mblog::author_comment_reply success: message_id ${JSON.parse(resp.body)?.result?.message_id}`);
                                   tgCommentsCacheSet.add(reply.rpid_str);
                                 })
-                                .catch(err => {
-                                  log(`telegram post bilibili-mblog::author_comment_reply error: ${err}`);
+                                .catch(e => {
+                                  err(`telegram post bilibili-mblog::author_comment_reply error: ${err}`, e);
                                 });
                               }
                             }
@@ -1381,12 +1424,8 @@ async function main(config) {
                     } else {
                       log('bilibili-mblog comments corrupted or has no reply, skipped');
                     }
-                  }).catch(err => {
-                    log(`bilibili-mblog comments request error: ${err}`);
-
-                    if (err.stack) {
-                      console.log(err.stack);
-                    }
+                  }).catch(e => {
+                    err(`bilibili-mblog comments request error: ${err}`, e);
                   });
                 }
               } else if (idx === idxLatest && timestamp <= dbScopeTimestampUnix) {
@@ -1401,8 +1440,8 @@ async function main(config) {
                 //   }).then(resp => {
                 //     // log(`go-qchttp post weibo success: ${resp}`);
                 //   })
-                //   .catch(err => {
-                //     log(`go-qchttp post bilibili-blog error: ${err?.response?.body || err}`);
+                //   .catch(e => {
+                //     err(`go-qchttp post bilibili-blog error: ${e?.response?.body || e}`, e);
                 //   });
                 // }
 
@@ -1419,8 +1458,8 @@ async function main(config) {
                 //   }).then(resp => {
                 //     // log(`telegram post bilibili-mblog success: message_id ${resp.result.message_id}`)
                 //   })
-                //   .catch(err => {
-                //     log(`telegram post bilibili-mblog error: ${err?.response?.body || err}`);
+                //   .catch(e => {
+                //     err(`telegram post bilibili-mblog error: ${e?.response?.body || e}`, e);
                 //   });
                 // }
 
@@ -1630,8 +1669,8 @@ async function main(config) {
                     await sendQGuild({method: 'send_guild_channel_msg'}, qgBody).then(resp => {
                       // log(`go-qchttp post weibo success: ${resp}`);
                     })
-                    .catch(err => {
-                      log(`go-qchttp post bilibili-mblog error: ${err?.response?.body || err}`);
+                    .catch(e => {
+                      err(`go-qchttp post bilibili-mblog error: ${e?.response?.body || e}`, e);
                     });
                   }
 
@@ -1641,8 +1680,8 @@ async function main(config) {
                       argv.verbose && log(`telegram post bilibili-mblog success: message_id ${JSON.parse(resp.body)?.result?.message_id}`);
                       tgCacheSet.add(dynamicId);
                     })
-                    .catch(err => {
-                      log(`telegram post bilibili-mblog error: ${err?.response?.body || err}`);
+                    .catch(e => {
+                      err(`telegram post bilibili-mblog error: ${e?.response?.body || e}`, e);
                     });
 
                     // Send an additional message if original post has more than one photo
@@ -1668,8 +1707,8 @@ async function main(config) {
                           }, tgForm).then(resp => {
                             log(`telegram post bilibili-mblog (batch #${idx + 1}) success`)
                           })
-                          .catch(err => {
-                            log(`telegram post bilibili-mblog (batch #${idx + 1}) error: ${err?.response?.body || err}`);
+                          .catch(e => {
+                            err(`telegram post bilibili-mblog (batch #${idx + 1}) error: ${e?.response?.body || e}`, e);
                           });
                         }
                       }
@@ -1690,12 +1729,8 @@ async function main(config) {
           log('bilibili-mblog info corrupted, skipping...');
         }
       })
-      .catch(err => {
-        log(`bilibili-mblog request error: ${err?.response?.body || err}`);
-
-        if (err.stack) {
-          console.log(err.stack);
-        }
+      .catch(e => {
+        err(`bilibili-mblog request error: ${e?.response?.body || e}`, e);
       });
 
       // Fetch Weibo
@@ -1760,8 +1795,8 @@ async function main(config) {
                 }).then(resp => {
                   // log(`telegram post weibo::nickname success: message_id ${resp.result.message_id}`)
                 })
-                .catch(err => {
-                  log(`telegram post weibo::nickname error: ${err}`);
+                .catch(e => {
+                  err(`telegram post weibo::nickname error: ${e}`, e);
                 });
               }
 
@@ -1774,8 +1809,8 @@ async function main(config) {
                 }).then(resp => {
                   // log(`go-qchttp post weibo success: ${resp}`);
                 })
-                .catch(err => {
-                  log(`go-qchttp post weibo::nickname error: ${err?.response?.body || err}`);
+                .catch(e => {
+                  err(`go-qchttp post weibo::nickname error: ${e?.response?.body || e}`, e);
                 });
               }
             }
@@ -1795,8 +1830,8 @@ async function main(config) {
                 }).then(resp => {
                   // log(`telegram post weibo::sign success: message_id ${resp.result.message_id}`)
                 })
-                .catch(err => {
-                  log(`telegram post weibo::sign error: ${err}`);
+                .catch(e => {
+                  err(`telegram post weibo::sign error: ${e}`, e);
                 });
               }
 
@@ -1809,8 +1844,8 @@ async function main(config) {
                 }).then(resp => {
                   // log(`go-qchttp post weibo success: ${resp}`);
                 })
-                .catch(err => {
-                  log(`go-qchttp post weibo::sign error: ${err?.response?.body || err}`);
+                .catch(e => {
+                  err(`go-qchttp post weibo::sign error: ${e?.response?.body || e}`, e);
                 });
               }
             }
@@ -1831,8 +1866,8 @@ async function main(config) {
                 }).then(resp => {
                   // log(`telegram post weibo::verified_reason success: message_id ${resp.result.message_id}`)
                 })
-                .catch(err => {
-                  log(`telegram post weibo::verified_reason error: ${err}`);
+                .catch(e => {
+                  err(`telegram post weibo::verified_reason error: ${e}`, e);
                 });
               }
 
@@ -1845,8 +1880,8 @@ async function main(config) {
                 }).then(resp => {
                   // log(`go-qchttp post weibo success: ${resp}`);
                 })
-                .catch(err => {
-                  log(`go-qchttp post weibo::verified_reason error: ${err?.response?.body || err}`);
+                .catch(e => {
+                  err(`go-qchttp post weibo::verified_reason error: ${e?.response?.body || e}`, e);
                 });
               }
             }
@@ -1875,8 +1910,8 @@ async function main(config) {
             //     }).then(resp => {
             //       // log(`telegram post weibo::follow_count success: message_id ${resp.result.message_id}`)
             //     })
-            //     .catch(err => {
-            //       log(`telegram post weibo::follow_count error: ${err}`);
+            //     .catch(e => {
+            //       err(`telegram post weibo::follow_count error: ${e}`, e);
             //     });
             //   }
 
@@ -1889,8 +1924,8 @@ async function main(config) {
             //   //   }).then(resp => {
             //   //     // log(`go-qchttp post weibo success: ${resp}`);
             //   //   })
-            //   //   .catch(err => {
-            //   //     log(`go-qchttp post weibo::follow_count error: ${err?.response?.body || err}`);
+            //   //   .catch(e => {
+            //   //     err(`go-qchttp post weibo::follow_count error: ${e?.response?.body || e}`, e);
             //   //   });
             //   // }
             // }
@@ -1916,8 +1951,8 @@ async function main(config) {
                 }, tgForm).then(resp => {
                   // log(`telegram post weibo::avatar success: message_id ${resp.result.message_id}`)
                 })
-                .catch(err => {
-                  log(`telegram post weibo::avatar error: ${err}`);
+                .catch(e => {
+                  err(`telegram post weibo::avatar error: ${e}`, e);
                 });
 
                 if (account.tgChannelAvatarSource && account.tgChannelAvatarSource.includes('weibo')) {
@@ -1933,8 +1968,8 @@ async function main(config) {
                   }, tgAvatarForm).then(resp => {
                     // log(`telegram post weibo::avatar success: message_id ${resp.result.message_id}`)
                   })
-                  .catch(err => {
-                    log(`telegram post weibo::avatar error: ${err}`);
+                  .catch(e => {
+                    err(`telegram post weibo::avatar error: ${e}`, e);
                   });
                 }
               }
@@ -1948,8 +1983,8 @@ async function main(config) {
                 }).then(resp => {
                   // log(`go-qchttp post weibo success: ${resp}`);
                 })
-                .catch(err => {
-                  log(`go-qchttp post weibo::avatar error: ${err?.response?.body || err}`);
+                .catch(e => {
+                  err(`go-qchttp post weibo::avatar error: ${e?.response?.body || e}`, e);
                 });
               }
             }
@@ -1975,8 +2010,8 @@ async function main(config) {
                 }, tgForm).then(resp => {
                   // log(`telegram post weibo::avatar success: message_id ${resp.result.message_id}`)
                 })
-                .catch(err => {
-                  log(`telegram post weibo::avatar error: ${err}`);
+                .catch(e => {
+                  err(`telegram post weibo::avatar error: ${e}`, e);
                 });
               }
 
@@ -1989,8 +2024,8 @@ async function main(config) {
                 }).then(resp => {
                   // log(`go-qchttp post weibo success: ${resp}`);
                 })
-                .catch(err => {
-                  log(`go-qchttp post weibo::avatar error: ${err?.response?.body || err}`);
+                .catch(e => {
+                  err(`go-qchttp post weibo::avatar error: ${e?.response?.body || e}`, e);
                 });
               }
             }
@@ -2085,8 +2120,8 @@ async function main(config) {
                               log(`telegram post weibo::author_comment success: message_id ${JSON.parse(resp.body)?.result?.message_id}`);
                               tgCommentsCacheSet.add(comment.bid);
                             })
-                            .catch(err => {
-                              log(`telegram post weibo::author_comment error: ${err}`);
+                            .catch(e => {
+                              err(`telegram post weibo::author_comment error: ${e}`, e);
                             });
                           }
                         }
@@ -2116,8 +2151,8 @@ async function main(config) {
                                   log(`telegram post weibo::author_comment_reply success: message_id ${JSON.parse(resp.body)?.result?.message_id}`);
                                   tgCommentsCacheSet.add(reply.bid);
                                 })
-                                .catch(err => {
-                                  log(`telegram post weibo::author_comment_reply error: ${err}`);
+                                .catch(e => {
+                                  err(`telegram post weibo::author_comment_reply error: ${e}`, e);
                                 });
                               }
                             }
@@ -2129,12 +2164,8 @@ async function main(config) {
                     } else {
                       log('weibo comments corrupted, skipped');
                     }
-                  }).catch(err => {
-                    log(`weibo comments request error: ${err}`);
-
-                    if (err.stack) {
-                      console.log(err.stack);
-                    }
+                  }).catch(e => {
+                    err(`weibo comments request error: ${e}`, e);
                   });
                 }
               } else if (idx === idxLatest && timestamp <= dbScopeTimestampUnix) {
@@ -2155,8 +2186,8 @@ async function main(config) {
                 //   }).then(resp => {
                 //     argv.verbose && log(`telegram post weibo success: message_id ${JSON.parse(resp.body)?.result?.message_id}`);
                 //   })
-                //   .catch(err => {
-                //     log(`telegram post weibo error: ${err?.response?.body || err}`);
+                //   .catch(e => {
+                //     err(`telegram post weibo error: ${e?.response?.body || e}`, e);
                 //   });
                 // }
               } else if (idx === idxLatest && (currentTime - timestamp) >= config.weiboBotThrottle) {
@@ -2178,12 +2209,8 @@ async function main(config) {
                     } else {
                       log('weibo extended info corrupted, using original text...');
                     }
-                  }).catch(err => {
-                    log(`weibo extended text request error: ${err}`);
-
-                    if (err.stack) {
-                      console.log(err.stack);
-                    }
+                  }).catch(e => {
+                    err(`weibo extended text request error: ${e}`, e);
                   });
                 }
 
@@ -2297,8 +2324,8 @@ async function main(config) {
                   await sendQGuild({method: 'send_guild_channel_msg'}, qgBody).then(resp => {
                     // log(`go-qchttp post weibo success: ${resp}`);
                   })
-                  .catch(err => {
-                    log(`go-qchttp post weibo error: ${err?.response?.body || err}`);
+                  .catch(e => {
+                    err(`go-qchttp post weibo error: ${e?.response?.body || e}`, e);
                   });
                 }
 
@@ -2308,8 +2335,8 @@ async function main(config) {
                     argv.verbose && log(`telegram post weibo success: message_id ${JSON.parse(resp.body)?.result?.message_id}`);
                     tgCacheSet.add(id);
                   })
-                  .catch(err => {
-                    log(`telegram post weibo error: ${err?.response?.body || err}`);
+                  .catch(e => {
+                    err(`telegram post weibo error: ${e?.response?.body || e}`, e);
                   });
 
                   // Send an additional message if original post has more than one photo
@@ -2335,8 +2362,8 @@ async function main(config) {
                         }, tgForm).then(resp => {
                           log(`telegram post weibo (batch #${idx + 1}) success`)
                         })
-                        .catch(err => {
-                          log(`telegram post weibo (batch #${idx + 1}) error: ${err?.response?.body || err}`);
+                        .catch(e => {
+                          err(`telegram post weibo (batch #${idx + 1}) error: ${e?.response?.body || e}`, e);
                         });
                       }
                     }
@@ -2356,12 +2383,8 @@ async function main(config) {
           log('weibo info corrupted, skipping...');
         }
       })
-      .catch(err => {
-        log(`weibo request error: ${err}`);
-
-        if (err.stack) {
-          console.log(err.stack);
-        }
+      .catch(e => {
+        err(`weibo request error: ${e}`, e);
       });
 
       // Fetch DDStats
@@ -2470,8 +2493,8 @@ async function main(config) {
                 }).then(resp => {
                   // log(`go-qchttp post ddstats success: ${resp}`);
                 })
-                .catch(err => {
-                  log(`go-qchttp post ddstats error: ${err?.response?.body || err}`);
+                .catch(e => {
+                  err(`go-qchttp post ddstats error: ${e?.response?.body || e}`, e);
                 });
               }
 
@@ -2486,8 +2509,8 @@ async function main(config) {
                 }).then(resp => {
                   // log(`telegram post ddstats success: message_id ${resp.result.message_id}`)
                 })
-                .catch(err => {
-                  log(`telegram post ddstats error: ${err?.response?.body || err}`);
+                .catch(e => {
+                  err(`telegram post ddstats error: ${e?.response?.body || e}`, e);
                 });
               }
             }
@@ -2501,12 +2524,8 @@ async function main(config) {
           log('ddstats info corrupted, skipping...');
         }
       })
-      .catch(err => {
-        log(`ddstats request error: ${err}`);
-
-        if (err.stack) {
-          console.log(err.stack);
-        }
+      .catch(e => {
+        err(`ddstats request error: ${e}`, e);
       });
 
       // Fetch DDStats
@@ -2599,8 +2618,8 @@ async function main(config) {
                   await sendQGuild({method: 'send_guild_channel_msg'}, qgBody).then(resp => {
                     // log(`go-qchttp post tapechat success: ${resp}`);
                   })
-                  .catch(err => {
-                    log(`go-qchttp post tapechat error: ${err?.response?.body || err}`);
+                  .catch(e => {
+                    err(`go-qchttp post tapechat error: ${e?.response?.body || e}`, e);
                   });
                 }
 
@@ -2609,8 +2628,8 @@ async function main(config) {
                   await sendTelegram(tgOptions, tgBody).then(resp => {
                     // log(`telegram post tapechat success: message_id ${resp.result.message_id}`)
                   })
-                  .catch(err => {
-                    log(`telegram post tapechat error: ${err?.response?.body || err}`);
+                  .catch(e => {
+                    err(`telegram post tapechat error: ${e?.response?.body || e}`, e);
                   });
                 }
               }
@@ -2625,17 +2644,16 @@ async function main(config) {
           log('tapechat info corrupted, skipping...');
         }
       })
-      .catch(err => {
-        log(`tapechat request error: ${err}`);
-
-        if (err.stack) {
-          console.log(err.stack);
-        }
+      .catch(e => {
+        err(`tapechat request error: ${e}`, e);
       });
 
       // Write new data to database
       await db.write();
       argv.verbose && log(`global db saved`);
+
+      // Store Sentry transaction
+      transaction.finish();
     }
   }
 
