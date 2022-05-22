@@ -2387,6 +2387,146 @@ async function main(config) {
         err(`weibo request error: ${e}`, e);
       });
 
+      // Fetch bilibili following
+      const bilibiliFollowingRequestUrl = `https://api.bilibili.com/x/relation/followings?vmid=${account.biliId}&pn=1&ps=50&order=desc`;
+      account.bilibiliFetchFollowing && account.biliId && argv.verbose && log(`bilibili-following requesting ${bilibiliFollowingRequestUrl}`);
+      account.bilibiliFetchFollowing && account.biliId && await got(bilibiliFollowingRequestUrl, {...config.pluginOptions?.requestOptions, ...proxyOptions}).then(async resp => {
+        const json = JSON.parse(resp.body);
+
+        if (json?.code === 0) {
+          const currentTime = Date.now();
+          const data = json.data.list;
+
+          if (data.length > 0) {
+            // Creating Telegram cache set from database. This ensure no duplicated notifications will be sent
+            const tgCacheSet = new Set(Array.isArray(dbScope?.bilibili_following?.tgCache) ? dbScope.bilibili_following.tgCache.reverse().slice(0, 30).reverse() : []);
+
+            const dbStore = {
+              followingPermission: 'PUBLIC',
+              scrapedTime: new Date(currentTime),
+              scrapedTimeUnix: +new Date(currentTime),
+            };
+
+            const tgOptions = {
+              method: 'sendMessage',
+            };
+
+            // Morph data for database schema
+            const activities = data.map(obj => {
+              return {
+                ...obj,
+                created_at_unix: +new Date(obj.mtime * 1000)
+              }
+              // Sort array by date in ascending order (reversed).
+            }).sort((a, b) => a.created_at_unix - b.created_at_unix);
+
+            const dbScopeTimestampUnix = dbScope?.bilibili_following?.latestActivity?.timestampUnix;
+
+            argv.json && fs.writeFile(`db/${account.slug}-bilibili_following.json`, JSON.stringify(json, null, 2), err => {
+              if (err) return console.log(err);
+            });
+
+            // Loop array reversed to send the latest activity last
+            for (let [idx, activity] of activities.entries()) {
+              const timestamp = +new Date(activity.mtime * 1000);
+              const uid = activity.mid;
+              const name = activity.uname || '未知用户名';
+              const sign = activity.sign;
+              const avatar = activity.face;
+              const officialVerify = activity?.official_verify?.desc;
+              const idxLatest = activities.length - 1;
+
+              let tgBodyMergedFooter = `\n\n<a href="https://space.bilibili.com/${account.biliId}">${account.slug}</a>`
+                + ` | <a href="https://space.bilibili.com/${uid}">${name}</a>`
+                + ` | ${timeAgo(timestamp, 'zh_cn')}`;
+
+              // If last (the last one in the array is the latest now) item
+              if (idx === idxLatest) {
+                dbStore.latestActivity = {
+                  uid: uid,
+                  name: name,
+                  sign: sign,
+                  avatar: avatar,
+                  officialVerify: officialVerify,
+                  timestamp: new Date(timestamp),
+                  timestampUnix: timestamp,
+                  timeAgo: timeAgo(timestamp),
+                }
+              };
+
+              if (!dbScopeTimestampUnix) {
+                log(`bilibili-following initial run, notifications skipped`);
+              } else if (timestamp === dbScopeTimestampUnix) {
+                log(`bilibili-following no update. latest: ${dbScope?.bilibili_following?.latestActivity?.uid} (${timeAgo(dbScope?.bilibili_following?.latestActivity?.timestamp)})`);
+              } else if (idx === idxLatest && timestamp <= dbScopeTimestampUnix) {
+                log(`bilibili-following new activity older than database. latest: ${uid} (${timeAgo(timestamp)})`);
+              } else if (idx === idxLatest && (currentTime - timestamp) >= config.bilibiliFollowingBotThrottle) {
+                log(`bilibili-following latest status ${uid} (${timeAgo(timestamp)}) older than 'bilibiliFollowingBotThrottle', skipping...`);
+              } else if (timestamp < dbScopeTimestampUnix) {
+                argv.verbose && log(`bilibili-following got old activity: ${uid} (${timeAgo(timestamp)}), discarding...`);
+              } else if (tgCacheSet.has(uid)) {
+                log(`bilibili-following latest status ${uid} (${timeAgo(timestamp)}) already in cache, skipping...`);
+              } else {
+                log(`bilibili-following got update: ${uid}: ${name} (${timeAgo(timestamp)})`);
+                // mergedContent.push(`${timeAgo(timestamp, 'zh_cn')} ${uid}`);
+
+                if (account.qGuildId && config.qGuild.enabled) {
+
+                  await sendQGuild({method: 'send_guild_channel_msg'}, {
+                    guild_id: account.qGuildId,
+                    channel_id: account.qGuildChannelId,
+                    message: `${msgPrefix}#b站新增关注 ${name}`
+                      + `${sign ? `\n签名：${sign}` : ''}`
+                      + `${officialVerify ? `\n认证：${officialVerify}` : ''}`
+                      + `${tgBodyMergedFooter}`,
+                  }).then(resp => {
+                    // log(`go-qchttp post bilibili-following success: ${resp}`);
+                  })
+                  .catch(e => {
+                    err(`go-qchttp post bilibili-following error: ${e?.response?.body || e}`, e);
+                  });
+                }
+
+                if (account.tgChannelId && config.telegram.enabled && !tgCacheSet.has(uid)) {
+                  const photoExt = avatar.split('.').pop();
+                  const tgForm = new FormData();
+                  const avatarImage = await readProcessedImage(`${avatar}`);
+                  tgForm.append('chat_id', account.tgChannelId);
+                  tgForm.append('parse_mode', 'HTML');
+                  tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', avatarImage, photoExt === 'gif' && 'image.gif');
+                  tgForm.append('caption', `${msgPrefix}#b站新增关注 ${name}`
+                    + `${sign ? `\n签名：${sign}` : ''}`
+                    + `${officialVerify ? `\n认证：${officialVerify}` : ''}`
+                    + `${tgBodyMergedFooter}`);
+
+                  await sendTelegram({
+                    method: photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto',
+                    payload: 'form',
+                  }, tgForm).then(resp => {
+                    argv.verbose && log(`telegram post bilibili-following success: message_id ${JSON.parse(resp.body)?.result?.message_id}`);
+                    tgCacheSet.add(uid);
+                  })
+                  .catch(e => {
+                    err(`telegram post bilibili-following error: ${e?.response?.body || e}`, e);
+                  });
+                }
+              }
+            };
+
+            // Set new data to database
+            dbStore.tgCache = [...tgCacheSet];
+            dbScope['bilibili_following'] = dbStore;
+          } else {
+            log('bilibili-following empty result, skipping...');
+          }
+        } else {
+          log('bilibili-following info corrupted, skipping...');
+        }
+      })
+      .catch(e => {
+        err(`bilibili-following request error: ${e}`, e);
+      });
+
       // Fetch DDStats
       const ddstatsRequestUrl = `https://ddstats-api.ericlamm.xyz/records/${account.biliId}?limit=15&type=dd`;
       !account.disableDdstats && account.biliId && argv.verbose && log(`ddstats requesting ${ddstatsRequestUrl}`);
@@ -2478,7 +2618,7 @@ async function main(config) {
                 argv.verbose && log(`ddstats got old activity: ${id} (${timeAgo(timestamp)}), discarding...`);
               } else {
                 log(`ddstats got update: ${id}: ${content} (${timeAgo(timestamp)})`);
-                mergedContent.push(`${timeAgo(timestamp, 'zh_cn')}：${contentHtml}`);
+                mergedContent.push(`${timeAgo(timestamp, 'zh_cn')} ${contentHtml}`);
               }
             };
 
@@ -2528,7 +2668,7 @@ async function main(config) {
         err(`ddstats request error: ${e}`, e);
       });
 
-      // Fetch DDStats
+      // Fetch Tape Chat
       const tapechatRequestUrl = `https://apiv4.tapechat.net/unuser/getQuestionFromUser/${account.tapechatId}?pageSize=20`;
       account.tapechatId && argv.verbose && log(`tapechat requesting ${tapechatRequestUrl}`);
       account.tapechatId && await got(tapechatRequestUrl, {...config.pluginOptions?.requestOptions, ...proxyOptions}).then(async resp => {
