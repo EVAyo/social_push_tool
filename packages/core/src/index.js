@@ -1330,7 +1330,7 @@ async function main(config) {
                   16: 5,
                   64: 12,
                   256: 14,
-                  2048: 19,
+                  2048: 17,
                   4300: 17,
                 };
 
@@ -1362,7 +1362,7 @@ async function main(config) {
                     const bilibiliCommentsRequestUrl = page
                       ? `https://api.bilibili.com/x/v2/reply/main?mode=${mode}&next=${page}&oid=${commentsIdMap[type]}&type=${commentsTypeMap[type]}`
                       : `https://api.bilibili.com/x/v2/reply/main?mode=${mode}&oid=${commentsIdMap[type]}&type=${commentsTypeMap[type]}`;
-                    log(`bilibili-mblog fetching comments (mode: ${mode}) from ${commentsId} with ${commentReqCounter}/${limit} (tick ${page || '0'}) for activity ${dynamicId}...`)
+                    log(`bilibili-mblog fetching comments (mode: ${mode}) from ${commentsIdMap[type]} with ${commentReqCounter}/${limit} (tick ${page || '0'}) for activity ${dynamicId}...`)
                     argv.verbose && log(`bilibili-mblog comments (mode: ${mode}) requesting ${bilibiliCommentsRequestUrl}`);
 
                     // A small amount of random time to behavior more like a human
@@ -1370,7 +1370,7 @@ async function main(config) {
 
                     await got(bilibiliCommentsRequestUrl, {...config.pluginOptions?.requestOptions, ...proxyOptions}).then(async resp => {
                       const json = JSON.parse(resp.body);
-                      const comments = Array.isArray(json.data.replies) && json.data.replies.length > 0 ? json.data.replies : [];
+                      const comments = Array.isArray(json?.data?.replies) && json.data.replies.length > 0 ? json.data.replies : [];
 
                       if (json?.code === 0 && comments.length > 0 && commentReqCounter < limit) {
                         const cursor = json.data.cursor;
@@ -1456,7 +1456,7 @@ async function main(config) {
                       }
 
                       // Check replies inside comments
-                      if (!account.bilibiliFetchCommentsDisableReplies && Array.isArray(comment.replies) && comment.replies.length > 0) {
+                      if (!account.bilibiliFetchCommentsDisableReplies && Array.isArray(comment?.replies) && comment.replies.length > 0) {
                         const replies = comment.replies;
 
                         for (const [idx, reply] of replies.entries()) {
