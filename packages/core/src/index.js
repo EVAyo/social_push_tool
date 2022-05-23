@@ -241,9 +241,9 @@ async function main(config) {
     // Only check enabled account
     if (account?.enabled) {
       // Set random request time to avoid request limit
-      const randomPaseTime = config.loopPauseTimeBase + Math.floor(Math.random() * config.loopPauseTimeRandomFactor);
-      argv.verbose && log(`wait ${randomPaseTime} ms before checking...`);
-      await setTimeout(randomPaseTime);
+      const randomPauseTime = config.loopPauseTimeBase + Math.floor(Math.random() * config.loopPauseTimeRandomFactor);
+      argv.verbose && log(`wait ${randomPauseTime} ms before checking...`);
+      await setTimeout(randomPauseTime);
 
       argv.verbose && log(`is checking...`);
 
