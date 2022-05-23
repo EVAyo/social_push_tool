@@ -6,7 +6,7 @@ import { setIntervalAsync } from 'set-interval-async/fixed/index.js';
 
 import got from 'got';
 import chalk from 'chalk';
-import merge from 'deepmerge';
+import { merge } from 'merge-anything';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { Low, JSONFile } from 'lowdb';

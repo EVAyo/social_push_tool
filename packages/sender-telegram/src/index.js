@@ -1,5 +1,5 @@
 import got from 'got';
-import merge from 'deepmerge';
+import { merge } from 'merge-anything';
 
 async function send(userOptions = {}, userBody = {}) {
   const options = merge({
