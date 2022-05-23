@@ -1562,10 +1562,18 @@ async function main(config) {
                     qgBody.message = `${msgPrefix}#b站视频转发：${cardJson?.item?.content.trim()}\n动态链接：https://t.bilibili.com/${dynamicId}\n\n被转作者：@${originJson.owner.name}\n被转视频：${originJson.title}\n\n${originJson.desc}\n${originJson.short_link}\n[CQ:image,file=${originJson?.pic}]`;
                   }
 
-                  // Live room
+                  // Live room (shared manually)
+                  // https://t.bilibili.com/662673746854674485
                   else if (originJson?.roomid && originJson?.uname) {
                     tgBody.text = `${msgPrefix}#b站直播间转发：${cardJson?.item?.content.trim()}\n\n被转直播间：@<a href="https://live.bilibili.com/${originJson.roomid}">${originJson.uname}</a>\n直播间标题：${originJson.title}${tgBodyFooter}`;
-                    qgBody.message = `${msgPrefix}#b站直播间转发：${cardJson?.item?.content.trim()}\n被转直播间：@${originJson.uname} https://live.bilibili.com/${originJson.roomid}\n\n被转作者：@${originJson.uname}\n直播间标题：${originJson.title}`;
+                    qgBody.message = `${msgPrefix}#b站直播间转发：${cardJson?.item?.content.trim()}\n被转直播间：@${originJson.uname} https://live.bilibili.com/${originJson.roomid}\n直播间标题：${originJson.title}`;
+                  }
+
+                  // Live room (retweeted from auto post when original live start)
+                  // https://t.bilibili.com/663437581017415703
+                  else if (originJson?.live_play_info) {
+                    tgBody.text = `${msgPrefix}#b站直播转发：${cardJson?.item?.content.trim()}\n\n被转直播间：@<a href="${originJson.live_play_info.link}">${cardJson?.origin_user?.info?.uname || '未知用户'}</a>\n直播间标题：${originJson.live_play_info.title}${tgBodyFooter}`;
+                    qgBody.message = `${msgPrefix}#b站直播转发：${cardJson?.item?.content.trim()}\n被转直播间：@${cardJson?.origin_user?.info?.uname} ${originJson.live_play_info.link}\n直播间标题：${originJson.live_play_info.title}`;
                   }
 
                   // Plain text
