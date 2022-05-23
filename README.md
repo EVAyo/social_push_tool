@@ -180,6 +180,11 @@ export default {
       // Default: false
       bilibiliFetchComments: true,
 
+      // How many page to fetch for comments. Should be >= 0.
+      // 0 means fetch only 1 (index 0) page
+      // Default: 5
+      bilibiliFetchCommentsLimit: 5,
+
       // In addition to `bilibiliFetchComments`, this disables fetching replies
       // in each comments.
       // Default: false

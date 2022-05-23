@@ -1354,13 +1354,14 @@ async function main(config) {
                     // mode 3: sort by hotest
                     const {
                       mode = 2,
+                      limit = account?.bilibiliFetchCommentsLimit || 5,
                       page,
                     } = options;
 
                     const bilibiliCommentsRequestUrl = page
                       ? `https://api.bilibili.com/x/v2/reply/main?mode=${mode}&next=${page}&oid=${commentsIdMap[type]}&type=${commentsTypeMap[type]}`
                       : `https://api.bilibili.com/x/v2/reply/main?mode=${mode}&oid=${commentsIdMap[type]}&type=${commentsTypeMap[type]}`;
-                    log(`bilibili-mblog fetching comments (mode: ${mode}) from ${commentsId} with tick ${page || '0'} for activity ${dynamicId}...`)
+                    log(`bilibili-mblog fetching comments (mode: ${mode}) from ${commentsId} with ${commentReqCounter}/${limit} (tick ${page || '0'}) for activity ${dynamicId}...`)
                     argv.verbose && log(`bilibili-mblog comments (mode: ${mode}) requesting ${bilibiliCommentsRequestUrl}`);
 
                     // A small amount of random time to behavior more like a human
@@ -1370,7 +1371,7 @@ async function main(config) {
                       const json = JSON.parse(resp.body);
                       const comments = Array.isArray(json.data.replies) && json.data.replies.length > 0 ? json.data.replies : [];
 
-                      if (json?.code === 0 && comments.length > 0 && commentReqCounter <= 5) {
+                      if (json?.code === 0 && comments.length > 0 && commentReqCounter < limit) {
                         const cursor = json.data.cursor;
                         const stickyComments = json?.data?.top?.upper;
 
@@ -1383,6 +1384,7 @@ async function main(config) {
                         if (cursor?.is_end !== true) {
                           await requestBilibiliComments({
                             mode: mode,
+                            limit: limit,
                             page: cursor.next
                           });
                         }
@@ -1401,8 +1403,8 @@ async function main(config) {
                   // Fetch latest comments
                   await requestBilibiliComments({mode: 2});
 
-                  // Fetch hotest comments
-                  await requestBilibiliComments({mode: 3});
+                  // Fetch hotest comments (the first 3 pages)
+                  await requestBilibiliComments({mode: 3, limit: 2});
 
                   // Filter duplicated, and sort by date
                   const commentUniqueIds = new Set();
