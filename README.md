@@ -105,6 +105,7 @@ export default {
   weiboBotThrottle: 3600 * 1000,
   ddstatsBotThrottle: 3600 * 1000,
   tapechatBotThrottle: 3600 * 1000,
+  afdianBotThrottle: 3600 * 1000,
 
   // Custom proxy to bypass bilibili API rate limit
   // Default: ''
@@ -217,6 +218,9 @@ export default {
       // box's URL. ie. https://www.tapechat.net/uu/TDL6BG/EVWKIS0F the
       // `tapechatId` should be `EVWKIS0F`
       tapechatId: 'RQOPYMJQ',
+
+      // Aifadian (afdian) user ID
+      afdianId: 'beaf1482bc2511ea896452540025c377',
 
       // Telegram chat/channel ID to receive notifications
       tgChannelId: 41205411,

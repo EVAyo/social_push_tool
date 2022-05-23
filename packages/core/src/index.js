@@ -84,6 +84,7 @@ async function generateConfig() {
     weiboBotThrottle: 3600 * 1000,
     ddstatsBotThrottle: 3600 * 1000,
     tapechatBotThrottle: 3600 * 1000,
+    afdianBotThrottle: 3600 * 1000,
     rateLimitProxy: '',
     telegram: {
       enabled: true,
@@ -2859,6 +2860,148 @@ async function main(config) {
       })
       .catch(e => {
         err(`tapechat request error: ${e}`, e);
+      });
+
+      // Fetch Aifadian (afdian)
+      const afdianRequestUrl = `https://afdian.net/api/post/get-list?user_id=${account.afdianId}&type=old&publish_sn=&per_page=10&group_id=&all=1&is_public=&plan_id=`;
+      account.afdianId && argv.verbose && log(`afdian requesting ${afdianRequestUrl}`);
+      account.afdianId && await got(afdianRequestUrl, {...config.pluginOptions?.requestOptions, ...proxyOptions}).then(async resp => {
+        const json = JSON.parse(resp.body);
+
+        if (json?.ec === 200) {
+          const currentTime = Date.now();
+          const data = json.data.list;
+
+          if (data.length > 0) {
+            const dbStore = {
+              scrapedTime: new Date(currentTime),
+              scrapedTimeUnix: +new Date(currentTime),
+            };
+
+            // Morph data for database schema
+            const activities = data.map(obj => {
+              return {
+                ...obj,
+                created_at_unix: +new Date(obj.publish_time * 1000)
+              }
+              // Sort array by date in ascending order (reversed).
+            }).sort((a, b) => a.created_at_unix - b.created_at_unix);
+
+            const dbScopeTimestampUnix = dbScope?.afdian?.latestActivity?.timestampUnix;
+
+            argv.json && fs.writeFile(`db/${account.slug}-afdian.json`, JSON.stringify(json, null, 2), err => {
+              if (err) return console.log(err);
+            });
+
+            // Loop array reversed to send the latest activity last
+            for (let [idx, activity] of activities.entries()) {
+              const timestamp = +new Date(activity.publish_time * 1000);
+              const id = activity.post_id;
+              const content = `${msgPrefix}#爱发电动态 ${activity.title}`
+                + `${activity?.content ? `\n\n${activity.content}` : `ww`}`;
+                // + `${activity.answer?.imgList?.length ? `\n附图：${activity.answer.imgList.join(' ')}` : ''}`
+                // + `${activity.answer?.linkCard ? `\n链接：<a href="${activity.answer.linkCard.originalUrl}">${activity.answer.linkCard.title}</a>` : ''}`;
+              const image = activity?.cover || Array.isArray(activity?.pics) && activity?.pics[0] || activity?.audio_thumb;
+              const idxLatest = activities.length - 1;
+
+              // If last (the last one in the array is the latest now) item
+              if (idx === idxLatest) {
+                dbStore.latestActivity = {
+                  id: id,
+                  // Avoid storing content, take too much space
+                  // content: content,
+                  timestamp: new Date(timestamp),
+                  timestampUnix: timestamp,
+                  timeAgo: timeAgo(timestamp),
+                }
+              };
+
+              const tgOptions = {
+                method: 'sendMessage',
+              };
+
+              const tgBodyFooter = `\n\n<a href="https://afdian.net/p/${id}">${timeAgo(timestamp, 'zh_cn')}</a>`
+                + ` | <a href="https://afdian.net/u/${activity?.user?.user_id || account.afdianId}">${activity?.user?.name || '未知创作者'}</a>`;
+
+              const tgBody = {
+                chat_id: account.tgChannelId,
+                parse_mode: 'HTML',
+                disable_web_page_preview: true,
+                text: `${content}${tgBodyFooter}`,
+              };
+
+              const qgBody = {
+                guild_id: account.qGuildId,
+                channel_id: account.qGuildChannelId,
+                message: `${content}${tgBodyFooter}`,
+              };
+
+              if (!dbScopeTimestampUnix) {
+                log(`afdian initial run, notifications skipped`);
+              } else if (timestamp === dbScopeTimestampUnix) {
+                log(`afdian no update. latest: ${dbScope?.afdian?.latestActivity?.id} (${timeAgo(dbScope?.afdian?.latestActivity?.timestamp)})`);
+              } else if (idx === idxLatest && timestamp <= dbScopeTimestampUnix) {
+                log(`afdian new activity older than database. latest: ${id} (${timeAgo(timestamp)})`);
+              } else if (idx === idxLatest && (currentTime - timestamp) >= config.afdianBotThrottle) {
+                log(`afdian latest status ${id} (${timeAgo(timestamp)}) older than 'afdianBotThrottle', skipping...`);
+              } else if (timestamp < dbScopeTimestampUnix) {
+                argv.verbose && log(`afdian got old activity: ${id} (${timeAgo(timestamp)}), discarding...`);
+              } else {
+                log(`afdian got update: ${id}: ${content} (${timeAgo(timestamp)})`);
+
+                if (account.qGuildId && config.qGuild.enabled) {
+
+                  await sendQGuild({method: 'send_guild_channel_msg'}, qgBody).then(resp => {
+                    // log(`go-qchttp post afdian success: ${resp}`);
+                  })
+                  .catch(e => {
+                    err(`go-qchttp post afdian error: ${e?.response?.body || e}`, e);
+                  });
+                }
+
+                if (account.tgChannelId && config.telegram.enabled) {
+
+                  if (image) {
+                    const photoExt = image.split('.').pop();
+                    const tgForm = new FormData();
+                    const coverImage = await readProcessedImage(`${image}`);
+                    tgForm.append('chat_id', account.tgChannelId);
+                    tgForm.append('parse_mode', 'HTML');
+                    tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', coverImage, photoExt === 'gif' && 'image.gif');
+                    tgForm.append('caption', `${content}${tgBodyFooter}`);
+
+                    await sendTelegram({
+                      method: photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto',
+                      payload: 'form',
+                    }, tgForm).then(resp => {
+                      // log(`telegram post weibo::avatar success: message_id ${resp.result.message_id}`)
+                    })
+                    .catch(e => {
+                      err(`telegram post afdian error: ${e?.response?.body || e}`, e);
+                    });
+                  } else {
+                    await sendTelegram(tgOptions, tgBody).then(resp => {
+                      // log(`telegram post afdian success: message_id ${resp.result.message_id}`)
+                    })
+                    .catch(e => {
+                      err(`telegram post afdian error: ${e?.response?.body || e}`, e);
+                    });
+                  }
+                }
+              }
+            };
+
+            // Set new data to database
+            dbScope['afdian'] = dbStore;
+          } else {
+            log('afdian empty result, skipping...');
+          }
+        } else {
+          log('afdian info corrupted, skipping...');
+        }
+      })
+      .catch(e => {
+        err(`afdian request error: ${e}`, e);
       });
 
       // Write new data to database
