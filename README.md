@@ -180,6 +180,11 @@ export default {
       // Default: false
       bilibiliFetchComments: true,
 
+      // In addition to `bilibiliFetchComments`, this disables fetching replies
+      // in each comments.
+      // Default: false
+      bilibiliFetchCommentsDisableReplies: true,
+
       // Check bilibili account following. Disabled by default
       // This fires another API to monitor account following. It's not
       // recommended to enable this feature if you have a lot of accounts to

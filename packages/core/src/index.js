@@ -1233,7 +1233,7 @@ async function main(config) {
 
             // Creating Telegram cache set from database. This ensure no duplicated notifications will be sent
             const tgCacheSet = new Set(Array.isArray(dbScope?.bilibili_mblog?.tgCache) ? dbScope.bilibili_mblog.tgCache.reverse().slice(0, 30).reverse() : []);
-            const tgCommentsCacheSet = new Set(Array.isArray(dbScope?.bilibili_mblog?.tgCommentsCache) ? dbScope.bilibili_mblog.tgCommentsCache.reverse().slice(0, 300).reverse() : []);
+            const tgCommentsCacheSet = new Set(Array.isArray(dbScope?.bilibili_mblog?.tgCommentsCache) ? dbScope.bilibili_mblog.tgCommentsCache.reverse().slice(0, 500).reverse() : []);
 
             // Start storing time-sensitive data after checking user info changes
             const dbStore = {
@@ -1346,88 +1346,150 @@ async function main(config) {
                 }
 
                 if (account.bilibiliFetchComments) {
-                  // mode 2: sort by latest
-                  // mode 3: sort by hotest
-                  const bilibiliCommentsRequestUrl = `https://api.bilibili.com/x/v2/reply/main?mode=3&oid=${commentsIdMap[type]}&type=${commentsTypeMap[type]}`;
-                  log(`bilibili-mblog fetching comments from ${commentsId} for activity ${dynamicId}...`)
-                  argv.verbose && log(`bilibili-mblog comments requesting ${bilibiliCommentsRequestUrl}`);
-                  await got(bilibiliCommentsRequestUrl, {...config.pluginOptions?.requestOptions, ...proxyOptions}).then(async resp => {
-                    const json = JSON.parse(resp.body);
-                    const comments = Array.isArray(json.data.replies) && json.data.replies.length > 0 ? json.data.replies : [];
+                  const commentsJar = [];
+                  let commentReqCounter = 0;
 
-                    if (json?.code === 0 && comments.length > 0) {
-                      const stickyComments = json?.data?.top?.upper;
+                  async function requestBilibiliComments(options) {
+                    // mode 2: sort by latest
+                    // mode 3: sort by hotest
+                    const {
+                      mode = 2,
+                      page,
+                    } = options;
 
-                      // Merge sticky comments
-                      stickyComments && comments.unshift(stickyComments);
+                    const bilibiliCommentsRequestUrl = page
+                      ? `https://api.bilibili.com/x/v2/reply/main?mode=${mode}&next=${page}&oid=${commentsIdMap[type]}&type=${commentsTypeMap[type]}`
+                      : `https://api.bilibili.com/x/v2/reply/main?mode=${mode}&oid=${commentsIdMap[type]}&type=${commentsTypeMap[type]}`;
+                    log(`bilibili-mblog fetching comments (mode: ${mode}) from ${commentsId} with tick ${page || '0'} for activity ${dynamicId}...`)
+                    argv.verbose && log(`bilibili-mblog comments (mode: ${mode}) requesting ${bilibiliCommentsRequestUrl}`);
 
-                      for (const [idx, comment] of comments.entries()) {
+                    // A small amount of random time to behavior more like a human
+                    await setTimeout(Math.floor(Math.random() * 1000));
 
-                        if (comment?.member?.mid === account.biliId && !tgCommentsCacheSet.has(comment.rpid_str)) {
-                          log(`bilibili-mblog author comment detected ${comment.rpid_str} for activity ${dynamicId}...`)
+                    await got(bilibiliCommentsRequestUrl, {...config.pluginOptions?.requestOptions, ...proxyOptions}).then(async resp => {
+                      const json = JSON.parse(resp.body);
+                      const comments = Array.isArray(json.data.replies) && json.data.replies.length > 0 ? json.data.replies : [];
 
-                          if (account.tgChannelId && config.telegram.enabled) {
+                      if (json?.code === 0 && comments.length > 0 && commentReqCounter <= 5) {
+                        const cursor = json.data.cursor;
+                        const stickyComments = json?.data?.top?.upper;
 
-                            await sendTelegram({ method: 'sendMessage' }, {
-                              chat_id: account.tgChannelId,
-                              parse_mode: 'HTML',
-                              disable_web_page_preview: true,
-                              disable_notification: true,
-                              allow_sending_without_reply: true,
-                              text: `${msgPrefix}#b站新评论：${stripHtml(comment?.content?.message) || '未知内容'}`
-                                + `\n\n<a href="https://t.bilibili.com/${dynamicId}#reply${comment.rpid_str}">${timeAgo(+new Date(comment.ctime * 1000), 'zh_cn')}</a>`
-                                + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.info.uname}</a>`
-                            }).then(resp => {
-                              log(`telegram post bilibili-mblog::author_comment success: message_id ${JSON.parse(resp.body)?.result?.message_id}`);
-                              tgCommentsCacheSet.add(comment.rpid_str);
-                            })
-                            .catch(e => {
-                              err(`telegram post bilibili-mblog::author_comment error: ${err}`, e);
-                            });
-                          }
+                        // When fetch using mode 3, every page will return sticky comment so only keep the first one
+                        stickyComments && !page && comments.unshift(stickyComments);
+                        commentsJar.push(...comments);
+                        commentReqCounter += 1;
+                        argv.verbose && log(`bilibili-mblog comments (mode: ${mode}) got ${comments.length} comments`);
+
+                        if (cursor?.is_end !== true) {
+                          await requestBilibiliComments({
+                            mode: mode,
+                            page: cursor.next
+                          });
                         }
+                      } else {
+                        // Reset counter for other loops
+                        commentReqCounter = 0;
+                        argv.verbose && log(`bilibili-mblog comments (mode: ${mode}) no more pages to fetch`);
+                      }
+                      // return comments;
+                    }).catch(e => {
+                      commentReqCounter = 0;
+                      err(`bilibili-mblog comments (mode: ${mode}) ${commentsId} with tick ${page || '0'} request error: ${err}`, e);
+                    });
+                  }
 
-                        // Check replies inside comments
-                        if (Array.isArray(comment.replies) && comment.replies.length > 0) {
-                          const replies = comment.replies;
+                  // Fetch latest comments
+                  await requestBilibiliComments({mode: 2});
 
-                          for (const [idx, reply] of replies.entries()) {
+                  // Fetch hotest comments
+                  await requestBilibiliComments({mode: 3});
 
-                            if (reply?.member?.mid === account.biliId && !tgCommentsCacheSet.has(reply.rpid_str)) {
-                              log(`bilibili-mblog author comment reply detected ${reply.rpid_str} in comment ${comment.rpid_str} for activity ${dynamicId}...`)
+                  // Filter duplicated, and sort by date
+                  const commentUniqueIds = new Set();
+                  const comments = commentsJar.filter(comment => {
+                    const isDuplicated = commentUniqueIds.has(comment.rpid_str);
+                    commentUniqueIds.add(comment.rpid_str);
 
-                              if (account.tgChannelId && config.telegram.enabled) {
+                    if (!isDuplicated) {
+                      return true;
+                    }
 
-                                await sendTelegram({ method: 'sendMessage' }, {
-                                  chat_id: account.tgChannelId,
-                                  parse_mode: 'HTML',
-                                  disable_web_page_preview: true,
-                                  disable_notification: true,
-                                  allow_sending_without_reply: true,
-                                  text: `${msgPrefix}#b站新评论回复：${stripHtml(reply?.content?.message) || '未知内容'}`
-                                    + `\n\n被回复的评论：<a href="https://space.bilibili.com/${comment.member.mid}">@${comment?.member?.uname || '未知用户名'}</a>: ${stripHtml(comment?.content?.message) || '未知内容'}`
-                                    + `\n\n<a href="https://t.bilibili.com/${dynamicId}#reply${reply.rpid_str}">${timeAgo(+new Date(reply.ctime * 1000), 'zh_cn')}</a>`
-                                    + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.info.uname}</a>`
-                                  }).then(resp => {
-                                  log(`telegram post bilibili-mblog::author_comment_reply success: message_id ${JSON.parse(resp.body)?.result?.message_id}`);
-                                  tgCommentsCacheSet.add(reply.rpid_str);
-                                })
-                                .catch(e => {
-                                  err(`telegram post bilibili-mblog::author_comment_reply error: ${err}`, e);
-                                });
-                              }
-                            }
-                          }
-                        } else {
-                          argv.verbose && log(`bilibili-mblog comment ${comment.rpid_str} has no reply, skipped`);
+                    return false;
+                  }).sort((a, b) => a.ctime - b.ctime);
+
+                  log(`bilibili-mblog comments total got ${comments.length}`);
+
+                  // Debug only
+                  // fs.writeFile(`db/${account.slug}-bilibili-comments.json`, JSON.stringify(comments, null, 2), err => {
+                  //   if (err) return console.log(err);
+                  // });
+
+                  if (comments.length > 0) {
+
+                    for (const [idx, comment] of comments.entries()) {
+
+                      if (comment?.member?.mid === account.biliId && !tgCommentsCacheSet.has(comment.rpid_str)) {
+                        log(`bilibili-mblog author comment detected ${comment.rpid_str} for activity ${dynamicId}...`);
+
+                        if (account.tgChannelId && config.telegram.enabled) {
+
+                          await sendTelegram({ method: 'sendMessage' }, {
+                            chat_id: account.tgChannelId,
+                            parse_mode: 'HTML',
+                            disable_web_page_preview: true,
+                            disable_notification: true,
+                            allow_sending_without_reply: true,
+                            text: `${msgPrefix}#b站新评论：${stripHtml(comment?.content?.message) || '未知内容'}`
+                              + `\n\n<a href="https://t.bilibili.com/${dynamicId}#reply${comment.rpid_str}">${timeAgo(+new Date(comment.ctime * 1000), 'zh_cn')}</a>`
+                              + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.info.uname}</a>`
+                          }).then(resp => {
+                            log(`telegram post bilibili-mblog::author_comment success: message_id ${JSON.parse(resp.body)?.result?.message_id}`);
+                            tgCommentsCacheSet.add(comment.rpid_str);
+                          })
+                          .catch(e => {
+                            err(`telegram post bilibili-mblog::author_comment error: ${err}`, e);
+                          });
                         }
                       }
-                    } else {
-                      log('bilibili-mblog comments corrupted or has no reply, skipped');
+
+                      // Check replies inside comments
+                      if (!account.bilibiliFetchCommentsDisableReplies && Array.isArray(comment.replies) && comment.replies.length > 0) {
+                        const replies = comment.replies;
+
+                        for (const [idx, reply] of replies.entries()) {
+
+                          if (reply?.member?.mid === account.biliId && !tgCommentsCacheSet.has(reply.rpid_str)) {
+                            log(`bilibili-mblog author comment reply detected ${reply.rpid_str} in comment ${comment.rpid_str} for activity ${dynamicId}...`)
+
+                            if (account.tgChannelId && config.telegram.enabled) {
+
+                              await sendTelegram({ method: 'sendMessage' }, {
+                                chat_id: account.tgChannelId,
+                                parse_mode: 'HTML',
+                                disable_web_page_preview: true,
+                                disable_notification: true,
+                                allow_sending_without_reply: true,
+                                text: `${msgPrefix}#b站新评论回复：${stripHtml(reply?.content?.message) || '未知内容'}`
+                                  + `\n\n被回复的评论：<a href="https://t.bilibili.com/${dynamicId}#reply${comment.rpid_str}">${timeAgo(+new Date(comment.ctime * 1000), 'zh_cn')}</a> <a href="https://space.bilibili.com/${comment.member.mid}">@${comment?.member?.uname || '未知用户名'}</a>: ${stripHtml(comment?.content?.message) || '未知内容'}`
+                                  + `\n\n<a href="https://t.bilibili.com/${dynamicId}#reply${reply.rpid_str}">${timeAgo(+new Date(reply.ctime * 1000), 'zh_cn')}</a>`
+                                  + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.info.uname}</a>`
+                                }).then(resp => {
+                                log(`telegram post bilibili-mblog::author_comment_reply success: message_id ${JSON.parse(resp.body)?.result?.message_id}`);
+                                tgCommentsCacheSet.add(reply.rpid_str);
+                              })
+                              .catch(e => {
+                                err(`telegram post bilibili-mblog::author_comment_reply error: ${err}`, e);
+                              });
+                            }
+                          }
+                        }
+                      } else {
+                        argv.verbose && log(`bilibili-mblog comment ${comment.rpid_str} has no author reply, skipped`);
+                      }
                     }
-                  }).catch(e => {
-                    err(`bilibili-mblog comments request error: ${err}`, e);
-                  });
+                  } else {
+                    log('bilibili-mblog comments corrupted or has no reply, skipped');
+                  }
                 }
               } else if (idx === idxLatest && timestamp <= dbScopeTimestampUnix) {
                 log(`bilibili-mblog new post older than database. latest: ${dynamicId} (${timeAgo(timestamp)})`);
