@@ -94,7 +94,7 @@ export default {
   loopPauseTimeRandomFactor: 2000,
 
   // 24 hours, if latest post older than this value, do not send notifications
-  douyinBotThrottle: 24 * 3600 * 1000,
+  douyinBotThrottle: 36 * 3600 * 1000,
   douyinLiveBotThrottle: 1200 * 1000, // 20 mins
 
   // 65 mins, bilibili sometimes got limit rate for 60 mins.
@@ -106,8 +106,19 @@ export default {
   ddstatsBotThrottle: 3600 * 1000,
   tapechatBotThrottle: 3600 * 1000,
 
-   // Custom proxy to bypass bilibili API rate limit
+  // Custom proxy to bypass bilibili API rate limit
+  // Default: ''
   rateLimitProxy: 'http://10.2.1.2:7890',
+
+  // Options for got
+  // Default:
+  // {
+  //   requestOptions: {
+  //     timeout: {
+  //       request: 4000
+  //     }
+  //   }
+  // }
   pluginOptions: {
     requestOptions: {
       timeout: {
@@ -147,7 +158,8 @@ export default {
   accounts: [
     {
       // Use `false` to disable checking this profile
-      enabled: false,
+      // Default: true
+      enabled: true,
 
       // Slug is used to identify accounts in logs
       slug: '嘉然',
@@ -155,6 +167,7 @@ export default {
       // Set to `true` to add `slug` at the beginning of the notification.
       // ie: #嘉然. Useful for pushing notifications with multiple accounts in
       // one channel
+      // Default: false
       showSlug: true,
 
       // bilibili account UID
@@ -164,7 +177,15 @@ export default {
       // This fires another API to monitor comments and replies. It's not
       // recommended to enable this feature if you have a lot of accounts to
       // monitor or you will soon hit API rate limit.
+      // Default: false
       bilibiliFetchComments: true,
+
+      // Check bilibili account following. Disabled by default
+      // This fires another API to monitor account following. It's not
+      // recommended to enable this feature if you have a lot of accounts to
+      // monitor or you will soon hit API rate limit.
+      // Default: false
+      bilibiliFetchFollowing: true,
 
       // Douyin account ID
       douyinId: 'MS4wLjABAAAA5ZrIrbgva_HMeHuNn64goOD2XYnk4ItSypgRHlbSh1c',
@@ -179,6 +200,7 @@ export default {
       // This fires another API to monitor comments and replies. It's not
       // recommended to enable this feature if you have a lot of accounts to
       // monitor or you will soon hit API rate limit.
+      // Default: false
       weiboFetchComments: true,
 
       // Tape message box account ID. Usually the last part of your message
@@ -198,20 +220,25 @@ export default {
 
       // Update Telegram chat/channel photo/avatar when user avatar updates in
       // included sources.
+      // Default: []
       tgChannelAvatarSource: ['weibo', 'bilibili'],
 
       // Show custom color output in console. Nothing useful
+      // Default: '#fff'
       color: '#e799b0',
 
       // Avoid chekcing bilibili live stream. Some accounts may not have live
       // stream ability
+      // Default: false
       disableBilibiliLive: false,
 
       // Avoid checking douyin live stream
+      // Default: false
       disableDouyinLive: false,
 
       // Disable checking DDStats. Some bilibili accounts may not have DDStats
       // feature enabled
+      // Default: false
       disableDdstats: false,
     },
     {
