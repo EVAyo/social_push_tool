@@ -22,7 +22,7 @@ import {
   parseDdstatsString
 } from './utils.js';
 import { timeAgo } from './utils/timeAgo.js';
-import { readProcessedImage } from './utils/processImage.js';
+import { readProcessedMedia } from './utils/processMedia.js';
 
 import TelegramBot from '@a-soul/sender-telegram';
 import GoQcHttp from '@a-soul/sender-go-qchttp';
@@ -383,7 +383,7 @@ async function main(config) {
                     const tgForm = new FormData();
                     tgForm.append('chat_id', account.tgChannelId);
                     tgForm.append('parse_mode', 'HTML');
-                    tgForm.append('photo', await readProcessedImage(`${liveCover}`));
+                    tgForm.append('photo', await readProcessedMedia(`${liveCover}`));
                     tgForm.append('caption', `${msgPrefix}#抖音开播：${title}`
                       + `\n\n<a href="https://webcast.amemv.com/webcast/reflow/${id_str}">${timeAgo(timestamp, 'zh_cn')}</a>`
                       + ` | <a href="${streamUrl}">M3U8 直链</a>`
@@ -734,7 +734,7 @@ async function main(config) {
             if (account.tgChannelId && config.telegram.enabled) {
               const photoExt = liveCover.split('.').pop();
               const tgForm = new FormData();
-              const liveCoverImage = await readProcessedImage(`${liveCover}`);
+              const liveCoverImage = await readProcessedMedia(`${liveCover}`);
               tgForm.append('chat_id', account.tgChannelId);
               tgForm.append('parse_mode', 'HTML');
               tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', liveCoverImage, photoExt === 'gif' && 'image.gif');
@@ -845,7 +845,7 @@ async function main(config) {
             if (account.tgChannelId && config.telegram.enabled) {
               const photoExt = avatar.split('.').pop();
               const tgForm = new FormData();
-              const avatarImage = await readProcessedImage(`${avatar}`);
+              const avatarImage = await readProcessedMedia(`${avatar}`);
               tgForm.append('chat_id', account.tgChannelId);
               tgForm.append('parse_mode', 'HTML');
               tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', avatarImage, photoExt === 'gif' && 'image.gif');
@@ -1593,7 +1593,7 @@ async function main(config) {
                   if (originJson?.origin_image_urls) {
                     tgOptions.method = 'sendPhoto';
                     tgOptions.payload = 'form';
-                    tgForm.append('photo', await readProcessedImage(`${originJson?.origin_image_urls}`));
+                    tgForm.append('photo', await readProcessedMedia(`${originJson?.origin_image_urls}`));
                     tgForm.append('caption', `${msgPrefix}#b站专栏转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.author.name}\n被转标题：${originJson.title}\n\n${originJson.summary}${tgBodyFooter}`);
                     qgBody.message = `${msgPrefix}#b站专栏转发：${cardJson?.item?.content.trim()}\n动态链接：https://t.bilibili.com/${dynamicId}\n\n被转作者：@${originJson.author.name}\n被转标题：${originJson.title}\n\n${originJson.summary}\n[CQ:image,file=${originJson?.origin_image_urls}]`;
                   }
@@ -1607,7 +1607,7 @@ async function main(config) {
                     const photoExt = originJson?.item?.pictures[0].img_src.split('.').pop();
                     tgOptions.method = photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto';
                     tgOptions.payload = 'form';
-                    tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${originJson?.item?.pictures[0].img_src}`), photoExt === 'gif' && 'image.gif');
+                    tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedMedia(`${originJson?.item?.pictures[0].img_src}`), photoExt === 'gif' && 'image.gif');
                     tgForm.append('caption', `${msgPrefix}#b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.name}\n被转内容：${photoCountText}：${originJson?.item?.description}${extendedMeta}${tgBodyFooter}`);
                     qgBody.message = `${msgPrefix}#b站转发：${cardJson?.item?.content.trim()}\n动态链接：https://t.bilibili.com/${dynamicId}\n\n被转作者：@${originJson.user.name}\n被转内容：${photoCountText}：${originJson?.item?.description}${extendedMeta}\n[CQ:image,file=${originJson?.item?.pictures[0].img_src}]`;
 
@@ -1666,7 +1666,7 @@ async function main(config) {
                   // NOTE: old JSON method
                   // tgBody.caption = `${msgPrefix}#b站相册动态${photoCountText}：${cardJson?.item?.description}`;
                   // tgBody.photo = cardJson.item.pictures[0].img_src;
-                  tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${cardJson.item.pictures[0].img_src}`), photoExt === 'gif' && 'image.gif');
+                  tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedMedia(`${cardJson.item.pictures[0].img_src}`), photoExt === 'gif' && 'image.gif');
                   tgForm.append('caption', `${msgPrefix}#b站相册动态${photoCountText}：${cardJson?.item?.description}${extendedMeta}${tgBodyFooter}`);
                   qgBody.message = `${msgPrefix}#b站相册动态${photoCountText}：${cardJson?.item?.description}${extendedMeta}\n动态链接：https://t.bilibili.com/${dynamicId}\n${cardJson.item.pictures.map(item => generateCqCode(item.img_src))}`;
 
@@ -1704,7 +1704,7 @@ async function main(config) {
                 else if (type === 64) {
                   tgOptions.method = 'sendPhoto';
                   tgOptions.payload = 'form';
-                  tgForm.append('photo', await readProcessedImage(`${cardJson.origin_image_urls[0]}`));
+                  tgForm.append('photo', await readProcessedMedia(`${cardJson.origin_image_urls[0]}`));
                   tgForm.append('caption', `${msgPrefix}#b站专栏：${cardJson.title}\n\n${cardJson.summary}${tgBodyFooter}`);
                   qgBody.message = `${msgPrefix}#b站专栏：${cardJson.title}\n\n${cardJson.summary}\n动态链接：https://t.bilibili.com/${dynamicId}\n${cardJson.origin_image_urls.map(item => generateCqCode(item))}`;
 
@@ -1772,7 +1772,7 @@ async function main(config) {
                           tgForm.append('chat_id', account.tgChannelId);
                           tgForm.append('parse_mode', 'HTML');
                           tgForm.append('disable_notification', true);
-                          tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${cardJson.item.pictures[idx].img_src}`), photoExt === 'gif' && 'image.gif');
+                          tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedMedia(`${cardJson.item.pictures[idx].img_src}`), photoExt === 'gif' && 'image.gif');
                           tgForm.append('caption', `${msgPrefix}#b站相册动态${photoCountText}：${cardJson?.item?.description}${extendedMeta}${tgBodyFooter}`);
 
                           await sendTelegram({
@@ -2011,7 +2011,7 @@ async function main(config) {
               if (account.tgChannelId && config.telegram.enabled) {
                 const photoExt = user.avatar_hd.split('.').pop();
                 const tgForm = new FormData();
-                const avatarImage = await readProcessedImage(`${user.avatar_hd}`);
+                const avatarImage = await readProcessedMedia(`${user.avatar_hd}`);
                 tgForm.append('chat_id', account.tgChannelId);
                 tgForm.append('parse_mode', 'HTML');
                 tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', avatarImage, photoExt === 'gif' && 'image.gif');
@@ -2070,7 +2070,7 @@ async function main(config) {
               if (account.tgChannelId && config.telegram.enabled) {
                 const photoExt = convertWeiboUrl(user.cover_image_phone).split('.').pop();
                 const tgForm = new FormData();
-                const coverImage = await readProcessedImage(`${convertWeiboUrl(user.cover_image_phone)}`);
+                const coverImage = await readProcessedMedia(`${convertWeiboUrl(user.cover_image_phone)}`);
                 tgForm.append('chat_id', account.tgChannelId);
                 tgForm.append('parse_mode', 'HTML');
                 tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', coverImage, photoExt === 'gif' && 'image.gif');
@@ -2354,8 +2354,8 @@ async function main(config) {
                   const photoExt = activity.pics[0].large.url.split('.').pop();
                   tgOptions.method = photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto';
                   tgOptions.payload = 'form';
-                  // tgForm.append('photo', await readProcessedImage(`https://ww1.sinaimg.cn/large/${activity.pic_ids[0]}.jpg`));
-                  tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${activity.pics[0].large.url}`), photoExt === 'gif' && 'image.gif');
+                  // tgForm.append('photo', await readProcessedMedia(`https://ww1.sinaimg.cn/large/${activity.pic_ids[0]}.jpg`));
+                  tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedMedia(`${activity.pics[0].large.url}`), photoExt === 'gif' && 'image.gif');
                   tgForm.append('caption', `${msgPrefix}#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}${tgBodyFooter}`);
                   qgBody.message = `${msgPrefix}#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}\n地址：https://weibo.com/${user.id}/${id}\n${activity.pics.map(item => generateCqCode(item.large.url))}`;
 
@@ -2443,7 +2443,7 @@ async function main(config) {
                         tgForm.append('chat_id', account.tgChannelId);
                         tgForm.append('parse_mode', 'HTML');
                         tgForm.append('disable_notification', true);
-                        tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedImage(`${activity.pics[idx].large.url}`), photoExt === 'gif' && 'image.gif');
+                        tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedMedia(`${activity.pics[idx].large.url}`), photoExt === 'gif' && 'image.gif');
                         tgForm.append('caption', `${msgPrefix}#微博${visibilityMap[visibility] || ''}照片${photoCountText}：${text}${tgBodyFooter}`);
 
                         await sendTelegram({
@@ -2580,7 +2580,7 @@ async function main(config) {
                 if (account.tgChannelId && config.telegram.enabled && !tgCacheSet.has(uid)) {
                   const photoExt = avatar.split('.').pop();
                   const tgForm = new FormData();
-                  const avatarImage = await readProcessedImage(`${avatar}`);
+                  const avatarImage = await readProcessedMedia(`${avatar}`);
                   tgForm.append('chat_id', account.tgChannelId);
                   tgForm.append('parse_mode', 'HTML');
                   tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', avatarImage, photoExt === 'gif' && 'image.gif');
@@ -2980,7 +2980,7 @@ async function main(config) {
                   if (image) {
                     const photoExt = image.split('.').pop();
                     const tgForm = new FormData();
-                    const coverImage = await readProcessedImage(`${image}`);
+                    const coverImage = await readProcessedMedia(`${image}`);
                     tgForm.append('chat_id', account.tgChannelId);
                     tgForm.append('parse_mode', 'HTML');
                     tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', coverImage, photoExt === 'gif' && 'image.gif');

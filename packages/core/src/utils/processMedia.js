@@ -5,30 +5,30 @@ import getStream from 'get-stream';
 import sharp from 'sharp';
 import got from 'got';
 
-async function processImage(inputImage) {
+async function processMedia(inputMedia) {
   const {
     name,
     ext
-  } = path.parse(inputImage);
+  } = path.parse(inputMedia);
   // console.log(name);
   // console.log(ext);
 
-  // Pass remote image via stream and convert it to buffer
-  const source = inputImage.startsWith('http')
-    ? await getStream.buffer(got(inputImage, {isStream: true}))
-    : inputImage;
+  // Pass remote media via stream and convert it to buffer
+  const source = inputMedia.startsWith('http')
+    ? await getStream.buffer(got(inputMedia, {isStream: true}))
+    : inputMedia;
 
-  const image = sharp(source, { animated: true });
-  const metadata = await image.metadata();
+  const media = sharp(source, { animated: true });
+  const metadata = await media.metadata();
   const {
     width,
     height,
     format,
     size,
   } = metadata;
-  let imageBuffer = await image.toBuffer({ resolveWithObject: true });
+  let mediaBuffer = await media.toBuffer({ resolveWithObject: true });
 
-  // console.log(`buffer meta`, imageBuffer.info);
+  // console.log(`buffer meta`, mediaBuffer.info);
   // console.log('input metadata', metadata);
 
   // From Telegram Bot API:
@@ -38,46 +38,46 @@ async function processImage(inputImage) {
   // Ref: https://core.telegram.org/bots/api#sendphoto
 
   if (format == 'gif') {
-    return await image.toBuffer();
+    return await media.toBuffer();
   } else {
     if (width / height > 20) {
-      console.log('image too wide');
+      console.log('media too wide');
       const ratio = width / height;
-      imageBuffer = await image.extract({
+      mediaBuffer = await media.extract({
         left: 0, top: 0, width: Math.floor(width / (ratio / 20)), height: height
       }).toBuffer({ resolveWithObject: true });
     }
 
     if (height / width > 20) {
-      console.log('image too high');
+      console.log('media too high');
       const ratio = height / width;
-      imageBuffer = await image.extract({
+      mediaBuffer = await media.extract({
         left: 0, top: 0, width: width, height: Math.floor(height / ( ratio / 20))
       }).toBuffer({ resolveWithObject: true });
     }
 
-    // Check if image need to be resized from latest buffer
-    if (imageBuffer.info.width + imageBuffer.info.height > 10000) {
-      console.log('image pixel too large');
-      const scaleFactor = (imageBuffer.info.width + imageBuffer.info.height) / 10000;
-      const resizeTo = Math.floor(imageBuffer.info.width / scaleFactor);
+    // Check if media need to be resized from latest buffer
+    if (mediaBuffer.info.width + mediaBuffer.info.height > 10000) {
+      console.log('media pixel too large');
+      const scaleFactor = (mediaBuffer.info.width + mediaBuffer.info.height) / 10000;
+      const resizeTo = Math.floor(mediaBuffer.info.width / scaleFactor);
       console.log('resizeTo', resizeTo);
 
-      imageBuffer = await image.resize(resizeTo).toBuffer({ resolveWithObject: true });
+      mediaBuffer = await media.resize(resizeTo).toBuffer({ resolveWithObject: true });
     }
 
-    // console.log('output metadata', imageBuffer);
+    // console.log('output metadata', mediaBuffer);
 
-    return await image.jpeg({
+    return await media.jpeg({
       quality: 90,
       progressive: true,
     }).toBuffer();
   }
 }
 
-export async function readProcessedImage(inputImage) {
+export async function readProcessedMedia(inputMedia) {
   const file = new Blob(
-    [await processImage(inputImage)]
+    [await processMedia(inputMedia)]
   );
 
   return file;
