@@ -2409,8 +2409,24 @@ async function main(config) {
                     argv.verbose && log(`telegram post weibo success: message_id ${JSON.parse(resp.body)?.result?.message_id}`);
                     tgCacheSet.add(id);
                   })
-                  .catch(e => {
+                  .catch(async e => {
                     err(`telegram post weibo error: ${e?.response?.body || e}`, e);
+
+                    // If post failed with video type, try to send it again
+                    if (activity?.page_info?.type === 'video') {
+                      log(`telegram post weibo retry posting via plain text`);
+
+                      await sendTelegram({
+                        method: 'sendMessage',
+                      }, tgBody)
+                      .then(resp => {
+                        argv.verbose && log(`telegram post weibo retry success: message_id ${JSON.parse(resp.body)?.result?.message_id}`);
+                        tgCacheSet.add(id);
+                      })
+                      .catch(e => {
+                        err(`telegram post weibo retry error: ${e?.response?.body || e}`, e);
+                      });
+                    }
                   });
 
                   // Send an additional message if original post has more than one photo
