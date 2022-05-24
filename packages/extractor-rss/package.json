@@ -1,0 +1,31 @@
+{
+  "name": "@a-soul/extractor-rss",
+  "version": "1.5.1",
+  "description": "Extract rendered data from RSS feeds",
+  "main": "src/index.js",
+  "repository": "https://github.com/sparanoid/a-soul",
+  "author": "Tunghsiao Liu",
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "scripts": {
+    "test": "xv src",
+    "release": "npx release-it"
+  },
+  "keywords": [
+    "a-soul",
+    "rss",
+    "scraper"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "dependencies": {
+    "fast-xml-parser": "^4.0.7",
+    "got": "^12.0.3"
+  },
+  "devDependencies": {
+    "dotenv": "^16.0.0",
+    "xv": "^1.1.0"
+  }
+}

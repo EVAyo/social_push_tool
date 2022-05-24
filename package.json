@@ -14,6 +14,7 @@
     "release": "yarn lerna publish",
     "core": "yarn workspace @a-soul/core",
     "extractor-douyin": "yarn workspace @a-soul/extractor-douyin",
+    "extractor-rss": "yarn workspace @a-soul/extractor-rss",
     "extractor-tiktok": "yarn workspace @a-soul/extractor-tiktok",
     "sender-go-qchttp": "yarn workspace @a-soul/sender-go-qchttp",
     "sender-telegram": "yarn workspace @a-soul/sender-telegram"
