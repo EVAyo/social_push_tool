@@ -2510,9 +2510,9 @@ async function main(config) {
               const officialVerify = activity?.official_verify?.desc;
               const idxLatest = activities.length - 1;
 
-              let tgBodyMergedFooter = `\n\n<a href="https://space.bilibili.com/${account.biliId}">${account.slug}</a>`
-                + ` | <a href="https://space.bilibili.com/${uid}">${name}</a>`
-                + ` | ${timeAgo(timestamp, 'zh_cn')}`;
+              let tgBodyMergedFooter = `\n\n<a href="https://space.bilibili.com/${account.biliId}/fans/follow">${timeAgo(timestamp, 'zh_cn')}</a>`
+                + ` | <a href="https://space.bilibili.com/${account.biliId}">${account.slug}</a>`
+                + ` | <a href="https://space.bilibili.com/${uid}">${name}</a>`;
 
               // If last (the last one in the array is the latest now) item
               if (idx === idxLatest) {
