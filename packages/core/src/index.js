@@ -27,6 +27,7 @@ import { readProcessedMedia } from './utils/processMedia.js';
 import TelegramBot from '@a-soul/sender-telegram';
 import GoQcHttp from '@a-soul/sender-go-qchttp';
 import dyExtract from '@a-soul/extractor-douyin';
+import rssExtract from '@a-soul/extractor-rss';
 
 import pkg from '../package.json' assert { type: 'json' };
 
@@ -2914,7 +2915,7 @@ async function main(config) {
               const timestamp = +new Date(activity.publish_time * 1000);
               const id = activity.post_id;
               const content = `${msgPrefix}#爱发电动态 ${activity.title}`
-                + `${activity?.content ? `\n\n${activity.content}` : `ww`}`;
+                + `${activity?.content ? `\n\n${activity.content}` : `未知内容`}`;
                 // + `${activity.answer?.imgList?.length ? `\n附图：${activity.answer.imgList.join(' ')}` : ''}`
                 // + `${activity.answer?.linkCard ? `\n链接：<a href="${activity.answer.linkCard.originalUrl}">${activity.answer.linkCard.title}</a>` : ''}`;
               const image = activity?.cover || Array.isArray(activity?.pics) && activity?.pics[0] || activity?.audio_thumb;
@@ -3019,6 +3020,156 @@ async function main(config) {
       .catch(e => {
         err(`afdian request error: ${e}`, e);
       });
+
+      // Fetch RSS
+      if (Array.isArray(account.rss) && account.rss.length > 0) {
+
+        for (const [idx, rss] of account.rss.entries()) {
+
+          log(`rss service ${idx + 1}/${account.rss.length}: ${rss.slug}, requesting ${rss.url}`);
+
+          await rssExtract(rss.url, {...config.pluginOptions, ...cookieOnDemand(config.pluginOptions.customCookies[rss.slug])}).then(async resp => {
+            const currentTime = Date.now();
+            const data = rss.provider === 'rsshub' ? resp.rss.channel : resp.feed;
+
+            // console.log(`data`, data);
+            // console.log(`activities`, data.item);
+
+            if (Array.isArray(data.item) && data.item.length > 0) {
+              const dbStore = {
+                scrapedTime: new Date(currentTime),
+                scrapedTimeUnix: +new Date(currentTime),
+              };
+
+              // Morph data for database schema
+              const activities = data.item.map(obj => {
+                return {
+                  ...obj,
+                  created_at_unix: +new Date(obj.pubDate)
+                }
+                // Sort array by date in ascending order (reversed).
+              }).sort((a, b) => a.created_at_unix - b.created_at_unix);
+
+              const dbScopeTimestampUnix = dbScope?.[rss.slug]?.latestActivity?.timestampUnix;
+
+              argv.json && fs.writeFile(`db/${account.slug}-rss-${rss.slug}.json`, JSON.stringify(json, null, 2), err => {
+                if (err) return console.log(err);
+              });
+
+              for (let [idx, activity] of activities.entries()) {
+                const guid = new URL(activity?.guid);
+                const timestamp = activity?.created_at_unix;
+                const id = guid.pathname + guid.search;
+                const idxLatest = activities.length - 1;
+
+                // If last (the last one in the array is the latest now) item
+                if (idx === idxLatest) {
+                  dbStore.latestActivity = {
+                    id: id,
+                    timestamp: new Date(timestamp),
+                    timestampUnix: timestamp,
+                    timeAgo: timeAgo(timestamp),
+                  }
+                };
+
+                let content = `${msgPrefix}#${rss.name} `;
+                  // + `${activity.answer?.imgList?.length ? `\n附图：${activity.answer.imgList.join(' ')}` : ''}`
+                  // + `${activity.answer?.linkCard ? `\n链接：<a href="${activity.answer.linkCard.originalUrl}">${activity.answer.linkCard.title}</a>` : ''}`;
+                // const image = activity?.cover || Array.isArray(activity?.pics) && activity?.pics[0] || activity?.audio_thumb;
+                const image = false;
+
+                if (rss.type === 'twitter') {
+                  content += stripHtml(activity.description);
+                } else {
+                  content += `${activity.title} ${stripHtml(activity.description)}`;
+                }
+
+                const tgOptions = {
+                  method: 'sendMessage',
+                };
+
+                const tgBodyFooter = `\n\n<a href="${activity.link}">${timeAgo(timestamp, rss?.lang || 'zh_cn')}</a>`
+                  + ` | <a href="${data.link}">${data?.title || '未知作者'}</a>`;
+
+                const tgBody = {
+                  chat_id: account.tgChannelId,
+                  parse_mode: 'HTML',
+                  disable_web_page_preview: rss.type === 'twitter' ? true : false,
+                  text: `${content}${tgBodyFooter}`,
+                };
+
+                const qgBody = {
+                  guild_id: account.qGuildId,
+                  channel_id: account.qGuildChannelId,
+                  message: `${content}${tgBodyFooter}`,
+                };
+
+                if (!dbScopeTimestampUnix) {
+                  log(`rss service ${rss.slug} initial run, notifications skipped`);
+                } else if (timestamp === dbScopeTimestampUnix) {
+                  log(`rss service ${rss.slug} no update. latest: ${dbScope?.[rss.slug]?.latestActivity?.id} (${timeAgo(dbScope?.[rss.slug]?.latestActivity?.timestamp)})`);
+                } else if (idx === idxLatest && timestamp <= dbScopeTimestampUnix) {
+                  log(`rss service ${rss.slug} new activity older than database. latest: ${id} (${timeAgo(timestamp)})`);
+                } else if (idx === idxLatest && (currentTime - timestamp) >= config.rssBotThrottle) {
+                  log(`rss service ${rss.slug} latest status ${id} (${timeAgo(timestamp)}) older than 'rssBotThrottle', skipping...`);
+                } else if (timestamp < dbScopeTimestampUnix) {
+                  argv.verbose && log(`rss service ${rss.slug} got old activity: ${id} (${timeAgo(timestamp)}), discarding...`);
+                } else {
+                  log(`rss service ${rss.slug} got update: ${id}: (${timeAgo(timestamp)})`);
+
+                  if (account.qGuildId && config.qGuild.enabled) {
+
+                    await sendQGuild({method: 'send_guild_channel_msg'}, qgBody).then(resp => {
+                      // log(`go-qchttp post rss service ${rss.slug} success: ${resp}`);
+                    })
+                    .catch(e => {
+                      err(`go-qchttp post rss service ${rss.slug} error: ${e?.response?.body || e}`, e);
+                    });
+                  }
+
+                  if (account.tgChannelId && config.telegram.enabled) {
+
+                    if (image) {
+                      const photoExt = image.split('.').pop();
+                      const tgForm = new FormData();
+                      const coverImage = await readProcessedMedia(`${image}`);
+                      tgForm.append('chat_id', account.tgChannelId);
+                      tgForm.append('parse_mode', 'HTML');
+                      tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', coverImage, photoExt === 'gif' && 'image.gif');
+                      tgForm.append('caption', `${content}${tgBodyFooter}`);
+
+                      await sendTelegram({
+                        method: photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto',
+                        payload: 'form',
+                      }, tgForm).then(resp => {
+                        // log(`telegram post weibo::avatar success: message_id ${resp.result.message_id}`)
+                      })
+                      .catch(e => {
+                        err(`telegram post rss service ${rss.slug} error: ${e?.response?.body || e}`, e);
+                      });
+                    } else {
+                      await sendTelegram(tgOptions, tgBody).then(resp => {
+                        // log(`telegram post rss service ${rss.slug} success: message_id ${resp.result.message_id}`)
+                      })
+                      .catch(e => {
+                        err(`telegram post rss service ${rss.slug} error: ${e?.response?.body || e}`, e);
+                      });
+                    }
+                  }
+                }
+              }
+
+              // Set new data to database
+              dbScope[rss.slug] = dbStore;
+            } else {
+              log(`rss service ${rss.slug} empty result, skipping...`);
+            }
+
+          }).catch(e => {
+            err(`rss service ${rss.slug} fetch error`, e);
+          });
+        }
+      }
 
       // Write new data to database
       await db.write();

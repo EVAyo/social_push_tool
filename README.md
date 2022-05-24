@@ -26,7 +26,7 @@ Full-featured social media monitor that extracts data from a variety of services
 - [x] weibo
 - [ ] youtube
 - [ ] youtube-live
-- [ ] general-rss
+- [x] general-rss
 - [ ] github
 - [x] ddstats
 - [x] tapechat
