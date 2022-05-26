@@ -1622,9 +1622,12 @@ async function main(config) {
 
                   // Video
                   else if (originJson?.duration && originJson?.videos) {
-                    tgOptions.method = 'sendPhoto';
-                    tgBody.photo = `${originJson?.pic}`;
-                    tgBody.caption = `${msgPrefix}#b站视频转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.owner.name}\n被转视频：${originJson.title}\n\n${originJson.desc}\n${originJson.short_link}${tgBodyFooter}`;
+                    const photoExt = originJson?.pic.split('.').pop();
+                    tgOptions.method = photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto';
+                    tgOptions.payload = 'form';
+                    tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedMedia(`${originJson?.pic}`), photoExt === 'gif' && 'image.gif');
+                    tgForm.append('caption', `${msgPrefix}#b站视频转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.owner.name}\n被转视频：${originJson.title}\n\n${originJson.desc}\n${originJson.short_link}${tgBodyFooter}`);
+
                     qgBody.message = `${msgPrefix}#b站视频转发：${cardJson?.item?.content.trim()}\n动态链接：https://t.bilibili.com/${dynamicId}\n\n被转作者：@${originJson.owner.name}\n被转视频：${originJson.title}\n\n${originJson.desc}\n${originJson.short_link}\n[CQ:image,file=${originJson?.pic}]`;
                   }
 
@@ -1683,14 +1686,17 @@ async function main(config) {
 
                 // Video post
                 else if (type === 8) {
-                  tgOptions.method = 'sendPhoto';
-                  tgBody.photo = cardJson.pic;
+                  const photoExt = cardJson.pic.split('.').pop();
+                  tgOptions.method = photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto';
+                  tgOptions.payload = 'form';
+                  tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedMedia(`${cardJson.pic}`), photoExt === 'gif' && 'image.gif');
                   // dynamic: microblog text
                   // desc: video description
-                  tgBody.caption = `${msgPrefix}#b站视频：${cardJson.title}\n${cardJson.dynamic}\n${cardJson.desc}`
+                  tgForm.append('caption', `${msgPrefix}#b站视频：${cardJson.title}\n${cardJson.dynamic}\n${cardJson.desc}`
                     + `\n\n<a href="https://t.bilibili.com/${dynamicId}">${timeAgo(timestamp, 'zh_cn')}</a>`
                     + ` | <a href="${cardJson.short_link}">观看视频</a>`
-                    + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.info.uname}</a>`;
+                    + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.info.uname}</a>`);
+
                   qgBody.message = `${msgPrefix}#b站视频：${cardJson.title}\n${cardJson.dynamic}\n${cardJson.desc}\n动态链接：https://t.bilibili.com/${dynamicId}\n视频链接：${cardJson.short_link}\n[CQ:image,file=${cardJson.pic}]`;
 
                   log(`bilibili-mblog got video post (${timeAgo(timestamp)})`);
