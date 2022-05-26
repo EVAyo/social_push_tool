@@ -102,6 +102,7 @@ export default {
   bilibiliLiveBotThrottle: 65 * 60 * 1000,
   bilibiliFollowingBotThrottle: 3600 * 1000,
 
+  rssBotThrottle: 12 * 3600 * 1000,
   weiboBotThrottle: 3600 * 1000,
   ddstatsBotThrottle: 3600 * 1000,
   tapechatBotThrottle: 3600 * 1000,

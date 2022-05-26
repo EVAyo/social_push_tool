@@ -82,6 +82,7 @@ async function generateConfig() {
     bilibiliBotThrottle: 65 * 60 * 1000, // 65 mins, bilibili sometimes got limit rate for 60 mins.
     bilibiliLiveBotThrottle: 65 * 60 * 1000,
     bilibiliFollowingBotThrottle: 3600 * 1000,
+    rssBotThrottle: 12 * 3600 * 1000,
     weiboBotThrottle: 3600 * 1000,
     ddstatsBotThrottle: 3600 * 1000,
     tapechatBotThrottle: 3600 * 1000,
@@ -1438,10 +1439,14 @@ async function main(config) {
                         if (account.tgChannelId && config.telegram.enabled) {
 
                           await sendTelegram({ method: 'sendMessage' }, {
-                            chat_id: account.tgChannelId,
+                            chat_id: account?.tgChannelIdForComments || account.tgChannelId,
                             parse_mode: 'HTML',
                             disable_web_page_preview: true,
                             disable_notification: true,
+                            // Not implemented yet. You cannot get the `reply_to_message_id` auto-forwarded to the
+                            // linked discussion group.
+                            // https://github.com/php-telegram-bot/core/issues/1171
+                            // reply_to_message_id: 1446,
                             allow_sending_without_reply: true,
                             text: `${msgPrefix}#b站新评论：${stripHtml(comment?.content?.message) || '未知内容'}`
                               + `\n\n<a href="https://t.bilibili.com/${dynamicId}#reply${comment.rpid_str}">${timeAgo(+new Date(comment.ctime * 1000), 'zh_cn')}</a>`
@@ -1468,7 +1473,7 @@ async function main(config) {
                             if (account.tgChannelId && config.telegram.enabled) {
 
                               await sendTelegram({ method: 'sendMessage' }, {
-                                chat_id: account.tgChannelId,
+                                chat_id: account?.tgChannelIdForComments || account.tgChannelId,
                                 parse_mode: 'HTML',
                                 disable_web_page_preview: true,
                                 disable_notification: true,
@@ -1759,6 +1764,7 @@ async function main(config) {
 
                     await sendTelegram(tgOptions, tgOptions?.payload === 'form' ? tgForm : tgBody).then(resp => {
                       argv.verbose && log(`telegram post bilibili-mblog success: message_id ${JSON.parse(resp.body)?.result?.message_id}`);
+                      console.log(`JSON.parse(resp.body)?.result`, JSON.parse(resp.body)?.result);
                       tgCacheSet.add(dynamicId);
                     })
                     .catch(e => {
