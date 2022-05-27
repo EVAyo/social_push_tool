@@ -16,15 +16,20 @@ async function extract(url, options = {}) {
       ...requestOptions
     });
 
-    try {
-      const parser = new XMLParser(fxpOptions);
-      const xml = resp.body;
-      const json = parser.parse(xml);
+    if (options?.passthrough) {
+      return resp.body;
+    } else {
+      try {
+        const parser = new XMLParser(fxpOptions);
+        const xml = resp.body;
+        const json = parser.parse(xml);
 
-      return json;
-    } catch (err) {
-      console.log(err);
+        return json;
+      } catch (err) {
+        console.log(err);
+      }
     }
+
   } catch (err) {
     console.log(err);
   }

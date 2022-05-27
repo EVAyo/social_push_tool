@@ -3191,9 +3191,19 @@ async function main(config) {
 
           log(`rss service ${idx + 1}/${account.rss.length}: ${rss.slug}, requesting ${rss.url}`);
 
-          await rssExtract(rss.url, {...config.pluginOptions, ...cookieOnDemand(config.pluginOptions.customCookies[rss.slug])}).then(async resp => {
+          await rssExtract(rss.url, {
+            ...config.pluginOptions,
+            ...cookieOnDemand(config.pluginOptions.customCookies[rss.slug]),
+            passthrough: rss.provider === 'rsshub-json' || false,
+          }).then(async resp => {
             const currentTime = Date.now();
-            const data = rss.provider === 'rsshub' ? resp.rss.channel : resp.feed;
+            let data = {};
+
+            if (rss.provider === 'rsshub-json') {
+              data = JSON.parse(resp);;
+            } else {
+              data = rss.provider === 'rsshub' ? resp.rss.channel : resp.feed;
+            }
 
             // console.log(`data`, data);
             // console.log(`activities`, data.item);
@@ -3220,7 +3230,7 @@ async function main(config) {
               });
 
               for (let [idx, activity] of activities.entries()) {
-                const guid = new URL(activity?.guid);
+                const guid = activity?.guid ? new URL(activity?.guid) : new URL(activity?.link);
                 const timestamp = activity?.created_at_unix;
                 const id = guid.pathname + guid.search;
                 const idxLatest = activities.length - 1;

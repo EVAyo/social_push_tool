@@ -26,7 +26,7 @@ Full-featured social media monitor that extracts data from a variety of services
 - [x] weibo
 - [ ] youtube
 - [ ] youtube-live
-- [x] general-rss
+- [x] rss (rsshub and [rsshub-json](https://github.com/sparanoid/rsshub-json))
 - [ ] github
 - [x] ddstats
 - [x] tapechat
@@ -35,7 +35,7 @@ Full-featured social media monitor that extracts data from a variety of services
 ## Supported Senders
 
 - [x] telegram
-- [x] go-cqhttp (QQ Guild)
+- [x] go-cqhttp (QQ Guilds/Groups)
 
 ## System Requirements
 
@@ -218,6 +218,36 @@ export default {
       // monitor or you will soon hit API rate limit.
       // Default: false
       weiboFetchComments: true,
+
+      // RSS services. One account can have more than one RSS service. They will
+      // be executed one by one in the loop.
+      rss: [
+        {
+          // Name will be used as tag in notification output
+          name: 'Twitter',
+
+          // Slug stored in database. Must be unique for current account (Can
+          // not be `bilibili`, `weibo`, or other predefined services)
+          slug: 'rss_twitter',
+          type: 'twitter',
+
+          // Language tag used by timestamp
+          lang: 'ja',
+
+          // Can be `rsshub-json` or `rsshub`
+          // See https://github.com/sparanoid/rsshub-json for more info
+          provider: 'rsshub-json',
+          url: 'http://rsshub-json-instance/twitter/user/minatoaqua/showAuthorInDesc=1&showEmojiForRetweetAndReply=1&showRetweetTextInTitle=0&showQuotedInTitle=1&heightOfPics=150',
+        },
+        {
+          name: 'YouTube動画',
+          slug: 'rss_youtube',
+          type: 'youtube',
+          lang: 'ja',
+          provider: 'rsshub',
+          url: 'https://rsshub.app/youtube/channel/UC1opHUrw8rvnsadT-iGp7Cg',
+        },
+      ],
 
       // Tape message box account ID. Usually the last part of your message
       // box's URL. ie. https://www.tapechat.net/uu/TDL6BG/EVWKIS0F the
