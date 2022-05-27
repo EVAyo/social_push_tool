@@ -2718,7 +2718,7 @@ async function main(config) {
                         + `${json?.card?.official_verify?.desc ? `\n认证：${json.card.official_verify.desc}` : ''}`
                         + `\n关注：${json?.card?.friend || '0'}，粉丝：${json?.card?.fans || '0'}`
                         + `${json?.card?.birthday ? `\n生日：${json.card.birthday}` : ''}`
-                        + `${json?.card?.regtime ? `\n注册日期：${new Date(json.card.regtime)}` : ''}`
+                        + `${json?.card?.regtime ? `\n注册日期：${new Date(json.card.regtime * 1000)}` : ''}`
                         + `${json?.card?.coins ? `\n硬币：${json.card.coins}` : ''}`
                         + `${tgBodyMergedFooter}`);
 
