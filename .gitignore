@@ -1,5 +1,7 @@
-# Project-specific
 cache/
 db/
+logs/
+node_modules/
 config.js
 config.json
+*.log

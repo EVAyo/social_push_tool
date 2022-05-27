@@ -1764,7 +1764,6 @@ async function main(config) {
 
                     await sendTelegram(tgOptions, tgOptions?.payload === 'form' ? tgForm : tgBody).then(resp => {
                       argv.verbose && log(`telegram post bilibili-mblog success: message_id ${JSON.parse(resp.body)?.result?.message_id}`);
-                      console.log(`JSON.parse(resp.body)?.result`, JSON.parse(resp.body)?.result);
                       tgCacheSet.add(dynamicId);
                     })
                     .catch(e => {
@@ -2492,8 +2491,8 @@ async function main(config) {
 
       // Fetch bilibili following
       const bilibiliFollowingRequestUrl = `https://api.bilibili.com/x/relation/followings?vmid=${account.biliId}&pn=1&ps=50&order=desc`;
-      account.bilibiliFetchFollowing && account.biliId && argv.verbose && log(`bilibili-following requesting ${bilibiliFollowingRequestUrl}`);
-      account.bilibiliFetchFollowing && account.biliId && await got(bilibiliFollowingRequestUrl, {...config.pluginOptions?.requestOptions, ...proxyOptions}).then(async resp => {
+      !account?.bilibiliFetchFollowingDeprecatedApi && account.bilibiliFetchFollowing && account.biliId && argv.verbose && log(`bilibili-following requesting ${bilibiliFollowingRequestUrl}`);
+      !account?.bilibiliFetchFollowingDeprecatedApi && account.bilibiliFetchFollowing && account.biliId && await got(bilibiliFollowingRequestUrl, {...config.pluginOptions?.requestOptions, ...proxyOptions}).then(async resp => {
         const json = JSON.parse(resp.body);
 
         if (json?.code === 0) {
@@ -2619,6 +2618,158 @@ async function main(config) {
             // Set new data to database
             dbStore.tgCache = [...tgCacheSet];
             dbScope['bilibili_following'] = dbStore;
+          } else {
+            log('bilibili-following empty result, skipping...');
+          }
+        } else {
+          log('bilibili-following info corrupted, skipping...');
+        }
+      })
+      .catch(e => {
+        err(`bilibili-following request error: ${e}`, e);
+      });
+
+      // This is now the undocumented old API. May change in the future.
+      const bilibiliFollowingRequestUrlDeprecated = `https://account.bilibili.com/api/member/getCardByMid?mid=${account.biliId}`;
+      account?.bilibiliFetchFollowingDeprecatedApi && account.bilibiliFetchFollowing && account.biliId && argv.verbose && log(`bilibili-following (using deprecated api) requesting ${bilibiliFollowingRequestUrlDeprecated}`);
+      account?.bilibiliFetchFollowingDeprecatedApi && account.bilibiliFetchFollowing && account.biliId && await got(bilibiliFollowingRequestUrlDeprecated, {...config.pluginOptions?.requestOptions, ...proxyOptions}).then(async resp => {
+        const json = JSON.parse(resp.body);
+
+        if (json?.code === 0) {
+          const currentTime = Date.now();
+          const data = json.card.attentions;
+
+          if (data.length > 0) {
+            // Creating Telegram cache set from database. This ensure no duplicated notifications will be sent
+            const tgCacheSet = new Set(Array.isArray(dbScope?.bilibili_following_v1?.tgCache) ? dbScope.bilibili_following_v1.tgCache.reverse().slice(0, 30).reverse() : []);
+
+            const dbStore = {
+              followingList: data,
+              scrapedTime: new Date(currentTime),
+              scrapedTimeUnix: +new Date(currentTime),
+            };
+
+            const tgOptions = {
+              method: 'sendMessage',
+            };
+
+            const dbScopeTimestampUnix = dbScope?.bilibili_following_v1?.scrapedTimeUnix;
+            const dbScopeFollowingList = dbScope?.bilibili_following_v1?.followingList;
+
+            argv.json && fs.writeFile(`db/${account.slug}-bilibili_following_v1.json`, JSON.stringify(json, null, 2), err => {
+              if (err) return console.log(err);
+            });
+
+            if (!dbScopeTimestampUnix) {
+              log(`bilibili-following initial run, notifications skipped`);
+            } else if (Array.isArray(dbScopeFollowingList)) {
+              const unfollowedList = dbScopeFollowingList.filter(uid => !data.includes(uid));
+              const followingList = data.filter(uid => !dbScopeFollowingList.includes(uid));
+
+              async function requestUserInfo(options) {
+                const {
+                  uid,
+                  phase,
+                } = options;
+                const bilibiliFollowingUserRequestUrl = `https://account.bilibili.com/api/member/getCardByMid?mid=${uid}`;
+                await got(bilibiliFollowingUserRequestUrl, {...config.pluginOptions?.requestOptions, ...proxyOptions}).then(async resp => {
+                  const json = JSON.parse(resp.body);
+                  // console.log(`json`, json);
+
+                  log(`bilibili-following got ${phase} user: ${json?.card?.name || '未知姓名'}, uid: ${uid}`)
+
+                  let tgBodyMergedFooter = `\n\n<a href="https://space.bilibili.com/${account.biliId}/fans/follow">查看关注</a>`
+                    + ` | <a href="https://space.bilibili.com/${account.biliId}">${account.slug}</a>`
+                    + ` | <a href="https://space.bilibili.com/${uid}">${json.card.name}</a>`;
+
+                  if (json?.code === 0) {
+
+                    if (account.qGuildId && config.qGuild.enabled) {
+
+                      await sendQGuild({method: 'send_guild_channel_msg'}, {
+                        guild_id: account.qGuildId,
+                        channel_id: account.qGuildChannelId,
+                        message: `${msgPrefix}#b站${phase || '关注异动'} ${json.card.name}`
+                          + `${json?.card?.sign ? `\n签名：${json.card.sign}` : ''}`
+                          + `${json?.card?.official_verify?.desc ? `\n认证：${json.card.official_verify.desc}` : ''}`
+                          + `\n关注：${json?.card?.friend || '0'}，粉丝：${json?.card?.fans || '0'}`
+                          + `${json?.card?.birthday ? `\n生日：${json.card.birthday}` : ''}`
+                          + `${json?.card?.regtime ? `\n注册日期：${new Date(json.card.regtime)}` : ''}`
+                          + `${json?.card?.coins ? `\n硬币：${json.card.coins}` : ''}`
+                          + `${tgBodyMergedFooter}`,
+                      }).then(resp => {
+                        // log(`go-qchttp post bilibili-following success: ${resp}`);
+                      })
+                      .catch(e => {
+                        err(`go-qchttp post bilibili-following error: ${e?.response?.body || e}`, e);
+                      });
+                    }
+
+                    // if (account.tgChannelId && config.telegram.enabled && !tgCacheSet.has(uid)) {
+                    if (account.tgChannelId && config.telegram.enabled) {
+                      const photoExt = json.card.face.split('.').pop();
+                      const tgForm = new FormData();
+                      const avatarImage = await readProcessedMedia(`${json.card.face}`);
+                      tgForm.append('chat_id', account.tgChannelId);
+                      tgForm.append('parse_mode', 'HTML');
+                      tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', avatarImage, photoExt === 'gif' && 'image.gif');
+                      tgForm.append('caption', `${msgPrefix}#b站${phase || '关注异动'} ${json.card.name}`
+                        + `${json?.card?.sign ? `\n签名：${json.card.sign}` : ''}`
+                        + `${json?.card?.official_verify?.desc ? `\n认证：${json.card.official_verify.desc}` : ''}`
+                        + `\n关注：${json?.card?.friend || '0'}，粉丝：${json?.card?.fans || '0'}`
+                        + `${json?.card?.birthday ? `\n生日：${json.card.birthday}` : ''}`
+                        + `${json?.card?.regtime ? `\n注册日期：${new Date(json.card.regtime)}` : ''}`
+                        + `${json?.card?.coins ? `\n硬币：${json.card.coins}` : ''}`
+                        + `${tgBodyMergedFooter}`);
+
+                      await sendTelegram({
+                        method: photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto',
+                        payload: 'form',
+                      }, tgForm).then(resp => {
+                        // argv.verbose && log(`telegram post bilibili-following success: message_id ${JSON.parse(resp.body)?.result?.message_id}`);
+                        tgCacheSet.add(uid);
+                      })
+                      .catch(e => {
+                        err(`telegram post bilibili-following error: ${e?.response?.body || e}`, e);
+                      });
+                    }
+
+                  } else {
+                    log('bilibili-following specific user info corrupted, skipping...');
+                  }
+                }).catch(e => {
+                  err(`bilibili-following request specific user error: ${e}`, e);
+                });
+              }
+
+              if (unfollowedList.length > 0) {
+                log(`bilibili-following got unfollowed: ${unfollowedList.join(', ')}`);
+
+                for (let [idx, user] of unfollowedList.entries()) {
+                  await requestUserInfo({
+                    uid: user,
+                    phase: `取消关注`,
+                  });
+                }
+              }
+
+              if (followingList.length > 0) {
+                log(`bilibili-following got new following: ${followingList.join(', ')}`);
+
+                for (let [idx, user] of followingList.entries()) {
+                  await requestUserInfo({
+                    uid: user,
+                    phase: `新增关注`,
+                  });
+                }
+              }
+            } else {
+              log(`bilibili-following nothing to do, skipped`);
+            }
+
+            // Set new data to database
+            dbStore.tgCache = [...tgCacheSet];
+            dbScope['bilibili_following_v1'] = dbStore;
           } else {
             log('bilibili-following empty result, skipping...');
           }

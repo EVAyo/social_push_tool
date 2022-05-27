@@ -199,6 +199,10 @@ export default {
       // Default: false
       bilibiliFetchFollowing: true,
 
+      // Enable this to fetch users with private following enabled
+      // Default: false
+      bilibiliFetchFollowingDeprecatedApi: true,
+
       // Douyin account ID
       douyinId: 'MS4wLjABAAAA5ZrIrbgva_HMeHuNn64goOD2XYnk4ItSypgRHlbSh1c',
 
