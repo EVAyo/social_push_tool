@@ -3208,7 +3208,7 @@ async function main(config) {
             // console.log(`data`, data);
             // console.log(`activities`, data.item);
 
-            if (Array.isArray(data.item) && data.item.length > 0) {
+            if (data?.item && Array.isArray(data.item) && data.item.length > 0) {
               const dbStore = {
                 scrapedTime: new Date(currentTime),
                 scrapedTimeUnix: +new Date(currentTime),
