@@ -1,6 +1,6 @@
 {
   "name": "@a-soul/extractor-rss",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "description": "Extract rendered data from RSS feeds",
   "main": "src/index.js",
   "repository": "https://github.com/sparanoid/a-soul",
