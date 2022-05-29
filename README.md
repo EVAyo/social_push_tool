@@ -22,12 +22,12 @@ Full-featured social media monitor that extracts data from a variety of services
 - [ ] instagram
 - [ ] tiktok
 - [ ] tiktok-live
-- [ ] twitter
+- [x] twitter (via rss)
 - [x] weibo
-- [ ] youtube
+- [x] youtube (via rss)
 - [ ] youtube-live
 - [x] rss (rsshub and [rsshub-json](https://github.com/sparanoid/rsshub-json))
-- [ ] github
+- [x] github (via rss)
 - [x] ddstats
 - [x] tapechat
 - [x] afdian
