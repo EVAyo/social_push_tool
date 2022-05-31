@@ -23,7 +23,7 @@
     "@a-soul/extractor-rss": "^1.5.2",
     "@a-soul/sender-go-qchttp": "^1.5.2",
     "@a-soul/sender-telegram": "^1.5.2",
-    "@sentry/node": "^6.19.7",
+    "@sentry/node": "^7.0.0",
     "@sentry/tracing": "^6.19.7",
     "chalk": "^5.0.1",
     "date-fns": "^2.27.0",
