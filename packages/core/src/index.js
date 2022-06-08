@@ -1369,7 +1369,7 @@ async function main(config) {
                     argv.verbose && log(`bilibili-mblog comments (mode: ${mode}) requesting ${bilibiliCommentsRequestUrl}`);
 
                     // A small amount of random time to behavior more like a human
-                    await setTimeout(Math.floor(Math.random() * 1000));
+                    await setTimeout(Math.floor(Math.random() * 400));
 
                     await got(bilibiliCommentsRequestUrl, {...config.pluginOptions?.requestOptions, ...proxyOptions}).then(async resp => {
                       const json = JSON.parse(resp.body);
