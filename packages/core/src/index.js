@@ -16,6 +16,7 @@ import * as Sentry from '@sentry/node';
 import * as Tracing from '@sentry/tracing';
 
 import {
+  textTruncate,
   formatDate,
   stripHtml,
   extractImage,
@@ -2416,7 +2417,7 @@ async function main(config) {
                 if (activity?.page_info?.type === 'video') {
                   tgOptions.method = 'sendVideo';
                   tgBody.video = activity?.page_info?.media_info?.stream_url_hd || activity?.page_info?.media_info?.stream_url;
-                  tgBody.caption = `${msgPrefix}#微博${visibilityMap[visibility] || ''}视频：${text}${tgBodyFooter}`;
+                  tgBody.caption = textTruncate(`${msgPrefix}#微博${visibilityMap[visibility] || ''}视频：${text}`, {gated: tgBodyFooter.length}) + tgBodyFooter;
                   qgBody.message = `${msgPrefix}#微博${visibilityMap[visibility] || ''}视频：${text}\n地址：https://weibo.com/${user.id}/${id}`;
                 }
 
@@ -3270,12 +3271,19 @@ async function main(config) {
                   // + `${activity.answer?.linkCard ? `\n链接：<a href="${activity.answer.linkCard.originalUrl}">${activity.answer.linkCard.title}</a>` : ''}`;
                 // const image = activity?.cover || Array.isArray(activity?.pics) && activity?.pics[0] || activity?.audio_thumb;
                 const medias = extractImage(activity?.description);
-                const media = medias && medias.length > 0 && medias[0];
 
                 if (rss.type === 'twitter') {
                   content += stripHtml(activity.description, {withBr: true});
                 } else {
                   content += `${activity.title} ${stripHtml(activity.description, {withBr: true})}`;
+                }
+
+                if (rss.type === 'youtube') {
+                  // Extract video hash from link
+                  const youtubeCover = activity.link.match(/.*v=(.*)/)[1];
+                  if (youtubeCover) {
+                    medias.push(`https://i.ytimg.com/vi/${youtubeCover}/maxresdefault.jpg`);
+                  }
                 }
 
                 const tgOptions = {
@@ -3288,7 +3296,7 @@ async function main(config) {
                 const tgBody = {
                   chat_id: account.tgChannelId,
                   parse_mode: 'HTML',
-                  disable_web_page_preview: rss.type === 'twitter' ? true : false,
+                  disable_web_page_preview: rss.type === 'twitter' || rss.type === 'youtube' ? true : false,
                   text: `${content}${tgBodyFooter}`,
                 };
 
@@ -3332,6 +3340,10 @@ async function main(config) {
                         const mediaType = new URL(mediaUrlDecode).pathname.split('.').pop();
                         log(`got media type: ${mediaType}: ${mediaUrlDecode}`);
 
+                        // sendPhoto, sendAnimation, and sendVideo has limitation of `caption` field to be less than
+                        // 1024 instead of 4096.
+                        const captionTruncated = textTruncate(content, {gated: tgBodyFooter.length}) + tgBodyFooter;
+
                         if (mediaType === 'mp4') {
                           const tgOptions = {
                             method: 'sendVideo',
@@ -3341,7 +3353,7 @@ async function main(config) {
                             chat_id: account.tgChannelId,
                             video: mediaUrlDecode,
                             parse_mode: 'HTML',
-                            caption: `${content}${tgBodyFooter}`
+                            caption: captionTruncated
                           }
 
                           await sendTelegram(tgOptions, tgBody).then(resp => {
@@ -3357,7 +3369,7 @@ async function main(config) {
                           tgForm.append('chat_id', account.tgChannelId);
                           tgForm.append('parse_mode', 'HTML');
                           tgForm.append(mediaType === 'gif' ? 'animation' : 'photo', coverImage, mediaType === 'gif' && 'image.gif');
-                          tgForm.append('caption', `${content}${tgBodyFooter}`);
+                          tgForm.append('caption', captionTruncated);
 
                           await sendTelegram({
                             method: mediaType === 'gif' ? 'sendAnimation' : 'sendPhoto',

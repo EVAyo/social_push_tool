@@ -10,17 +10,33 @@ export function stripHtml(string = '', options = {}) {
     return string
       .replace(/<img.*?alt=(\[.*?\])[^\>]+>/gmi, '$1')
       .replace(/<br ?\/?>/gmi, '\n')
-      .replace(/(<([^>]+)>)/gmi, '');
+      .replace(/(<([^>]+)>)/gmi, '')
+      .trim();
   } else if (options?.withMedia) {
     // https://regex101.com/r/O2FBUa/1
     return string
       .replace(/<(?:video|img).*?src=\\"(.*?)\\"[^\>]+>/gmi, ' $1 ')
       .replace(/<br ?\/?>/gmi, '\n')
-      .replace(/(<([^>]+)>)/gmi, '');
+      .replace(/(<([^>]+)>)/gmi, '')
+      .trim();
   } else {
     return string
       .replace(/<img.*?alt=(\[.*?\])[^\>]+>/gmi, '$1')
-      .replace(/(<([^>]+)>)/gmi, '');
+      .replace(/(<([^>]+)>)/gmi, '')
+      .trim();
+  }
+}
+
+export function textTruncate(text, options = {}) {
+  const {
+    length = 1024,
+    gated = 0,
+  } = options;
+
+  if (text.length > length) {
+    return text.substring(0, length - gated) + ' […]';
+  } else {
+    return text;
   }
 }
 
