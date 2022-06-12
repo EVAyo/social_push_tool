@@ -716,7 +716,7 @@ async function main(config) {
           const oldLiveCoverHash = dbScope?.bilibili_live?.latestStream?.liveCover && new URL(dbScope?.bilibili_live?.latestStream?.liveCover);
           if (
             liveCoverHash && oldLiveCoverHash &&
-            liveCoverHash.pathname.endsWith('no-cover.png') &&
+            !liveCoverHash.pathname.endsWith('no-cover.png') &&
             liveCoverHash.pathname !== oldLiveCoverHash.pathname &&
             liveStatus === dbScope?.bilibili_live?.latestStream?.liveStatus
           ) {
