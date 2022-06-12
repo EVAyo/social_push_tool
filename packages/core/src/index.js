@@ -2656,7 +2656,8 @@ async function main(config) {
 
         if (json?.code === 0) {
           const currentTime = Date.now();
-          const data = json.card.attentions;
+          // Hard reverse it since following does not have timestamps
+          const data = json.card.attentions.reverse();
 
           if (data.length > 0) {
             // Creating Telegram cache set from database. This ensure no duplicated notifications will be sent
@@ -2697,25 +2698,28 @@ async function main(config) {
 
                   log(`bilibili-following got ${phase} user: ${json?.card?.name || '未知姓名'}, uid: ${uid}`)
 
-                  let tgBodyMergedFooter = `\n\n<a href="https://space.bilibili.com/${account.biliId}/fans/follow">查看关注</a>`
-                    + ` | <a href="https://space.bilibili.com/${account.biliId}">${account.slug}</a>`
-                    + ` | <a href="https://space.bilibili.com/${uid}">${json.card.name}</a>`;
+                  let tgBodyMergedFooter = `\n\n<a href="https://space.bilibili.ooo/${account.biliId}">查看关注</a>`
+                    + ` | <a href="https://space.bilibili.ooo/${account.biliId}/${uid}">共同关注</a>`
+                    + ` | <a href="https://space.bilibili.com/${uid}">${json.card.name}</a>`
+                    + ` | <a href="https://space.bilibili.com/${account.biliId}">${account.slug}</a>`;
 
                   if (json?.code === 0) {
+                    const body = `${msgPrefix}#b站${phase || '关注异动'} ${json.card.name}`
+                      + `\n关注：${json?.card?.friend || '0'}，粉丝：${json?.card?.fans || '0'}`
+                      + `${json?.card?.coins ? `\n硬币：${json.card.coins}` : ''}`
+                      + `${json?.card?.coins ? `，性别${json?.card?.sex}` : `\n性别${json?.card?.sex}`}`
+                      + `${json?.card?.official_verify?.desc ? `\n认证：${json.card.official_verify.desc}` : ''}`
+                      + `${json?.card?.sign ? `\n签名：${json.card.sign}` : ''}`
+                      + `${json?.card?.birthday ? `\n生日：${json.card.birthday}` : ''}`
+                      + `${json?.card?.regtime ? `\n注册日期：${new Date(json.card.regtime).toLocaleString('zh-CN', {timeZone: 'Asia/Shanghai'})}` : ''}`
+                      + `${tgBodyMergedFooter}`
 
                     if (account.qGuildId && config.qGuild.enabled) {
 
                       await sendQGuild({method: 'send_guild_channel_msg'}, {
                         guild_id: account.qGuildId,
                         channel_id: account.qGuildChannelId,
-                        message: `${msgPrefix}#b站${phase || '关注异动'} ${json.card.name}`
-                          + `${json?.card?.sign ? `\n签名：${json.card.sign}` : ''}`
-                          + `${json?.card?.official_verify?.desc ? `\n认证：${json.card.official_verify.desc}` : ''}`
-                          + `\n关注：${json?.card?.friend || '0'}，粉丝：${json?.card?.fans || '0'}`
-                          + `${json?.card?.birthday ? `\n生日：${json.card.birthday}` : ''}`
-                          + `${json?.card?.regtime ? `\n注册日期：${new Date(json.card.regtime)}` : ''}`
-                          + `${json?.card?.coins ? `\n硬币：${json.card.coins}` : ''}`
-                          + `${tgBodyMergedFooter}`,
+                        message: body,
                       }).then(resp => {
                         // log(`go-qchttp post bilibili-following success: ${resp}`);
                       })
@@ -2732,14 +2736,7 @@ async function main(config) {
                       tgForm.append('chat_id', account.tgChannelId);
                       tgForm.append('parse_mode', 'HTML');
                       tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', avatarImage, photoExt === 'gif' && 'image.gif');
-                      tgForm.append('caption', `${msgPrefix}#b站${phase || '关注异动'} ${json.card.name}`
-                        + `${json?.card?.sign ? `\n签名：${json.card.sign}` : ''}`
-                        + `${json?.card?.official_verify?.desc ? `\n认证：${json.card.official_verify.desc}` : ''}`
-                        + `\n关注：${json?.card?.friend || '0'}，粉丝：${json?.card?.fans || '0'}`
-                        + `${json?.card?.birthday ? `\n生日：${json.card.birthday}` : ''}`
-                        + `${json?.card?.regtime ? `\n注册日期：${new Date(json.card.regtime * 1000)}` : ''}`
-                        + `${json?.card?.coins ? `\n硬币：${json.card.coins}` : ''}`
-                        + `${tgBodyMergedFooter}`);
+                      tgForm.append('caption', body);
 
                       await sendTelegram({
                         method: photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto',
