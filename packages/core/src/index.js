@@ -2711,7 +2711,7 @@ async function main(config) {
                       + `${json?.card?.official_verify?.desc ? `\n认证：${json.card.official_verify.desc}` : ''}`
                       + `${json?.card?.sign ? `\n签名：${json.card.sign}` : ''}`
                       + `${json?.card?.birthday ? `\n生日：${json.card.birthday}` : ''}`
-                      + `${json?.card?.regtime ? `\n注册日期：${new Date(json.card.regtime).toLocaleString('zh-CN', {timeZone: 'Asia/Shanghai'})}` : ''}`
+                      + `${json?.card?.regtime ? `\n注册日期：${new Date(json.card.regtime * 1000).toLocaleString('zh-CN', {timeZone: 'Asia/Shanghai'})}` : ''}`
                       + `${tgBodyMergedFooter}`
 
                     if (account.qGuildId && config.qGuild.enabled) {
