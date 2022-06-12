@@ -3227,6 +3227,8 @@ async function main(config) {
             // console.log(`activities`, data.item);
 
             if (data?.item && Array.isArray(data.item) && data.item.length > 0) {
+              const tgCacheSet = new Set(Array.isArray(dbScope?.[rss.slug]?.tgCache) ? dbScope[rss.slug].tgCache.reverse().slice(0, 30).reverse() : []);
+
               const dbStore = {
                 scrapedTime: new Date(currentTime),
                 scrapedTimeUnix: +new Date(currentTime),
@@ -3271,9 +3273,9 @@ async function main(config) {
                 const media = medias && medias.length > 0 && medias[0];
 
                 if (rss.type === 'twitter') {
-                  content += stripHtml(activity.description);
+                  content += stripHtml(activity.description, {withBr: true});
                 } else {
-                  content += `${activity.title} ${stripHtml(activity.description)}`;
+                  content += `${activity.title} ${stripHtml(activity.description, {withBr: true})}`;
                 }
 
                 const tgOptions = {
@@ -3306,6 +3308,8 @@ async function main(config) {
                   log(`rss service ${rss.slug} latest status ${id} (${timeAgo(timestamp)}) older than 'rssBotThrottle', skipping...`);
                 } else if (timestamp < dbScopeTimestampUnix) {
                   argv.verbose && log(`rss service ${rss.slug} got old activity: ${id} (${timeAgo(timestamp)}), discarding...`);
+                } else if (tgCacheSet.has(id)) {
+                  log(`rss service ${rss.slug} latest status ${id} (${timeAgo(timestamp)}) already in cache, skipping...`);
                 } else {
                   log(`rss service ${rss.slug} got update: ${id}: (${timeAgo(timestamp)})`);
 
@@ -3341,6 +3345,7 @@ async function main(config) {
                           }
 
                           await sendTelegram(tgOptions, tgBody).then(resp => {
+                            tgCacheSet.add(id)
                             // log(`telegram post douyin success: message_id ${resp.result.message_id}`)
                           })
                           .catch(e => {
@@ -3358,6 +3363,7 @@ async function main(config) {
                             method: mediaType === 'gif' ? 'sendAnimation' : 'sendPhoto',
                             payload: 'form',
                           }, tgForm).then(resp => {
+                            tgCacheSet.add(id)
                             // log(`telegram post weibo::avatar success: message_id ${resp.result.message_id}`)
                           })
                           .catch(e => {
@@ -3367,6 +3373,7 @@ async function main(config) {
                       }
                     } else {
                       await sendTelegram(tgOptions, tgBody).then(resp => {
+                        tgCacheSet.add(id)
                         // log(`telegram post rss service ${rss.slug} success: message_id ${resp.result.message_id}`)
                       })
                       .catch(e => {
@@ -3378,6 +3385,7 @@ async function main(config) {
               }
 
               // Set new data to database
+              dbStore.tgCache = [...tgCacheSet];
               dbScope[rss.slug] = dbStore;
             } else {
               log(`rss service ${rss.slug} empty result, skipping...`);
