@@ -3,12 +3,18 @@ export function formatDate(timestamp) {
   return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
 }
 
-export function stripHtml(string = '', withBr = true) {
+export function stripHtml(string = '', options = {}) {
   // https://regex101.com/r/xa83Od/1
   // Replace Weibo custom emojis with its alt attribute
-  if (withBr) {
+  if (options?.withBr) {
     return string
       .replace(/<img.*?alt=(\[.*?\])[^\>]+>/gmi, '$1')
+      .replace(/<br ?\/?>/gmi, '\n')
+      .replace(/(<([^>]+)>)/gmi, '');
+  } else if (options?.withMedia) {
+    // https://regex101.com/r/O2FBUa/1
+    return string
+      .replace(/<(?:video|img).*?src=\\"(.*?)\\"[^\>]+>/gmi, ' $1 ')
       .replace(/<br ?\/?>/gmi, '\n')
       .replace(/(<([^>]+)>)/gmi, '');
   } else {
@@ -16,6 +22,12 @@ export function stripHtml(string = '', withBr = true) {
       .replace(/<img.*?alt=(\[.*?\])[^\>]+>/gmi, '$1')
       .replace(/(<([^>]+)>)/gmi, '');
   }
+}
+
+export function extractImage(string = '') {
+  // https://regex101.com/r/O2FBUa/1
+  const imageRegex = /<(?:video|img).*?src=\"(.*?)\"[^\>]+>/gmi;
+  return (string.match(imageRegex) || []).map(match => match.replace(imageRegex, '$1'));
 }
 
 export function convertWeiboUrl(url) {

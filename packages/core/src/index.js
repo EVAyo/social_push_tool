@@ -18,6 +18,7 @@ import * as Tracing from '@sentry/tracing';
 import {
   formatDate,
   stripHtml,
+  extractImage,
   convertWeiboUrl,
   parseDdstatsString
 } from './utils.js';
@@ -3266,7 +3267,8 @@ async function main(config) {
                   // + `${activity.answer?.imgList?.length ? `\n附图：${activity.answer.imgList.join(' ')}` : ''}`
                   // + `${activity.answer?.linkCard ? `\n链接：<a href="${activity.answer.linkCard.originalUrl}">${activity.answer.linkCard.title}</a>` : ''}`;
                 // const image = activity?.cover || Array.isArray(activity?.pics) && activity?.pics[0] || activity?.audio_thumb;
-                const image = false;
+                const medias = extractImage(activity?.description);
+                const media = medias && medias.length > 0 && medias[0];
 
                 if (rss.type === 'twitter') {
                   content += stripHtml(activity.description);
@@ -3319,24 +3321,50 @@ async function main(config) {
 
                   if (account.tgChannelId && config.telegram.enabled) {
 
-                    if (image) {
-                      const photoExt = image.split('.').pop();
-                      const tgForm = new FormData();
-                      const coverImage = await readProcessedMedia(`${image}`);
-                      tgForm.append('chat_id', account.tgChannelId);
-                      tgForm.append('parse_mode', 'HTML');
-                      tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', coverImage, photoExt === 'gif' && 'image.gif');
-                      tgForm.append('caption', `${content}${tgBodyFooter}`);
+                    if (medias && medias.length > 0) {
 
-                      await sendTelegram({
-                        method: photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto',
-                        payload: 'form',
-                      }, tgForm).then(resp => {
-                        // log(`telegram post weibo::avatar success: message_id ${resp.result.message_id}`)
-                      })
-                      .catch(e => {
-                        err(`telegram post rss service ${rss.slug} error: ${e?.response?.body || e}`, e);
-                      });
+                      for (const [idx, media] of medias.entries()) {
+                        const mediaUrlDecode = media.replace(/&amp;/g, "&");
+                        const mediaType = new URL(mediaUrlDecode).pathname.split('.').pop();
+                        log(`got media type: ${mediaType}: ${mediaUrlDecode}`);
+
+                        if (mediaType === 'mp4') {
+                          const tgOptions = {
+                            method: 'sendVideo',
+                          };
+
+                          const tgBody = {
+                            chat_id: account.tgChannelId,
+                            video: mediaUrlDecode,
+                            parse_mode: 'HTML',
+                            caption: `${content}${tgBodyFooter}`
+                          }
+
+                          await sendTelegram(tgOptions, tgBody).then(resp => {
+                            // log(`telegram post douyin success: message_id ${resp.result.message_id}`)
+                          })
+                          .catch(e => {
+                            err(`telegram post rss service ${rss.slug} error: ${e?.response?.body || e}`, e);
+                          });
+                        } else {
+                          const tgForm = new FormData();
+                          const coverImage = await readProcessedMedia(`${mediaUrlDecode}`);
+                          tgForm.append('chat_id', account.tgChannelId);
+                          tgForm.append('parse_mode', 'HTML');
+                          tgForm.append(mediaType === 'gif' ? 'animation' : 'photo', coverImage, mediaType === 'gif' && 'image.gif');
+                          tgForm.append('caption', `${content}${tgBodyFooter}`);
+
+                          await sendTelegram({
+                            method: mediaType === 'gif' ? 'sendAnimation' : 'sendPhoto',
+                            payload: 'form',
+                          }, tgForm).then(resp => {
+                            // log(`telegram post weibo::avatar success: message_id ${resp.result.message_id}`)
+                          })
+                          .catch(e => {
+                            err(`telegram post rss service ${rss.slug} error: ${e?.response?.body || e}`, e);
+                          });
+                        }
+                      }
                     } else {
                       await sendTelegram(tgOptions, tgBody).then(resp => {
                         // log(`telegram post rss service ${rss.slug} success: message_id ${resp.result.message_id}`)
