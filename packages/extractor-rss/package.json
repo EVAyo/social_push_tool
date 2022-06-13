@@ -1,7 +1,7 @@
 {
-  "name": "@a-soul/extractor-douyin",
-  "version": "1.5.1",
-  "description": "Extract rendered data from Douyin web version",
+  "name": "@a-soul/extractor-rss",
+  "version": "1.5.2",
+  "description": "Extract rendered data from RSS feeds",
   "main": "src/index.js",
   "repository": "https://github.com/sparanoid/a-soul",
   "author": "Tunghsiao Liu",
@@ -13,7 +13,7 @@
   },
   "keywords": [
     "a-soul",
-    "douyin",
+    "rss",
     "scraper"
   ],
   "publishConfig": {
@@ -21,12 +21,11 @@
     "registry": "https://registry.npmjs.org/"
   },
   "dependencies": {
-    "got": "^12.0.3",
-    "jsdom": "^19.0.0"
+    "fast-xml-parser": "^4.0.7",
+    "got": "^12.0.3"
   },
   "devDependencies": {
     "dotenv": "^16.0.0",
     "xv": "^1.1.0"
-  },
-  "gitHead": "e751129bf6d769cd29bde40d441d33a6efb31481"
+  }
 }

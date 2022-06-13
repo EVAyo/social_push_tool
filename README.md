@@ -22,18 +22,20 @@ Full-featured social media monitor that extracts data from a variety of services
 - [ ] instagram
 - [ ] tiktok
 - [ ] tiktok-live
-- [ ] twitter
+- [x] twitter (via rss)
 - [x] weibo
-- [ ] youtube
+- [x] youtube (via rss)
 - [ ] youtube-live
-- [ ] general-rss
-- [ ] github
+- [x] rss (rsshub and [rsshub-json](https://github.com/sparanoid/rsshub-json))
+- [x] github (via rss)
 - [x] ddstats
+- [x] tapechat
+- [x] afdian
 
 ## Supported Senders
 
 - [x] telegram
-- [x] go-cqhttp (QQ Guild)
+- [x] go-cqhttp (QQ Guilds/Groups)
 
 ## System Requirements
 
@@ -54,10 +56,9 @@ npx @a-soul/core run -c config.js
 Run with Docker:
 
 ```bash
-docker run \
+docker run --init \
   -v $(pwd)/config.js:/app/config.js:ro \
   -v $(pwd)/db:/app/db \
-  -v $(pwd)/cache:/app/cache \
   sparanoid/a-soul -c config.js --color
   # ...or use ghcr.io registry
   ghcr.io/sparanoid/a-soul -c config.js --color
@@ -79,17 +80,47 @@ export default {
 }
 ```
 
-Your full `config.js` file may look like:
+Your full `config.js` configuration may look like:
 
 ```js
 export default {
-  loopInterval: 60 * 1000, // ms
-  douyinBotThrottle: 24 * 3600 * 1000, // 24 hours, if latest post older than this value, do not send notifications
+  // Loop interval in milliseconds
+  loopInterval: 60 * 1000,
+
+  // A small amount of time to wait inserted before each account
+  loopPauseTimeBase: 1000,
+
+  // Math.random() time factor for `loopPauseTimeBase`
+  loopPauseTimeRandomFactor: 2000,
+
+  // 24 hours, if latest post older than this value, do not send notifications
+  douyinBotThrottle: 36 * 3600 * 1000,
   douyinLiveBotThrottle: 1200 * 1000, // 20 mins
-  bilibiliBotThrottle: 65 * 60 * 1000, // 65 mins, bilibili sometimes got limit rate for 60 mins.
+
+  // 65 mins, bilibili sometimes got limit rate for 60 mins.
+  bilibiliBotThrottle: 65 * 60 * 1000,
   bilibiliLiveBotThrottle: 65 * 60 * 1000,
+  bilibiliFollowingBotThrottle: 3600 * 1000,
+
+  rssBotThrottle: 12 * 3600 * 1000,
   weiboBotThrottle: 3600 * 1000,
-  rateLimitProxy: 'http://10.2.1.2:7890', // Custom proxy to bypass bilibili API rate limit
+  ddstatsBotThrottle: 3600 * 1000,
+  tapechatBotThrottle: 3600 * 1000,
+  afdianBotThrottle: 3600 * 1000,
+
+  // Custom proxy to bypass bilibili API rate limit
+  // Default: ''
+  rateLimitProxy: 'http://10.2.1.2:7890',
+
+  // Options for got
+  // Default:
+  // {
+  //   requestOptions: {
+  //     timeout: {
+  //       request: 4000
+  //     }
+  //   }
+  // }
   pluginOptions: {
     requestOptions: {
       timeout: {
@@ -100,8 +131,10 @@ export default {
       // Nov 11, 2021
       // Douyin main site now requires `__ac_nonce` and `__ac_signature` to work
       douyin: `__ac_nonce=XXX; __ac_signature=XXX;`,
+
       // get `SESSDATA` cookie from https://www.bilibili.com/
       bilibili: `SESSDATA=XXX`,
+
       // get `SUB` cookie from https://m.weibo.cn/
       weibo: `SUB=XXX`,
     }
@@ -114,32 +147,147 @@ export default {
   qGuild: {
     enabled: true,
     // go-cqhttp endpoint
-    // See https://github.com/Mrs4s/go-cqhttp to learn how to deploy qo-cqhttp and send updates to QQ Guild
+    // See https://github.com/Mrs4s/go-cqhttp to learn how to deploy qo-cqhttp
+    // and send updates to QQ Guild
     apiBase: 'http://10.2.1.2:5700',
+  },
+  sentry: {
+    enabled: true,
+    dsn: `https://xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@ingest.sentry.io/9`,
+    environment: `production`,
+    tracesSampleRate: 1.0,
   },
   accounts: [
     {
       // Use `false` to disable checking this profile
-      enabled: false,
+      // Default: true
+      enabled: true,
+
+      // Slug is used to identify accounts in logs
       slug: '嘉然',
-      // Set to `true` to add `slug` at the beginning of the notification. ie: #嘉然
-      // Useful for pushing notifications with multiple accounts in one channel
+
+      // Set to `true` to add `slug` at the beginning of the notification.
+      // ie: #嘉然. Useful for pushing notifications with multiple accounts in
+      // one channel
+      // Default: false
       showSlug: true,
+
+      // bilibili account UID
       biliId: '672328094',
+
+      // Check bilibili activity comments. Disabled by default
+      // This fires another API to monitor comments and replies. It's not
+      // recommended to enable this feature if you have a lot of accounts to
+      // monitor or you will soon hit API rate limit.
+      // Default: false
+      bilibiliFetchComments: true,
+
+      // How many page to fetch for comments. Should be >= 0.
+      // 0 means fetch only 1 (index 0) page
+      // Default: 5
+      bilibiliFetchCommentsLimit: 5,
+
+      // In addition to `bilibiliFetchComments`, this disables fetching replies
+      // in each comments.
+      // Default: false
+      bilibiliFetchCommentsDisableReplies: true,
+
+      // Check bilibili account following. Disabled by default
+      // This fires another API to monitor account following. It's not
+      // recommended to enable this feature if you have a lot of accounts to
+      // monitor or you will soon hit API rate limit.
+      // Default: false
+      bilibiliFetchFollowing: true,
+
+      // Enable this to fetch users with private following enabled
+      // Default: false
+      bilibiliFetchFollowingDeprecatedApi: true,
+
+      // Douyin account ID
       douyinId: 'MS4wLjABAAAA5ZrIrbgva_HMeHuNn64goOD2XYnk4ItSypgRHlbSh1c',
+
       // Douyin live ID is separated and need to be calculated from `douyinId`
       douyinLiveId: '',
+
+      // Weibo account ID
       weiboId: '7595006312',
+
+      // Check Weibo activity comments. Disabled by default
+      // This fires another API to monitor comments and replies. It's not
+      // recommended to enable this feature if you have a lot of accounts to
+      // monitor or you will soon hit API rate limit.
+      // Default: false
+      weiboFetchComments: true,
+
+      // RSS services. One account can have more than one RSS service. They will
+      // be executed one by one in the loop.
+      rss: [
+        {
+          // Name will be used as tag in notification output
+          name: 'Twitter',
+
+          // Slug stored in database. Must be unique for current account (Can
+          // not be `bilibili`, `weibo`, or other predefined services)
+          slug: 'rss_twitter',
+          type: 'twitter',
+
+          // Language tag used by timestamp
+          lang: 'ja',
+
+          // Can be `rsshub-json` or `rsshub`
+          // See https://github.com/sparanoid/rsshub-json for more info
+          provider: 'rsshub-json',
+          url: 'http://rsshub-json-instance/twitter/user/minatoaqua/showAuthorInDesc=1&showEmojiForRetweetAndReply=1&showRetweetTextInTitle=0&showQuotedInTitle=1&heightOfPics=150',
+        },
+        {
+          name: 'YouTube動画',
+          slug: 'rss_youtube',
+          type: 'youtube',
+          lang: 'ja',
+          provider: 'rsshub',
+          url: 'https://rsshub.app/youtube/channel/UC1opHUrw8rvnsadT-iGp7Cg',
+        },
+      ],
+
+      // Tape message box account ID. Usually the last part of your message
+      // box's URL. ie. https://www.tapechat.net/uu/TDL6BG/EVWKIS0F the
+      // `tapechatId` should be `EVWKIS0F`
+      tapechatId: 'RQOPYMJQ',
+
+      // Aifadian (afdian) user ID
+      afdianId: 'beaf1482bc2511ea896452540025c377',
+
+      // Telegram chat/channel ID to receive notifications
       tgChannelId: 41205411,
+
+      // QQ guild ID to receive notifications
       qGuildId: '12345678901234567',
+
+      // QQ guild channel ID to receive notifications, `qGuildId` is also
+      // required to identify which channel to be sent
       qGuildChannelId: 1234567,
+
+      // Update Telegram chat/channel photo/avatar when user avatar updates in
+      // included sources.
+      // Default: []
+      tgChannelAvatarSource: ['weibo', 'bilibili'],
+
       // Show custom color output in console. Nothing useful
+      // Default: '#fff'
       color: '#e799b0',
-      // Avoid chekcing bilibili live stream. Some accounts may not have live stream ability
+
+      // Avoid chekcing bilibili live stream. Some accounts may not have live
+      // stream ability
+      // Default: false
       disableBilibiliLive: false,
+
       // Avoid checking douyin live stream
+      // Default: false
       disableDouyinLive: false,
-      // Disable checking DDStats. Some bilibili accounts may not have DDStats enabled
+
+      // Disable checking DDStats. Some bilibili accounts may not have DDStats
+      // feature enabled
+      // Default: false
       disableDdstats: false,
     },
     {

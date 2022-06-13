@@ -26,6 +26,6 @@ target "build-all" {
   inherits = ["build"]
   platforms = [
     "linux/amd64",
-    "linux/arm64",
+    "linux/arm64"
   ]
 }
