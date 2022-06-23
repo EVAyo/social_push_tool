@@ -1284,7 +1284,6 @@ async function main(config) {
               const commentsId = activity.basic.rid_str;
               const dynamicAddition = moduleDynamic?.additional;
               const dynamicTopics = moduleDynamic?.topic ? `＃${moduleDynamic.topic.name} ` : '';
-              console.log(`dynamicTopics`, dynamicTopics);
               const dynamicContent = `${dynamicTopics}${moduleDynamic?.desc?.text ? moduleDynamic.desc.text.trim() : ''}`;
 
               // NOTE: card content (mblog content) is escaped inside JSON,
