@@ -1355,27 +1355,23 @@ async function main(config) {
                 // 17	其他动态	动态号	371794999330051793	查看 查询
                 // 19	音频歌单	AM号	10624	查看 查询
                 const commentsTypeMap = {
-                  1: 17,
-                  2: 11,
-                  4: 17,
-                  8: 1,
-                  16: 5,
-                  64: 12,
-                  256: 14,
-                  2048: 17,
-                  4300: 17,
+                  'DYNAMIC_TYPE_FORWARD': 17,
+                  'DYNAMIC_TYPE_DRAW': 11,
+                  'DYNAMIC_TYPE_WORD': 17,
+                  'DYNAMIC_TYPE_AV': 1,
+                  'DYNAMIC_TYPE_ARTICLE': 12,
+                  'DYNAMIC_TYPE_MUSIC': 14,
+                  'DYNAMIC_TYPE_MEDIALIST': 17,
                 };
 
                 const commentsIdMap = {
-                  1: dynamicId,
-                  2: commentsId,
-                  4: dynamicId,
-                  8: commentsId,
-                  16: commentsId,
-                  64: commentsId,
-                  256: commentsId,
-                  2048: dynamicId,
-                  4300: dynamicId,
+                  'DYNAMIC_TYPE_FORWARD': dynamicId,
+                  'DYNAMIC_TYPE_DRAW': commentsId,
+                  'DYNAMIC_TYPE_WORD': dynamicId,
+                  'DYNAMIC_TYPE_AV': commentsId,
+                  'DYNAMIC_TYPE_ARTICLE': commentsId,
+                  'DYNAMIC_TYPE_MUSIC': commentsId,
+                  'DYNAMIC_TYPE_MEDIALIST': dynamicId,
                 }
 
                 if (account.bilibiliFetchComments) {
