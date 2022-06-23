@@ -21,7 +21,8 @@ import {
   stripHtml,
   extractImage,
   convertWeiboUrl,
-  parseDdstatsString
+  parseDdstatsString,
+  biliAvLink
 } from './utils.js';
 import { timeAgo } from './utils/timeAgo.js';
 import { readProcessedMedia } from './utils/processMedia.js';
@@ -1173,7 +1174,8 @@ async function main(config) {
       });
 
       // Fetch bilibili microblog (dynamics)
-      const bilibiliMblogRequestUrl = `https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history?host_uid=${account.biliId}&offset_dynamic_id=0&need_top=0&platform=web`;
+      // const bilibiliMblogRequestUrl = `https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history?host_uid=${account.biliId}&offset_dynamic_id=0&need_top=0&platform=web`;
+      const bilibiliMblogRequestUrl = `https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?offset=&host_mid=${account.biliId}`;
       account.biliId && argv.verbose && log(`bilibili-mblog requesting ${bilibiliMblogRequestUrl}`);
       account.biliId && await got(bilibiliMblogRequestUrl, {...config.pluginOptions?.requestOptions, ...proxyOptions}).then(async resp => {
         const json = JSON.parse(resp.body);
@@ -1181,40 +1183,39 @@ async function main(config) {
         if (json?.code === 0) {
           const currentTime = Date.now();
           const data = json.data;
-          const cards = data?.cards;
+          const cards = data?.items;
 
           if (cards && cards.length > 0) {
             const card = cards[0];
-            const cardMeta = card.desc;
+            const user = card.modules.module_author;
 
             const {
-              uid,
-              user_profile: user
-            } = cardMeta;
+              mid: uid,
+            } = user;
 
             argv.json && fs.writeFile(`db/${account.slug}-bilibili-mblog.json`, JSON.stringify(json, null, 2), err => {
               if (err) return console.log(err);
             });
 
-            // If user decorate_card verification update
-            if (user?.decorate_card?.id !== dbScope?.bilibili_mblog?.user?.decorate_card?.id && dbScope?.bilibili_mblog) {
-              const decoOld = dbScope?.bilibili_mblog?.user?.decorate_card;
-              const decoNew = user?.decorate_card;
+            // If user decorate card update
+            if (user?.decorate?.id !== dbScope?.bilibili_mblog?.user?.decorate?.id && dbScope?.bilibili_mblog) {
+              const decoOld = dbScope?.bilibili_mblog?.user?.decorate;
+              const decoNew = user?.decorate;
 
-              log(`bilibili-mblog decorate_card updated: ${decoNew?.name || '无装扮'}`);
+              log(`bilibili-mblog decorate card updated: ${decoNew?.name || '无装扮'}`);
 
               if (account.qGuildId && config.qGuild.enabled) {
 
                 await sendQGuild({method: 'send_guild_channel_msg'}, {
                   guild_id: account.qGuildId,
                   channel_id: account.qGuildChannelId,
-                  message: `${msgPrefix}#b站粉丝装扮变更\n新：${decoNew?.name || '无装扮'}${decoNew?.fan?.number ? '#' + decoNew?.fan?.number : '（无编号）'}` +
-                    `\n旧：${decoOld?.name || '无装扮'}${decoOld?.fan?.number ? '#' + decoOld?.fan?.number : '（无编号）'}`,
+                  message: `${msgPrefix}#b站粉丝装扮变更\n新：${decoNew?.name || '无装扮'}${decoNew?.fan?.num_str ? '#' + decoNew?.fan?.num_str : '（无编号）'}` +
+                    `\n旧：${decoOld?.name || '无装扮'}${decoOld?.fan?.num_str ? '#' + decoOld?.fan?.num_str : '（无编号）'}`,
                 }).then(resp => {
                   // log(`go-qchttp post weibo success: ${resp}`);
                 })
                 .catch(e => {
-                  err(`go-qchttp post bilibili-mblog::decorate_card error: ${e?.response?.body || e}`, e);
+                  err(`go-qchttp post bilibili-mblog::decorate card error: ${e?.response?.body || e}`, e);
                 });
               }
 
@@ -1224,15 +1225,15 @@ async function main(config) {
                   chat_id: account.tgChannelId,
                   parse_mode: 'HTML',
                   disable_web_page_preview: true,
-                  text: `${msgPrefix}#b站粉丝装扮变更\n新：${decoNew?.name || '无装扮'}${decoNew?.fan?.number ? '#' + decoNew?.fan?.number : '（无编号）'}`
-                    + `\n旧：${decoOld?.name || '无装扮'}${decoOld?.fan?.number ? '#' + decoOld?.fan?.number : '（无编号）'}`
+                  text: `${msgPrefix}#b站粉丝装扮变更\n新：${decoNew?.name || '无装扮'}${decoNew?.fan?.num_str ? '＃' + decoNew?.fan?.num_str : '（无编号）'}`
+                    + `\n旧：${decoOld?.name || '无装扮'}${decoOld?.fan?.num_str ? '＃' + decoOld?.fan?.num_str : '（无编号）'}`
                     + `${decoNew?.id ? `\n\n<a href="${decoNew?.jump_url || '未知'}">装扮链接</a>` : ''}`
-                    + `${decoNew?.id ? ` | ` : `\n\n`}<a href="https://space.bilibili.com/${uid}">${user.info.uname}</a>`
+                    + `${decoNew?.id ? ` | ` : `\n\n`}<a href="https://space.bilibili.com/${uid}">${user.name}</a>`
                 }).then(resp => {
-                  // log(`telegram post bilibili-mblog::decorate_card success: message_id ${resp.result.message_id}`)
+                  // log(`telegram post bilibili-mblog::decorate card success: message_id ${resp.result.message_id}`)
                 })
                 .catch(e => {
-                  err(`telegram post bilibili-mblog::decorate_card error: ${e?.response?.body || e}`, e);
+                  err(`telegram post bilibili-mblog::decorate card error: ${e?.response?.body || e}`, e);
                 });
               }
             }
@@ -1252,10 +1253,13 @@ async function main(config) {
             const activities = cards.map(obj => {
               return {
                 ...obj,
-                created_at_unix: +new Date(obj.desc.timestamp * 1000)
+                created_at_unix: +new Date(obj.modules.module_author.pub_ts * 1000)
               }
-              // Sort array by date in ascending order (reversed). This will make the sticky status in its right order
-            }).sort((a, b) => a.created_at_unix - b.created_at_unix);
+            })
+            // Filter out live stream dynamics. This dynamic will be automatically deleted when the stream is over.
+            .filter(obj => obj?.type !== 'DYNAMIC_TYPE_LIVE_RCMD')
+            // Sort array by date in ascending order (reversed). This will make the sticky status in its right order
+            .sort((a, b) => a.created_at_unix - b.created_at_unix);
 
             // console.log(`activities`, activities);
 
@@ -1263,12 +1267,25 @@ async function main(config) {
 
             // Loop array
             for (let [idx, activity] of activities.entries()) {
-              const cardMeta = activity.desc;
-              const cardJson = JSON.parse(activity.card);
-              const cardExtendedJson = activity?.extension?.lbs && JSON.parse(activity.extension.lbs) || null;
-              const cardAddon = activity?.display?.add_on_card_info?.[0] || cardJson?.sketch || null;
               const idxLatest = activities.length - 1;
               let extendedMeta = '';
+
+              const {
+                type = 'UNKNOWN',
+                modules,
+                id_str: dynamicId,
+              } = activity;
+
+              const {
+                module_author: moduleAuthor,
+                module_dynamic: moduleDynamic,
+              } = modules;
+
+              const commentsId = activity.basic.rid_str;
+              const dynamicAddition = moduleDynamic?.additional;
+              const dynamicTopics = moduleDynamic?.topic ? `＃${moduleDynamic.topic.name} ` : '';
+              console.log(`dynamicTopics`, dynamicTopics);
+              const dynamicContent = `${dynamicTopics}${moduleDynamic?.desc?.text ? moduleDynamic.desc.text.trim() : ''}`;
 
               // NOTE: card content (mblog content) is escaped inside JSON,
               // uncomment the following to output parsed JSON for debugging
@@ -1278,14 +1295,10 @@ async function main(config) {
               // };
 
               const {
-                uid,
-                type,
-                orig_type: origType,
-                dynamic_id_str: dynamicId,
-                rid_str: commentsId,
-                user_profile: user
-              } = cardMeta;
-              const timestamp = cardMeta.timestamp * 1000;
+                mid: uid,
+              } = moduleAuthor;
+
+              const timestamp = moduleAuthor.pub_ts * 1000;
 
               // If last (the last one in the array is the latest now) item
               if (idx === idxLatest) {
@@ -1305,7 +1318,22 @@ async function main(config) {
 
                 // Set comment type based on activity type
                 //
-                // Check post type
+                // https://github.com/Polyisoprene/epsilon/blob/adbd561d79fc255425bd8eb83fd981f86d4dd097/Pusher/DynamicPusher.py#L76
+                // "DYNAMIC_TYPE_WORD": "发布了新动态",
+                // "DYNAMIC_TYPE_DRAW": "发布了图片动态",
+                // "DYNAMIC_TYPE_AV": "发布了新投稿视频",
+                // "DYNAMIC_TYPE_LIVE_RCMD": "发布了直播动态",
+                // "DYNAMIC_TYPE_LIVE": "发布了直播动态",
+                // "DYNAMIC_TYPE_ARTICLE": "发布了新专栏",
+                // "DYNAMIC_TYPE_COMMON_VERTICAL": "发布了新动态",
+                // "DYNAMIC_TYPE_COURSES_SEASON": "发布了付费课程",
+                // "DYNAMIC_TYPE_MEDIALIST": "分享了收藏夹",
+                // "DYNAMIC_TYPE_PGC": "发布了新专辑",
+                // "DYNAMIC_TYPE_MUSIC": "发布了新音乐",
+                // "DYNAMIC_TYPE_COMMON_SQUARE": "发布了新动态",
+                // "DYNAMIC_TYPE_FORWARD": "转发了一条动态"
+                //
+                // Check post type (v1)
                 // https://www.mywiki.cn/dgck81lnn/index.php/%E5%93%94%E5%93%A9%E5%93%94%E5%93%A9API%E8%AF%A6%E8%A7%A3
                 //
                 // Activity type:
@@ -1453,7 +1481,7 @@ async function main(config) {
                             allow_sending_without_reply: true,
                             text: `${msgPrefix}#b站新评论：${stripHtml(comment?.content?.message) || '未知内容'}`
                               + `\n\n<a href="https://t.bilibili.com/${dynamicId}#reply${comment.rpid_str}">${timeAgo(+new Date(comment.ctime * 1000), 'zh_cn')}</a>`
-                              + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.info.uname}</a>`
+                              + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.name}</a>`
                           }).then(resp => {
                             log(`telegram post bilibili-mblog::author_comment success: message_id ${JSON.parse(resp.body)?.result?.message_id}`);
                             tgCommentsCacheSet.add(comment.rpid_str);
@@ -1484,7 +1512,7 @@ async function main(config) {
                                 text: `${msgPrefix}#b站新评论回复：${stripHtml(reply?.content?.message) || '未知内容'}`
                                   + `\n\n被回复的评论：<a href="https://t.bilibili.com/${dynamicId}#reply${comment.rpid_str}">${timeAgo(+new Date(comment.ctime * 1000), 'zh_cn')}</a> <a href="https://space.bilibili.com/${comment.member.mid}">@${comment?.member?.uname || '未知用户名'}</a>: ${stripHtml(comment?.content?.message) || '未知内容'}`
                                   + `\n\n<a href="https://t.bilibili.com/${dynamicId}#reply${reply.rpid_str}">${timeAgo(+new Date(reply.ctime * 1000), 'zh_cn')}</a>`
-                                  + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.info.uname}</a>`
+                                  + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.name}</a>`
                                 }).then(resp => {
                                 log(`telegram post bilibili-mblog::author_comment_reply success: message_id ${JSON.parse(resp.body)?.result?.message_id}`);
                                 tgCommentsCacheSet.add(reply.rpid_str);
@@ -1529,7 +1557,7 @@ async function main(config) {
                 //     text: `${msgPrefix}#b站动态删除：监测到最新动态旧于数据库中的动态，可能有动态被删除（也存在网络原因误报）`
                 //       + `\n\n<a href="https://t.bilibili.com/${dynamicId}">Latest</a>`
                 //       + ` | <a href="https://t.bilibili.com/${dbScope?.bilibili_mblog?.latestDynamic?.id}">Deleted</a>`
-                //       + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.info.uname}</a>`
+                //       + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.name}</a>`
                 //   }).then(resp => {
                 //     // log(`telegram post bilibili-mblog success: message_id ${resp.result.message_id}`)
                 //   })
@@ -1550,7 +1578,7 @@ async function main(config) {
                 };
 
                 const tgBodyFooter = `\n\n<a href="https://t.bilibili.com/${dynamicId}">${timeAgo(timestamp, 'zh_cn')}</a>`
-                  + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.info.uname}</a>`;
+                  + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.name}</a>`;
 
                 const tgBody = {
                   chat_id: account.tgChannelId,
@@ -1569,198 +1597,215 @@ async function main(config) {
                 tgForm.append('chat_id', account.tgChannelId);
                 tgForm.append('parse_mode', 'HTML');
 
-                // If the status has additional meta (ie. reserved events)
-                if (cardAddon) {
-                  if (cardAddon?.add_on_card_show_type === 3 && cardAddon?.vote_card) {
-                    const voteJson = JSON.parse(cardAddon?.vote_card);
-                    extendedMeta += `\n\n投票（id：${voteJson?.vote_id}）：\n${voteJson?.options.map(option => ` - ${option?.desc} ${option?.title}`)?.join('\n')}`;
+                if (dynamicAddition) {
+                  if (dynamicAddition.type === 'ADDITIONAL_TYPE_RESERVE') {
+                    extendedMeta += `\n\n预约：${dynamicAddition.reserve.title}（${dynamicAddition.reserve.desc1.text}）`;
                   }
 
-                  if (cardAddon?.reserve_attach_card?.title) {
-                    extendedMeta += `\n\n预约：${cardAddon.reserve_attach_card.title}（${cardAddon.reserve_attach_card?.desc_first?.text || '无详情'}）`;
-                  }
-
-                  if (cardJson?.sketch?.title) {
-                    extendedMeta += `\n\n${cardJson?.sketch?.title}：${cardJson?.sketch?.desc_text || ''} ${cardJson?.sketch?.target_url || ''}`;
+                  if (dynamicAddition.type === 'ADDITIONAL_TYPE_VOTE') {
+                    const {
+                      vote: voteId,
+                      end_time: endTime,
+                    } = dynamicAddition;
+                    // TODO: requesting https://api.vc.bilibili.com/vote_svr/v1/vote_svr/vote_info?vote_id=${voteId}
+                    // extendedMeta += `\n\n投票（id：${voteJson?.vote_id}）：\n${voteJson?.options.map(option => ` - ${option?.desc} ${option?.title}`)?.join('\n')}`;
                   }
                 }
 
                 // If the status has additional geolocation info
                 // bilibili returns false positive data for ukown geolocation:
                 // lbs: "{\"location\":{},\"title\":\"隐藏位置\"}"
-                if (cardExtendedJson) {
-                  extendedMeta += `\n\n坐标：${cardExtendedJson.show_title || cardExtendedJson.title || '未知'}（${cardExtendedJson.address || '未知坐标'}）`;
-                }
+                // TODO: New API no longer exposes geo info. Only mobile API with logged in credentials can access geo info.
+                // if (cardExtendedJson) {
+                //   extendedMeta += `\n\n坐标：${cardExtendedJson.show_title || cardExtendedJson.title || '未知'}（${cardExtendedJson.address || '未知坐标'}）`;
+                // }
 
                 // Forwarded post (think retweet)
-                if (type === 1) {
-                  const originJson = JSON.parse(cardJson?.origin);
+                if (type === `DYNAMIC_TYPE_FORWARD` || type === 1) {
+                  // const originJson = JSON.parse(cardJson?.origin);
+                  const {
+                    type: originType,
+                    modules: originModules,
+                    id_str: originDynamicId,
+                  } = activity.orig;
+
+                  const {
+                    module_author: originModuleAuthor,
+                    module_dynamic: originModuleDynamic,
+                  } = originModules;
 
                   // console.log(`originJson`, originJson);
+                  const originUserHandleMarkup = `<a href="https://t.bilibili.com/${originDynamicId}">${timeAgo(originModuleAuthor.pub_ts * 1000, 'zh_cn')}</a> @<a href="https:${originModuleAuthor.jump_url}">${originModuleAuthor.name}</a>`;
+                  const originDynamicActionMarkup = `${originModuleAuthor?.pub_action !== '' ? `${originModuleAuthor?.pub_action}` : '视频'}`;
+                  const originDynamicTopics = originModuleDynamic?.topic ? `＃${originModuleDynamic.topic.name} ` : '';
+                  const originDynamicContent = `${originDynamicTopics}${originModuleDynamic?.desc?.text ? originModuleDynamic.desc.text.trim() : ''}`;
 
                   // Text with gallery
-                  if (origType === 2 || originJson?.item?.description && originJson?.item?.pictures) {
+                  // if (originType === 2 || originJson?.item?.description && originJson?.item?.pictures) {
+                  if (originType === 'DYNAMIC_TYPE_DRAW') {
                     // console.log(originJson?.item.pictures);
 
-                    const photoCount = originJson.item.pictures.length;
+                    const photoCount = originModuleDynamic.major.draw.items.length;
                     const photoCountText = photoCount > 1 ? `（共 ${photoCount} 张）` : ``;
-                    const photoExt = originJson?.item?.pictures[0].img_src.split('.').pop();
+                    const photoExt = originModuleDynamic.major.draw.items[0].src.split('.').pop();
                     tgOptions.method = photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto';
                     tgOptions.payload = 'form';
-                    tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedMedia(`${originJson?.item?.pictures[0].img_src}`), photoExt === 'gif' && 'image.gif');
-                    tgForm.append('caption', `${msgPrefix}#b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.name}\n被转内容：${photoCountText}：${originJson?.item?.description}${extendedMeta}${tgBodyFooter}`);
-                    qgBody.message = `${msgPrefix}#b站转发：${cardJson?.item?.content.trim()}\n动态链接：https://t.bilibili.com/${dynamicId}\n\n被转作者：@${originJson.user.name}\n被转内容：${photoCountText}：${originJson?.item?.description}${extendedMeta}\n[CQ:image,file=${originJson?.item?.pictures[0].img_src}]`;
+                    tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedMedia(`${originModuleDynamic.major.draw.items[0].src}`), photoExt === 'gif' && 'image.gif');
+                    tgForm.append('caption', `${msgPrefix}#b站转发：${dynamicContent}\n\n被转作者：${originUserHandleMarkup}\n被转内容：${photoCountText}${originDynamicContent}${extendedMeta}${tgBodyFooter}`);
+                    qgBody.message = `${msgPrefix}#b站转发：${dynamicContent}\n动态链接：https://t.bilibili.com/${dynamicId}\n\n被转作者：@${originModuleAuthor.name}\n被转内容：${photoCountText}${originDynamicContent}${extendedMeta}\n${originModuleDynamic.major.draw.items.map(item => generateCqCode(item.src)).join('')}`;
 
                     // if (originJson?.item?.pictures[0].img_width > 1200 || originJson?.item?.pictures[0].img_height > 1200) {
                     //   tgBody.photo = `https://experiments.sparanoid.net/imageproxy/1000x1000,fit/${originJson?.item?.pictures[0].img_src}@1036w.webp`;
                     // } else {
                     //   tgBody.photo = `${originJson?.item?.pictures[0].img_src}`;
                     // }
-                    // tgBody.caption = `${msgPrefix}#b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.name}\n被转内容：${originJson.item.description}`;
+                    // tgBody.caption = `${msgPrefix}#b站转发：${dynamicContent}\n\n被转作者：@${originJson.user.name}\n被转内容：${originJson.item.description}`;
                   }
 
                   // Plain text
-                  else if (origType === 4 || originJson?.user?.uname) {
-                    tgBody.text = `${msgPrefix}#b站转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.user.uname}\n被转动态：${originJson.item.content}${tgBodyFooter}`;
-                    qgBody.message = `${msgPrefix}#b站转发：${cardJson?.item?.content.trim()}\n动态链接：https://t.bilibili.com/${dynamicId}\n\n被转作者：@${originJson.user.uname}\n被转动态：${originJson.item.content}`;
+                  else if (originType === 'DYNAMIC_TYPE_WORD') {
+                    tgBody.text = `${msgPrefix}#b站转发：${dynamicContent}\n\n被转作者：${originUserHandleMarkup}\n被转动态：${originDynamicContent}${tgBodyFooter}`;
+                    qgBody.message = `${msgPrefix}#b站转发：${dynamicContent}\n动态链接：https://t.bilibili.com/${dynamicId}\n\n被转作者：@${originModuleAuthor.name}\n被转动态：${originDynamicContent}`;
                   }
 
                   // Video
-                  else if (origType === 8 || originJson?.duration && originJson?.videos) {
-                    const photoExt = originJson?.pic.split('.').pop();
+                  else if (originType === 'DYNAMIC_TYPE_AV') {
+                    const photoExt = originModuleDynamic.major.archive.cover.split('.').pop();
                     tgOptions.method = photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto';
                     tgOptions.payload = 'form';
-                    tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedMedia(`${originJson?.pic}`), photoExt === 'gif' && 'image.gif');
-                    tgForm.append('caption', `${msgPrefix}#b站视频转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.owner.name}\n被转视频：${originJson.title}\n\n${originJson.desc}\n${originJson.short_link}${tgBodyFooter}`);
+                    tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedMedia(`${originModuleDynamic.major.archive.cover}`), photoExt === 'gif' && 'image.gif');
+                    tgForm.append('caption', `${msgPrefix}#b站视频转发：${dynamicContent}\n\n被转作者：${originUserHandleMarkup}\n${originDynamicActionMarkup}：<a href="${biliAvLink(originModuleDynamic.major.archive.aid)}">${originModuleDynamic.major.archive.title}</a>\n\n${originDynamicContent}${tgBodyFooter}`);
 
-                    qgBody.message = `${msgPrefix}#b站视频转发：${cardJson?.item?.content.trim()}\n动态链接：https://t.bilibili.com/${dynamicId}\n\n被转作者：@${originJson.owner.name}\n被转视频：${originJson.title}\n\n${originJson.desc}\n${originJson.short_link}\n[CQ:image,file=${originJson?.pic}]`;
+                    qgBody.message = `${msgPrefix}#b站视频转发：${dynamicContent}\n动态链接：https://t.bilibili.com/${dynamicId}\n\n被转作者：@${originModuleAuthor.name}\n${originDynamicActionMarkup}：${originModuleDynamic.major.archive.title}${originDynamicTopics}${originDynamicContent}\n${biliAvLink(originModuleDynamic.major.archive.aid, { short: true })}\n[CQ:image,file=${originModuleDynamic.major.archive.cover}]`;
                   }
 
                   // Column post
-                  else if (origType === 64 || originJson?.origin_image_urls) {
+                  else if (originType === 'DYNAMIC_TYPE_ARTICLE') {
                     tgOptions.method = 'sendPhoto';
                     tgOptions.payload = 'form';
-                    tgForm.append('photo', await readProcessedMedia(`${originJson?.origin_image_urls}`));
-                    tgForm.append('caption', `${msgPrefix}#b站专栏转发：${cardJson?.item?.content.trim()}\n\n被转作者：@${originJson.author.name}\n被转标题：${originJson.title}\n\n${originJson.summary}${tgBodyFooter}`);
-                    qgBody.message = `${msgPrefix}#b站专栏转发：${cardJson?.item?.content.trim()}\n动态链接：https://t.bilibili.com/${dynamicId}\n\n被转作者：@${originJson.author.name}\n被转标题：${originJson.title}\n\n${originJson.summary}\n[CQ:image,file=${originJson?.origin_image_urls}]`;
+                    tgForm.append('photo', await readProcessedMedia(`${originModuleDynamic.major.article.covers[0]}`));
+                    tgForm.append('caption', `${msgPrefix}#b站专栏转发：${dynamicContent}\n\n被转作者：${originUserHandleMarkup}\n被转标题：<a href="http:${originModuleDynamic.major.article.jump_url}">${originModuleDynamic.major.article.title}</a>\n\n${originDynamicContent}${originModuleDynamic.major.article?.desc || ''}${tgBodyFooter}`);
+                    qgBody.message = `${msgPrefix}#b站专栏转发：${dynamicContent}\n动态链接：https://t.bilibili.com/${dynamicId}\n\n被转作者：@${originModuleAuthor.name}\n被转标题：${originModuleDynamic.major.article.title}\n\n${originDynamicContent}${originModuleDynamic.major.article?.desc || ''}\n[CQ:image,file=${originModuleDynamic.major.article.covers[0]}]`;
+                  }
+
+                  // Music post
+                  else if (originType === 'DYNAMIC_TYPE_MUSIC') {
+                    tgOptions.method = 'sendPhoto';
+                    tgOptions.payload = 'form';
+                    tgForm.append('photo', await readProcessedMedia(`${originModuleDynamic.major.music.cover}`));
+                    tgForm.append('caption', `${msgPrefix}#b站音频分享：${dynamicContent}\n\n被转作者：${originUserHandleMarkup}\n被转标题：<a href="http:${originModuleDynamic.major.music.jump_url}">${originModuleDynamic.major.music.title}</a>\n\n${originDynamicContent}${tgBodyFooter}`);
+                    qgBody.message = `${msgPrefix}#b站音频分享：${dynamicContent}\n动态链接：https://t.bilibili.com/${dynamicId}\n\n被转作者：@${originModuleAuthor.name}\n被转标题：${originModuleDynamic.major.music.title}\n\n${originDynamicContent}\n[CQ:image,file=${originModuleDynamic.major.music.cover}]`;
                   }
 
                   // Live room (shared manually)
                   // https://t.bilibili.com/662673746854674485
-                  else if (origType === 4200 || originJson?.roomid && originJson?.uname) {
-                    tgBody.text = `${msgPrefix}#b站直播间转发：${cardJson?.item?.content.trim()}\n\n被转直播间：@<a href="https://live.bilibili.com/${originJson.roomid}">${originJson.uname}</a>\n直播间标题：${originJson.title}${tgBodyFooter}`;
-                    qgBody.message = `${msgPrefix}#b站直播间转发：${cardJson?.item?.content.trim()}\n被转直播间：@${originJson.uname} https://live.bilibili.com/${originJson.roomid}\n直播间标题：${originJson.title}`;
+                  else if (originType === 'DYNAMIC_TYPE_LIVE') {
+                    tgBody.text = `${msgPrefix}#b站直播间分享：${dynamicContent}\n\n被转直播间：@<a href="https://live.bilibili.com/${originModuleDynamic.major.live.id}">${originModuleAuthor.name}</a>\n直播间标题：${originModuleDynamic.major.live.title}${tgBodyFooter}`;
+                    qgBody.message = `${msgPrefix}#b站直播间分享：${dynamicContent}\n被转直播间：@${originModuleAuthor.name} https://live.bilibili.com/${originModuleDynamic.major.live.id}\n直播间标题：${originModuleDynamic.major.live.title}`;
                   }
 
                   // Live room (retweeted from auto post when original live start)
                   // https://t.bilibili.com/663437581017415703
-                  else if (origType === 4308 || originJson?.live_play_info) {
-                    tgBody.text = `${msgPrefix}#b站直播转发：${cardJson?.item?.content.trim()}\n\n被转直播间：@<a href="${originJson.live_play_info.link}">${cardJson?.origin_user?.info?.uname || '未知用户'}</a>\n直播间标题：${originJson.live_play_info.title}${tgBodyFooter}`;
-                    qgBody.message = `${msgPrefix}#b站直播转发：${cardJson?.item?.content.trim()}\n被转直播间：@${cardJson?.origin_user?.info?.uname} ${originJson.live_play_info.link}\n直播间标题：${originJson.live_play_info.title}`;
+                  else if (originType === 'DYNAMIC_TYPE_LIVE_RCMD') {
+                    const originJson = JSON.parse(originModuleDynamic.major.live_rcmd.content);
+                    tgBody.text = `${msgPrefix}#b站直播动态分享：${dynamicContent}\n\n被转直播间：@<a href="${originJson.live_play_info.link}">${originModuleAuthor.name}</a>\n直播间标题：${originJson.live_play_info.title}${tgBodyFooter}`;
+                    qgBody.message = `${msgPrefix}#b站直播动态分享：${dynamicContent}\n被转直播间：@${originModuleAuthor.name} ${originJson.live_play_info.link}\n直播间标题：${originJson.live_play_info.title}`;
+                  }
+
+                  else if (originType === 'DYNAMIC_TYPE_MEDIALIST') {
+                    tgBody.text = `${msgPrefix}#b站收藏夹分享：${dynamicContent}\n\n被转作者：${originUserHandleMarkup}\n收藏夹：${originModuleDynamic.major.medialist.title}（${originModuleDynamic.major.medialist.sub_title}）\nhttps:${originModuleDynamic.major.medialist.jump_url}${tgBodyFooter}`;
+                    qgBody.message = `${msgPrefix}#b站收藏夹分享：${dynamicContent}\n被转作者：@${originModuleAuthor.name} \n收藏夹：${originModuleDynamic.major.medialist.title}（${originModuleDynamic.major.medialist.sub_title}）\nhttps:${originModuleDynamic.major.medialist.jump_url}`;
                   }
 
                   // Unknown type
                   else {
-                    tgBody.text = `${msgPrefix}#b站未知类型转发：${cardJson?.item?.content.trim()}${tgBodyFooter}`;
-                    qgBody.message = `${msgPrefix}#b站未知类型转发：${cardJson?.item?.content.trim()}\n动态链接：https://t.bilibili.com/${dynamicId}`;
+                    tgBody.text = `${msgPrefix}#b站未知类型转发：${dynamicContent}${tgBodyFooter}`;
+                    qgBody.message = `${msgPrefix}#b站未知类型转发：${dynamicContent}\n动态链接：https://t.bilibili.com/${dynamicId}`;
                   }
 
                   log(`bilibili-mblog got forwarded post (${timeAgo(timestamp)})`);
                 }
 
                 // Gallery post (text post with images)
-                else if (type === 2 && cardJson?.item?.pictures.length > 0) {
-                  const photoCount = cardJson.item.pictures.length;
+                else if ((type === `DYNAMIC_TYPE_DRAW` || type === 2) && moduleDynamic?.major?.type === 'MAJOR_TYPE_DRAW') {
+                  const photoCount = moduleDynamic.major.draw.items.length;
                   const photoCountText = photoCount > 1 ? `（共 ${photoCount} 张）` : ``;
-                  const photoExt = cardJson.item.pictures[0].img_src.split('.').pop();
+                  const photoExt = moduleDynamic.major.draw.items[0].src.split('.').pop();
                   tgOptions.method = photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto';
                   tgOptions.payload = 'form';
                   // NOTE: old JSON method
                   // tgBody.caption = `${msgPrefix}#b站相册动态${photoCountText}：${cardJson?.item?.description}`;
-                  // tgBody.photo = cardJson.item.pictures[0].img_src;
-                  tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedMedia(`${cardJson.item.pictures[0].img_src}`), photoExt === 'gif' && 'image.gif');
-                  tgForm.append('caption', `${msgPrefix}#b站相册动态${photoCountText}：${cardJson?.item?.description}${extendedMeta}${tgBodyFooter}`);
-                  qgBody.message = `${msgPrefix}#b站相册动态${photoCountText}：${cardJson?.item?.description}${extendedMeta}\n动态链接：https://t.bilibili.com/${dynamicId}\n${cardJson.item.pictures.map(item => generateCqCode(item.img_src))}`;
+                  // tgBody.photo = moduleDynamic.major.draw.items[0].src;
+                  tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedMedia(`${moduleDynamic.major.draw.items[0].src}`), photoExt === 'gif' && 'image.gif');
+                  tgForm.append('caption', `${msgPrefix}#b站相册动态${photoCountText}：${dynamicContent}${extendedMeta}${tgBodyFooter}`);
+                  qgBody.message = `${msgPrefix}#b站相册动态${photoCountText}：${dynamicContent}${extendedMeta}\n动态链接：https://t.bilibili.com/${dynamicId}\n${moduleDynamic.major.draw.items.map(item => generateCqCode(item.src)).join('')}`;
 
                   log(`bilibili-mblog got gallery post (${timeAgo(timestamp)})`);
                 }
 
                 // Text post
-                else if (type === 4) {
-                  tgBody.text = `${msgPrefix}#b站动态：${cardJson?.item?.content.trim()}${extendedMeta}${tgBodyFooter}`;
-                  qgBody.message = `${msgPrefix}#b站动态：${cardJson?.item?.content.trim()}${extendedMeta}\n动态链接：https://t.bilibili.com/${dynamicId}`;
+                else if (type === `DYNAMIC_TYPE_WORD` || type === 4) {
+                  tgBody.text = `${msgPrefix}#b站动态：${dynamicContent}${extendedMeta}${tgBodyFooter}`;
+                  qgBody.message = `${msgPrefix}#b站动态：${dynamicContent}${extendedMeta}\n动态链接：https://t.bilibili.com/${dynamicId}`;
                   log(`bilibili-mblog got text post (${timeAgo(timestamp)})`);
                 }
 
                 // Video post
-                else if (type === 8) {
-                  const photoExt = cardJson.pic.split('.').pop();
+                else if (type === 'DYNAMIC_TYPE_AV') {
+                  // tgOptions.method = photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto';
+                  // tgOptions.payload = 'form';
+                  // tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedMedia(`${originModuleDynamic.major.archive.cover}`), photoExt === 'gif' && 'image.gif');
+                  // tgForm.append('caption', `${msgPrefix}#b站视频转发：${dynamicContent}\n\n被转作者：${originUserHandleMarkup}\n${originDynamicActionMarkup}：<a href="${biliAvLink(originModuleDynamic.major.archive.aid)}">${originModuleDynamic.major.archive.title}</a>\n\n${originDynamicContent}${tgBodyFooter}`);
+
+                  // qgBody.message = `${msgPrefix}#b站视频转发：${dynamicContent}\n动态链接：https://t.bilibili.com/${dynamicId}\n\n被转作者：@${originModuleAuthor.name}\n${originDynamicActionMarkup}：${originModuleDynamic.major.archive.title}${originDynamicTopics}${originDynamicContent}\n${biliAvLink(originModuleDynamic.major.archive.aid, { short: true })}\n[CQ:image,file=${originModuleDynamic.major.archive.cover}]`;
+
+
+                  const photoExt = moduleDynamic.major.archive.cover.split('.').pop();
                   tgOptions.method = photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto';
                   tgOptions.payload = 'form';
-                  tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedMedia(`${cardJson.pic}`), photoExt === 'gif' && 'image.gif');
+                  tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedMedia(`${moduleDynamic.major.archive.cover}`), photoExt === 'gif' && 'image.gif');
                   // dynamic: microblog text
                   // desc: video description
-                  tgForm.append('caption', `${msgPrefix}#b站视频：${cardJson.title}\n${cardJson.dynamic}\n${cardJson.desc}`
+                  tgForm.append('caption', `${msgPrefix}#b站视频：${moduleDynamic.major.archive.title}\n\n${dynamicContent}${moduleDynamic.major.archive?.desc || ''}`
                     + `\n\n<a href="https://t.bilibili.com/${dynamicId}">${timeAgo(timestamp, 'zh_cn')}</a>`
-                    + ` | <a href="${cardJson.short_link}">观看视频</a>`
-                    + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.info.uname}</a>`);
+                    + ` | <a href="${biliAvLink(moduleDynamic.major.archive.aid)}">观看视频</a>`
+                    + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.name}</a>`);
 
-                  qgBody.message = `${msgPrefix}#b站视频：${cardJson.title}\n${cardJson.dynamic}\n${cardJson.desc}\n动态链接：https://t.bilibili.com/${dynamicId}\n视频链接：${cardJson.short_link}\n[CQ:image,file=${cardJson.pic}]`;
+                  qgBody.message = `${msgPrefix}#b站视频：${moduleDynamic.major.archive.title}\n\n${dynamicContent}${moduleDynamic.major.archive?.desc || ''}\n动态链接：https://t.bilibili.com/${dynamicId}\n视频链接：${biliAvLink(moduleDynamic.major.archive.aid, { short: true })}\n[CQ:image,file=${moduleDynamic.major.archive.cover}]`;
 
                   log(`bilibili-mblog got video post (${timeAgo(timestamp)})`);
                 }
 
-                // VC video post (think ticktok)
-                else if (type === 16) {
-                  log(`bilibili-mblog got vc video post (${timeAgo(timestamp)})`);
-                }
-
                 // Column post
-                else if (type === 64) {
+                else if (type === 'DYNAMIC_TYPE_ARTICLE') {
                   tgOptions.method = 'sendPhoto';
                   tgOptions.payload = 'form';
-                  tgForm.append('photo', await readProcessedMedia(`${cardJson.origin_image_urls[0]}`));
-                  tgForm.append('caption', `${msgPrefix}#b站专栏：${cardJson.title}\n\n${cardJson.summary}${tgBodyFooter}`);
-                  qgBody.message = `${msgPrefix}#b站专栏：${cardJson.title}\n\n${cardJson.summary}\n动态链接：https://t.bilibili.com/${dynamicId}\n${cardJson.origin_image_urls.map(item => generateCqCode(item))}`;
+                  tgForm.append('photo', await readProcessedMedia(`${moduleDynamic.major.article.covers[0]}`));
+                  tgForm.append('caption', `${msgPrefix}#b站专栏：<a href="http:${moduleDynamic.major.article.jump_url}">${moduleDynamic.major.article.title}</a>\n\n${dynamicContent}${moduleDynamic.major.article?.desc || ''}${tgBodyFooter}`);
+                  qgBody.message = `${msgPrefix}#b站专栏：${moduleDynamic.major.article.title}\n\n${dynamicContent}${moduleDynamic.major.article?.desc || ''}\n动态链接：https://t.bilibili.com/${dynamicId}\n[CQ:image,file=${moduleDynamic.major.article.covers[0]}]`;
 
                   log(`bilibili-mblog got column post (${timeAgo(timestamp)})`);
                 }
 
                 // Audio post
-                else if (type === 256) {
+                else if (type === 'DYNAMIC_TYPE_MUSIC') {
                   tgOptions.method = 'sendPhoto';
                   tgOptions.payload = 'form';
-                  tgForm.append('photo', await readProcessedMedia(`${cardJson.cover}`));
-                  tgForm.append('caption', `${msgPrefix}#b站音频：${cardJson.title} - ${cardJson.author}\n\n${cardJson?.intro || ''}`
+                  tgForm.append('photo', await readProcessedMedia(`${moduleDynamic.major.music.cover}`));
+                  tgForm.append('caption', `${msgPrefix}#b站音频：${moduleDynamic.major.music.title} - ${moduleAuthor.name}\n\n${dynamicContent}`
                     + `\n\n<a href="https://t.bilibili.com/${dynamicId}">${timeAgo(timestamp, 'zh_cn')}</a>`
-                    + ` | <a href="https://www.bilibili.com/audio/au${cardJson.id}">收听音频</a>`
-                    + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.info.uname}</a>`);
+                    + ` | <a href="http:${moduleDynamic.major.music.jump_url}">收听音频</a>`
+                    + ` | <a href="https://space.bilibili.com/${uid}/dynamic">${user.name}</a>`);
 
-                  qgBody.message = `${msgPrefix}#b站音频：${cardJson.title} - ${cardJson.author}\n\n${cardJson?.intro || ''}\n动态链接：https://t.bilibili.com/${dynamicId}}`;
+                  qgBody.message = `${msgPrefix}#b站音频：${moduleDynamic.major.music.title} - ${moduleAuthor.name}\n\n${dynamicContent}\n动态链接：https://t.bilibili.com/${dynamicId}}`;
 
                   log(`bilibili-mblog got audio post (${timeAgo(timestamp)})`);
                 }
 
-                // General card link (calendar, etc.)
-                // Share audio bookmark
-                else if (type === 2048) {
-                  tgBody.text = `${msgPrefix}#b站动态：${cardJson?.vest?.content.trim()}${extendedMeta}${tgBodyFooter}`;
-                  qgBody.message = `${msgPrefix}#b站动态：${cardJson?.vest?.content.trim()}${extendedMeta}\n动态链接：https://t.bilibili.com/${dynamicId}`;
-                  log(`bilibili-mblog got share audio bookmark (${timeAgo(timestamp)})`);
-                }
-
-                // Share video bookmark
-                else if (type === 4300) {
-                  tgBody.text = `${msgPrefix}#b站视频收藏分享 ${tgBodyFooter}`;
-                  qgBody.message = `${msgPrefix}#b站视频收藏分享\n动态链接：https://t.bilibili.com/${dynamicId}`;
-
-                  log(`bilibili-mblog got share video bookmark (${timeAgo(timestamp)})`);
-                }
-
                 // Others
                 else {
-                  tgBody.text = `${msgPrefix}#b站未知类型动态：请联系开发者催更 ${tgBodyFooter}`;
-                  qgBody.message = `${msgPrefix}#b站未知类型动态：请联系开发者催更\n动态链接：https://t.bilibili.com/${dynamicId}`;
+                  tgBody.text = `${msgPrefix}#b站未知类型动态：${dynamicContent}\n请联系开发者更新 ${tgBodyFooter}`;
+                  qgBody.message = `${msgPrefix}#b站未知类型动态：${dynamicContent}\n请联系开发者更新\n动态链接：https://t.bilibili.com/${dynamicId}`;
 
                   log(`bilibili-mblog got unkown type (${timeAgo(timestamp)})`);
                 }
@@ -1790,21 +1835,21 @@ async function main(config) {
                     });
 
                     // Send an additional message if original post has more than one photo
-                    if (cardJson?.item?.pictures?.length > 1) {
+                    if (moduleDynamic?.major?.draw?.items?.length > 1) {
 
-                      for (const [idx, pic] of cardJson.item.pictures.entries()) {
+                      for (const [idx, pic] of moduleDynamic.major.draw.items.entries()) {
 
                         if (idx !== 0) {
-                          const photoCount = cardJson.item.pictures.length;
+                          const photoCount = moduleDynamic.major.draw.items.length;
                           const photoCountText = photoCount > 1 ? `（${idx + 1}/${photoCount}）` : ``;
-                          const photoExt = cardJson.item.pictures[idx].img_src.split('.').pop();
+                          const photoExt = moduleDynamic.major.draw.items[idx].src.split('.').pop();
 
                           const tgForm = new FormData();
                           tgForm.append('chat_id', account.tgChannelId);
                           tgForm.append('parse_mode', 'HTML');
                           tgForm.append('disable_notification', true);
-                          tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedMedia(`${cardJson.item.pictures[idx].img_src}`), photoExt === 'gif' && 'image.gif');
-                          tgForm.append('caption', `${msgPrefix}#b站相册动态${photoCountText}：${cardJson?.item?.description}${extendedMeta}${tgBodyFooter}`);
+                          tgForm.append(photoExt === 'gif' ? 'animation' : 'photo', await readProcessedMedia(`${moduleDynamic.major.draw.items[idx].src}`), photoExt === 'gif' && 'image.gif');
+                          tgForm.append('caption', `${msgPrefix}#b站相册动态${photoCountText}：${dynamicContent}${extendedMeta}${tgBodyFooter}`);
 
                           await sendTelegram({
                             method: photoExt === 'gif' ? 'sendAnimation' : 'sendPhoto',

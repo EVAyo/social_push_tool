@@ -40,6 +40,15 @@ export function textTruncate(text, options = {}) {
   }
 }
 
+export function biliAvLink(id, options = {}) {
+  const baseUrl = options?.short ? `https://b23.tv/` : `https://www.bilibili.com/video/`;
+  if (id.toString().startsWith('BV')) {
+    return `${baseUrl}${id}`;
+  } else {
+    return `${baseUrl}av${id}`;
+  }
+}
+
 export function extractImage(string = '') {
   // https://regex101.com/r/O2FBUa/1
   const imageRegex = /<(?:video|img).*?src=\"(.*?)\"[^\>]+>/gmi;

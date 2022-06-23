@@ -142,7 +142,11 @@ export default {
   telegram: {
     enabled: true,
     apiBase: 'https://api.telegram.org/bot',
-    token: ''
+    token: '',
+
+    // If bot belongs to premium account. Accounts with premium perks has 2048
+    // characters limit (1024 for free accounts) for photo and video captions
+    premium: true,
   },
   qGuild: {
     enabled: true,

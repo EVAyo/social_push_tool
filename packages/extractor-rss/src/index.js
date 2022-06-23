@@ -2,7 +2,7 @@ import got from 'got';
 import { XMLParser } from 'fast-xml-parser';
 
 async function extract(url, options = {}) {
-  const userAgent = options?.userAgent || 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.54 Safari/537.36';
+  const userAgent = options?.userAgent || 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36';
   const requestOptions = options?.requestOptions || {};
   const fxpOptions = options?.fxpOptions || {};
   const cookieOptions = options?.cookies || '';
