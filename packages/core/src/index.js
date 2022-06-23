@@ -27,10 +27,10 @@ import {
 import { timeAgo } from './utils/timeAgo.js';
 import { readProcessedMedia } from './utils/processMedia.js';
 
-import TelegramBot from '@a-soul/sender-telegram';
-import GoQcHttp from '@a-soul/sender-go-qchttp';
-import dyExtract from '@a-soul/extractor-douyin';
-import rssExtract from '@a-soul/extractor-rss';
+import TelegramBot from '@sparanoid/eop-sender-telegram';
+import GoQcHttp from '@sparanoid/eop-sender-go-qchttp';
+import dyExtract from '@sparanoid/eop-extractor-douyin';
+import rssExtract from '@sparanoid/eop-extractor-rss';
 
 import pkg from '../package.json' assert { type: 'json' };
 
@@ -206,7 +206,7 @@ async function send(account, messageType, userOptions) {
     method: messageTypeMap[messageType].telegram,
     body: {
       chat_id: account.tgChannelId,
-      text: `Test from @a-soul/sender-telegram`,
+      text: `Test from @sparanoid/eop-sender-telegram`,
       disable_notification: config.telegram.silent
     },
   }, userOptions.telegramOptions);
@@ -220,7 +220,7 @@ async function main(config) {
   const db = new Low(new JSONFile(path.join(path.resolve(), 'db/db.json')));
 
   console.time('# Loop time used');
-  console.log(`\n# a-soul v${pkg.version} | loop started at ${formatDate(Date.now())} ------------`);
+  console.log(`\n# eop | Eye of Providence v${pkg.version} | loop started at ${formatDate(Date.now())} ------------`);
 
   for (let i = 0; i < config.accounts.length; i++) {
     const account = config.accounts[i];

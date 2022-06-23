@@ -1,4 +1,4 @@
-# @a-soul/extractor-tiktok
+# @sparanoid/eop-extractor-tiktok
 
 Pure `__NEXT_DATA__` data extractor/scraper for TikTok without using API.
 
@@ -10,7 +10,7 @@ Pure `__NEXT_DATA__` data extractor/scraper for TikTok without using API.
 ## Usage
 
 ```js
-import extract from '@a-soul/extractor-tiktok';
+import extract from '@sparanoid/eop-extractor-tiktok';
 
 const url = `https://www.tiktok.com/@minatoaqua`;
 const resp = await extract(url);

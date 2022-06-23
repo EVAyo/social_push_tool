@@ -1,9 +1,9 @@
-# A-SOUL
+# `eop` - Eye of Providence, aka. A-SOUL
 
 Full-featured social media monitor that extracts data from a variety of services and pushes updates to Telegram or other platforms
 
-- [Docker Hub](https://hub.docker.com/r/sparanoid/a-soul)
-- [ghcr.io](https://github.com/users/sparanoid/packages/container/package/a-soul)
+- [Docker Hub](https://hub.docker.com/r/sparanoid/eop)
+- [ghcr.io](https://github.com/users/sparanoid/packages/container/package/eop)
 
 ## Features
 
@@ -47,10 +47,10 @@ Run with npx:
 
 ```bash
 # Show general help
-npx @a-soul/core -h
+npx @sparanoid/eop -h
 
 # Start from specific config file
-npx @a-soul/core run -c config.js
+npx @sparanoid/eop run -c config.js
 ```
 
 Run with Docker:
@@ -59,9 +59,9 @@ Run with Docker:
 docker run --init \
   -v $(pwd)/config.js:/app/config.js:ro \
   -v $(pwd)/db:/app/db \
-  sparanoid/a-soul -c config.js --color
+  sparanoid/eop -c config.js --color
   # ...or use ghcr.io registry
-  ghcr.io/sparanoid/a-soul -c config.js --color
+  ghcr.io/sparanoid/eop -c config.js --color
 ```
 
 ## Configurations
@@ -328,7 +328,7 @@ yarn run start --once --verbose
 
 ### Why this name?
 
-The original intention of this project was to monitor updates of a Chinese VTuber group [A-SOUL](https://virtualyoutuber.fandom.com/wiki/A-soul).
+The original intention of this project was to monitor updates of a Chinese VTuber group [A-SOUL](https://virtualyoutuber.fandom.com/wiki/A-soul). Now this project has been renamed to `eop` for more general usage.
 
 ### Why not executing checks in parallel?
 

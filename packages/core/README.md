@@ -1,4 +1,4 @@
-# @a-soul/core
+# @sparanoid/eop
 
 Core functions execute checking loop. See the monorepo readme for more info.
 

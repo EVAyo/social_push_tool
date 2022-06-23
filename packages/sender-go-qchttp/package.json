@@ -1,9 +1,9 @@
 {
-  "name": "@a-soul/sender-go-qchttp",
+  "name": "@sparanoid/eop-sender-go-qchttp",
   "version": "1.5.2",
   "description": "Send processed data to go-qchttp",
   "main": "src/index.js",
-  "repository": "https://github.com/sparanoid/a-soul",
+  "repository": "https://github.com/sparanoid/eop",
   "author": "Tunghsiao Liu",
   "license": "AGPL-3.0-or-later",
   "type": "module",

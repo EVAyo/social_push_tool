@@ -1,9 +1,9 @@
 {
-  "name": "@a-soul/extractor-rss",
+  "name": "@sparanoid/eop-extractor-rss",
   "version": "1.5.2",
   "description": "Extract rendered data from RSS feeds",
   "main": "src/index.js",
-  "repository": "https://github.com/sparanoid/a-soul",
+  "repository": "https://github.com/sparanoid/eop",
   "author": "Tunghsiao Liu",
   "license": "AGPL-3.0-or-later",
   "type": "module",
@@ -12,7 +12,6 @@
     "release": "npx release-it"
   },
   "keywords": [
-    "a-soul",
     "rss",
     "scraper"
   ],

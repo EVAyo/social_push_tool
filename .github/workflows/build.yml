@@ -11,8 +11,8 @@ on:
       - 'master'
 
 env:
-  DOCKERHUB_SLUG: sparanoid/a-soul
-  GHCR_SLUG: ghcr.io/sparanoid/a-soul
+  DOCKERHUB_SLUG: sparanoid/eop
+  GHCR_SLUG: ghcr.io/sparanoid/eop
 
 jobs:
   docker:

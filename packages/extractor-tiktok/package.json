@@ -1,9 +1,9 @@
 {
-  "name": "@a-soul/extractor-tiktok",
+  "name": "@sparanoid/eop-extractor-tiktok",
   "version": "1.4.0",
   "description": "Extract rendered data from TikTok web version",
   "main": "src/index.js",
-  "repository": "https://github.com/sparanoid/a-soul",
+  "repository": "https://github.com/sparanoid/eop",
   "author": "Tunghsiao Liu",
   "license": "AGPL-3.0-or-later",
   "type": "module",

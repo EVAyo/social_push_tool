@@ -6,7 +6,7 @@ const options = {
   method: `sendMessage`,
   body: {
     chat_id: `41205411`,
-    text: `Test from @a-soul/sender-telegram`,
+    text: `Test from @sparanoid/eop-sender-telegram`,
     disable_notification: true
   },
 };

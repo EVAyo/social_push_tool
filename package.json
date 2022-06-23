@@ -1,5 +1,5 @@
 {
-  "name": "a-soul",
+  "name": "eop",
   "description": "Full-featured social media monitor that extracts data from variety of services and pushes updates to Telegram or other platforms",
   "main": "index.js",
   "author": "Tunghsiao Liu",
@@ -10,14 +10,14 @@
     "packages/*"
   ],
   "scripts": {
-    "start": "npx @a-soul/core run -c config.js",
+    "start": "npx @sparanoid/eop run -c config.js",
     "release": "yarn lerna publish",
-    "core": "yarn workspace @a-soul/core",
-    "extractor-douyin": "yarn workspace @a-soul/extractor-douyin",
-    "extractor-rss": "yarn workspace @a-soul/extractor-rss",
-    "extractor-tiktok": "yarn workspace @a-soul/extractor-tiktok",
-    "sender-go-qchttp": "yarn workspace @a-soul/sender-go-qchttp",
-    "sender-telegram": "yarn workspace @a-soul/sender-telegram"
+    "core": "yarn workspace @sparanoid/eop",
+    "extractor-douyin": "yarn workspace @sparanoid/eop-extractor-douyin",
+    "extractor-rss": "yarn workspace @sparanoid/eop-extractor-rss",
+    "extractor-tiktok": "yarn workspace @sparanoid/eop-extractor-tiktok",
+    "sender-go-qchttp": "yarn workspace @sparanoid/eop-sender-go-qchttp",
+    "sender-telegram": "yarn workspace @sparanoid/eop-sender-telegram"
   },
   "devDependencies": {
     "lerna": "^5.0.0"

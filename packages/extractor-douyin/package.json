@@ -1,9 +1,9 @@
 {
-  "name": "@a-soul/extractor-douyin",
+  "name": "@sparanoid/eop-extractor-douyin",
   "version": "1.5.1",
   "description": "Extract rendered data from Douyin web version",
   "main": "src/index.js",
-  "repository": "https://github.com/sparanoid/a-soul",
+  "repository": "https://github.com/sparanoid/eop",
   "author": "Tunghsiao Liu",
   "license": "AGPL-3.0-or-later",
   "type": "module",
@@ -12,7 +12,6 @@
     "release": "npx release-it"
   },
   "keywords": [
-    "a-soul",
     "douyin",
     "scraper"
   ],

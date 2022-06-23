@@ -1,4 +1,4 @@
-# @a-soul/extractor-douyin
+# @sparanoid/eop-extractor-douyin
 
 Pure `RENDER_DATA` data extractor/scraper for Douyin without using API.
 
@@ -10,7 +10,7 @@ Pure `RENDER_DATA` data extractor/scraper for Douyin without using API.
 ## Usage
 
 ```js
-import extract from '@a-soul/extractor-douyin';
+import extract from '@sparanoid/eop-extractor-douyin';
 
 const url = `https://www.douyin.com/user/MS4wLjABAAAA5ZrIrbgva_HMeHuNn64goOD2XYnk4ItSypgRHlbSh1c`;
 const resp = await extract(url);

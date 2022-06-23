@@ -1,4 +1,4 @@
-# @a-soul/sender-telegram
+# @sparanoid/eop-sender-telegram
 
 Send processed data to Telegram
 
@@ -10,7 +10,7 @@ Send processed data to Telegram
 ## Usage
 
 ```js
-import send from '@a-soul/sender-telegram';
+import send from '@sparanoid/eop-sender-telegram';
 
 const options = {
   payload: `json`, // `json` or `form`
@@ -20,7 +20,7 @@ const options = {
 
 const resp = await send(options, {
   chat_id: `1234567`,
-  text: `Test from @a-soul/sender-telegram`
+  text: `Test from @sparanoid/eop-sender-telegram`
 });
 
 JSON.parse(resp.body).ok
